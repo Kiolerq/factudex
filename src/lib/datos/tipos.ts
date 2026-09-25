@@ -21,12 +21,13 @@ export const ETIQUETA_DOCUMENTO: Record<TipoDocumento, string> = {
   otro: "Otro",
 };
 
-export const MEDIOS_PAGO = ["efectivo", "yape", "transferencia", "otro"] as const;
+export const MEDIOS_PAGO = ["efectivo", "yape", "plin", "transferencia", "otro"] as const;
 export type MedioPago = (typeof MEDIOS_PAGO)[number];
 
 export const ETIQUETA_MEDIO_PAGO: Record<MedioPago, string> = {
   efectivo: "Efectivo",
   yape: "Yape",
+  plin: "Plin",
   transferencia: "Transferencia",
   otro: "Otro",
 };
@@ -106,6 +107,7 @@ export interface NuevoMovimiento {
   tipoDocumento: TipoDocumento | null;
   serieNumero: string | null;
   medioPago: MedioPago | null;
+  operacionPago: string | null; // N° de operación Yape/Plin/transferencia
   adjuntos: AdjuntoSubido[];
 }
 

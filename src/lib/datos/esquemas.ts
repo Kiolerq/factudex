@@ -37,6 +37,7 @@ export const EsquemaNuevoMovimiento = z
     tipoDocumento: z.enum(TIPOS_DOCUMENTO).nullable(),
     serieNumero: textoOpcional(40),
     medioPago: z.enum(MEDIOS_PAGO).nullable(),
+    operacionPago: textoOpcional(40),
     sinDocumento: z.boolean(),
     adjuntos: z.array(EsquemaAdjunto).max(6),
   })

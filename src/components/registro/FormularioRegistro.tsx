@@ -55,6 +55,7 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
   const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento | null>(null);
   const [serieNumero, setSerieNumero] = useState("");
   const [medioPago, setMedioPago] = useState<MedioPago | null>(null);
+  const [operacionPago, setOperacionPago] = useState("");
   const [sinDocumento, setSinDocumento] = useState(false);
   const [archivos, setArchivos] = useState<Archivos>({ documento: null, pago: null });
 
@@ -110,6 +111,7 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
     setTipoDocumento(null);
     setSerieNumero("");
     setMedioPago(null);
+    setOperacionPago("");
     setSinDocumento(false);
     setArchivos({ documento: null, pago: null });
     setErrores({});
@@ -133,6 +135,7 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
       tipoDocumento,
       serieNumero: sinDocumento ? null : serieNumero || null,
       medioPago,
+      operacionPago: medioPago && medioPago !== "efectivo" ? operacionPago || null : null,
       sinDocumento,
       adjuntos: [],
     };
@@ -420,6 +423,22 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
                   En efectivo basta el documento (boleta física, comprobante de egreso…).
                 </p>
               )}
+              {medioPago && !esEfectivo && (
+                <div className="mt-3 max-w-xs">
+                  <label htmlFor="operacion" className="fx-label">
+                    N° de operación
+                  </label>
+                  <input
+                    id="operacion"
+                    className="fx-input font-mono"
+                    type="text"
+                    inputMode={medioPago === "yape" || medioPago === "plin" ? "numeric" : "text"}
+                    placeholder="Opcional"
+                    value={operacionPago}
+                    onChange={(e) => setOperacionPago(e.target.value)}
+                  />
+                </div>
+              )}
             </fieldset>
 
             <label className="order-9 flex cursor-pointer items-center gap-2.5 py-1">
@@ -460,8 +479,8 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
               )}
               {!esEfectivo && (
                 <CampoAdjunto
-                  etiqueta="Constancia de pago (Yape, transferencia…)"
-                  ayuda="Captura del Yape o voucher de la transferencia"
+                  etiqueta="Constancia de pago (Yape/Plin, transferencia…)"
+                  ayuda="Captura del Yape/Plin o voucher de la transferencia"
                   archivo={archivos.pago}
                   error={errores.pago}
                   resaltarPendiente={sinDocumento}

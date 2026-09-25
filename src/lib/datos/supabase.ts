@@ -138,6 +138,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         tipo_documento: m.tipoDocumento,
         serie_numero: m.serieNumero,
         medio_pago: m.medioPago,
+        operacion_pago: m.operacionPago,
       });
       if (error?.code === "P0001") throw new ErrorDeNegocio(error.message); // raise exception de triggers
       fallo(error, "Registrar movimiento");

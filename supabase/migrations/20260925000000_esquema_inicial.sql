@@ -13,13 +13,14 @@ create type rol_usuario        as enum ('admin', 'aprobador', 'registrador', 'le
 create type tipo_doc_identidad as enum ('RUC', 'DNI', 'CE', 'OTRO');
 create type tipo_documento     as enum ('factura', 'boleta', 'rxh', 'planilla_movilidad', 'comprobante_egreso', 'otro');
 create type estado_movimiento  as enum ('pendiente', 'completo');
-create type medio_pago         as enum ('efectivo', 'yape', 'transferencia', 'otro');
+create type medio_pago         as enum ('efectivo', 'yape', 'plin', 'transferencia', 'otro');
 -- documento = sustento (factura, boleta, planilla de movilidad, comprobante de egreso…)
 -- pago      = constancia del pago (captura de Yape/Plin, voucher de transferencia…)
 create type tipo_adjunto       as enum ('documento', 'pago', 'otro');
 create type origen_movimiento  as enum ('manual', 'compartido', 'ocr');
 create type estado_liquidacion as enum ('abierta', 'en_revision', 'observada', 'aprobada', 'repuesta');
 create type tipo_recarga       as enum ('apertura', 'reposicion', 'extraordinaria', 'ajuste');
+create type forma_ingreso      as enum ('banco', 'efectivo', 'otros');  -- columnas BANCO / EFECTIVO / OTROS del Excel
 
 -- -----------------------------------------------------------------------------
 -- Utilidad: updated_at automático
@@ -43,6 +44,7 @@ create table empresas (
   ruc            char(11) unique check (ruc ~ '^\d{11}$'),
   color_primario text not null check (color_primario ~ '^#[0-9A-Fa-f]{6}$'),
   color_acento   text not null check (color_acento   ~ '^#[0-9A-Fa-f]{6}$'),
+  ciudad         text not null default 'TRUJILLO',                          -- pie de la liquidación: "TRUJILLO 24.09.2026"
   activa         boolean not null default true,
   created_at     timestamptz not null default now()
 );
@@ -175,7 +177,12 @@ create table liquidaciones (
   estado          estado_liquidacion not null default 'abierta',
   fecha_inicio    date not null default (now() at time zone 'America/Lima')::date,
   fecha_cierre    date,
+  -- Formato de la liquidación (Excel): INGRESOS = saldo anterior + depósitos; EGRESOS = gastos completos;
+  -- POR REEMBOLSAR (saldo final) = ingresos − egresos, que pasa como saldo inicial a la siguiente.
+  saldo_inicial   numeric(12,2) not null default 0,  -- saldo final de la liquidación anterior
+  total_ingresos  numeric(12,2),              -- snapshot al cerrar: depósitos del periodo (sin saldo inicial)
   total_gastado   numeric(12,2),              -- snapshot al cerrar (solo movimientos completos)
+  saldo_final     numeric(12,2),              -- snapshot al cerrar: "POR REEMBOLSAR"
   cerrada_por     uuid references perfiles(id),
   cerrada_en      timestamptz,
   aprobada_por    uuid references perfiles(id),
@@ -229,6 +236,7 @@ create table movimientos (
   tipo_documento  tipo_documento,                               -- null = aún no se sabe
   serie_numero    text,                                         -- ej. F001-00012345
   medio_pago      medio_pago,                                   -- independiente del tipo de documento; null = sin indicar
+  operacion_pago  text,                                         -- N° de operación Yape/Plin/transferencia (opcional)
   estado          estado_movimiento not null default 'pendiente', -- ver fx_estado_movimiento()
   origen          origen_movimiento not null default 'manual',
   anulado         boolean not null default false,
@@ -248,18 +256,24 @@ create index movimientos_texto_idx on movimientos
 create trigger movimientos_updated_at before update on movimientos
   for each row execute function tg_set_updated_at();
 
--- Al insertar: asigna la liquidación abierta de la caja (la crea si no existe).
+-- Liquidación abierta de una caja; la crea si no existe (la primera de la caja o tras un cierre).
+create or replace function fx_liquidacion_abierta(p_caja uuid) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare
+  v_id uuid;
+begin
+  select id into v_id from liquidaciones where caja_id = p_caja and estado = 'abierta';
+  if v_id is null then
+    insert into liquidaciones (caja_id) values (p_caja) returning id into v_id;
+  end if;
+  return v_id;
+end $$;
+
+-- Al insertar: asigna la liquidación abierta de la caja.
 create or replace function tg_movimiento_liquidacion() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  select id into new.liquidacion_id
-    from liquidaciones where caja_id = new.caja_id and estado = 'abierta';
-
-  if new.liquidacion_id is null then
-    insert into liquidaciones (caja_id) values (new.caja_id)
-    returning id into new.liquidacion_id;
-  end if;
-
+  new.liquidacion_id := fx_liquidacion_abierta(new.caja_id);
   new.estado := 'pendiente';  -- se vuelve 'completo' al adjuntar documento + pago
   return new;
 end $$;
@@ -387,32 +401,50 @@ create trigger movimientos_medio_pago before update of medio_pago on movimientos
 -- -----------------------------------------------------------------------------
 -- Recargas / entradas (registro MANUAL, sin integración bancaria)
 -- -----------------------------------------------------------------------------
+-- Cada recarga es un INGRESO de la liquidación abierta al momento del depósito
+-- (liquidacion_ingreso_id). Si es una reposición, además cierra el ciclo de la
+-- liquidación aprobada que repone (liquidacion_repuesta_id).
 create table recargas (
-  id              uuid primary key default gen_random_uuid(),
-  caja_id         uuid not null references cajas(id),
-  liquidacion_id  uuid unique references liquidaciones(id),     -- solo en reposición
-  tipo            tipo_recarga not null default 'reposicion',
-  monto           numeric(12,2) not null check (monto <> 0),     -- monto libre (hoy S/ 1,000 o 2,000); ajuste puede ser negativo
-  fecha           date not null default (now() at time zone 'America/Lima')::date,
-  medio           text,                                          -- transferencia BCP, efectivo, Yape…
-  referencia      text,                                          -- N° de operación
-  nota            text,
-  registrado_por  uuid not null references perfiles(id) default auth.uid(),
-  created_at      timestamptz not null default now(),
-  check ((tipo = 'reposicion') = (liquidacion_id is not null)),
+  id                      uuid primary key default gen_random_uuid(),
+  caja_id                 uuid not null references cajas(id),
+  liquidacion_ingreso_id  uuid not null references liquidaciones(id),  -- automático: la abierta
+  liquidacion_repuesta_id uuid unique references liquidaciones(id),    -- solo en reposición
+  tipo                    tipo_recarga not null default 'reposicion',
+  monto                   numeric(12,2) not null check (monto <> 0),   -- libre (hoy S/ 1,000 o 2,000); ajuste puede ser negativo
+  fecha                   date not null default (now() at time zone 'America/Lima')::date,  -- FECHA DEPOSITO
+  descripcion             text,                                        -- DESCRIPCION BANCO (ej. "Reposición caja")
+  forma                   forma_ingreso not null default 'banco',      -- BANCO / EFECTIVO / OTROS
+  banco                   text,                                        -- BANCO (ej. BCP)
+  operacion               text,                                        -- OPERACIÓN (N° de operación)
+  recibo                  text,                                        -- RECIBO
+  nota                    text,
+  registrado_por          uuid not null references perfiles(id) default auth.uid(),
+  created_at              timestamptz not null default now(),
+  check ((tipo = 'reposicion') = (liquidacion_repuesta_id is not null)),
   check (tipo = 'ajuste' or monto > 0)
 );
 create index recargas_caja_idx on recargas (caja_id, fecha desc);
+create index recargas_liquidacion_idx on recargas (liquidacion_ingreso_id);
 
--- Al registrar la reposición, la liquidación pasa a 'repuesta'.
+create or replace function tg_recarga_asignar() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  new.liquidacion_ingreso_id := fx_liquidacion_abierta(new.caja_id);
+  return new;
+end $$;
+
+create trigger recargas_asignar before insert on recargas
+  for each row execute function tg_recarga_asignar();
+
+-- Al registrar la reposición, la liquidación repuesta pasa a 'repuesta'.
 create or replace function tg_recarga_repone() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  if new.liquidacion_id is not null then
+  if new.liquidacion_repuesta_id is not null then
     update liquidaciones set estado = 'repuesta'
-     where id = new.liquidacion_id and estado = 'aprobada';
+     where id = new.liquidacion_repuesta_id and caja_id = new.caja_id and estado = 'aprobada';
     if not found then
-      raise exception 'Solo se puede reponer una liquidación aprobada';
+      raise exception 'Solo se puede reponer una liquidación aprobada de la misma caja';
     end if;
   end if;
   return new;
@@ -513,10 +545,19 @@ begin
    where liquidacion_id = v.id and estado = 'pendiente' and not anulado;
   perform set_config('factudex.trasladando_pendientes', 'off', true);
 
-  update liquidaciones
-     set total_gastado = (select sum(monto) from movimientos where liquidacion_id = v.id and not anulado)
-   where id = v.id
-   returning * into v;
+  -- Totales del formato de liquidación.
+  update liquidaciones l
+     set total_ingresos = t.ingresos,
+         total_gastado  = t.egresos,
+         saldo_final    = l.saldo_inicial + t.ingresos - t.egresos
+    from (select coalesce((select sum(monto) from recargas where liquidacion_ingreso_id = v.id), 0) as ingresos,
+                 coalesce((select sum(monto) from movimientos where liquidacion_id = v.id and not anulado), 0) as egresos) t
+   where l.id = v.id
+   returning l.* into v;
+
+  -- El saldo final pasa como saldo inicial de la siguiente (también si se re-cierra tras una observación).
+  update liquidaciones set saldo_inicial = v.saldo_final
+   where caja_id = v.caja_id and correlativo = v.correlativo + 1;
   return v;
 end $$;
 
@@ -588,13 +629,22 @@ select m.*,
 -- no se liquidarán y pasarán a la siguiente al cerrar.
 create view v_liquidaciones with (security_invoker = true) as
 select l.*,
-       coalesce(sum(m.monto) filter (where not m.anulado), 0)                          as total_actual,
-       coalesce(sum(m.monto) filter (where not m.anulado and m.estado = 'completo'), 0) as total_liquidable,
-       count(m.id) filter (where not m.anulado)                                        as num_movimientos,
-       count(m.id) filter (where not m.anulado and m.estado = 'pendiente')             as num_incompletos
+       coalesce(m.total, 0)       as total_actual,
+       coalesce(m.liquidable, 0)  as total_liquidable,
+       coalesce(m.num, 0)         as num_movimientos,
+       coalesce(m.incompletos, 0) as num_incompletos,
+       coalesce(r.total, 0)       as ingresos_actual,
+       -- "POR REEMBOLSAR" en vivo (para la abierta): saldo anterior + depósitos − gastos completos
+       l.saldo_inicial + coalesce(r.total, 0) - coalesce(m.liquidable, 0) as saldo_final_actual
   from liquidaciones l
-  left join movimientos m on m.liquidacion_id = l.id
- group by l.id;
+  left join (select liquidacion_id,
+                    sum(monto) filter (where not anulado)                          as total,
+                    sum(monto) filter (where not anulado and estado = 'completo')  as liquidable,
+                    count(*)   filter (where not anulado)                          as num,
+                    count(*)   filter (where not anulado and estado = 'pendiente') as incompletos
+               from movimientos group by liquidacion_id) m on m.liquidacion_id = l.id
+  left join (select liquidacion_ingreso_id, sum(monto) total
+               from recargas group by liquidacion_ingreso_id) r on r.liquidacion_ingreso_id = l.id;
 
 -- =============================================================================
 -- Row Level Security

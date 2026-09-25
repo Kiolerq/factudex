@@ -115,6 +115,7 @@ function sembrar(): Almacen {
     tipoDocumento: null,
     serieNumero: null,
     medioPago: null,
+    operacionPago: null,
     estado: "pendiente",
     adjuntos: [],
     ...extra,

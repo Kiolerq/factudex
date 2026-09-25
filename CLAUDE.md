@@ -43,6 +43,7 @@ La referencia visual aprobada son los HTML de `diseno/`. Copia de ahí espaciado
 - Server Actions en `src/app/acciones.ts`: validan con zod (`src/lib/datos/esquemas.ts`) y verifican sesión siempre.
 - Caja activa del HUD: cookie `fx_caja` (`src/lib/seleccion.ts`), solo preferencia de UI.
 - Adjuntos: el navegador comprime la foto (`src/lib/imagen.ts`) y la sube directo a Storage (`src/lib/subida.ts`); la acción solo registra la ruta. No mandar archivos por Server Actions (límite de ~4.5 MB en Vercel).
+- Exportación de liquidación a Excel: `src/lib/exportar/liquidacionExcel.ts` replica el formato de contabilidad (`pruebaliquidacion.xlsx`): mismas columnas y celdas, totales como fórmulas con su valor ya calculado. No cambiar columnas sin que lo pida contabilidad.
 - Tokens de marca extra: `fx-primary-light` (texto sobre fondo suave), `fx-primary-dark` (degradado), `fx-primary-line` (bordes).
 
 ## Convenciones

@@ -121,7 +121,8 @@ desplegable opcional, validado contra la empresa de la caja. El seed trae placas
 | monto | numeric > 0 | |
 | tipo_documento | enum `factura` \| `boleta` \| `rxh` \| `planilla_movilidad` \| `comprobante_egreso` \| `otro`, nullable | null = aún no se sabe |
 | serie_numero | text | ej. `F001-00012345` |
-| medio_pago | enum `efectivo` \| `yape` \| `transferencia` \| `otro`, nullable | **independiente** del tipo de documento. En `efectivo` no se exige constancia de pago |
+| medio_pago | enum `efectivo` \| `yape` \| `plin` \| `transferencia` \| `otro`, nullable | **independiente** del tipo de documento. En `efectivo` no se exige constancia de pago |
+| operacion_pago | text, opcional | N° de operación de Yape/Plin/transferencia (sale en la columna YAPE/PLIN del Excel) |
 | estado | enum `pendiente` \| `completo` | trigger (`fx_estado_movimiento`): documento + pago, o documento solo si es efectivo |
 | origen | enum `manual` \| `compartido` \| `ocr` | de dónde vino (métrica de adopción) |
 | anulado / motivo_anulacion | | en vez de borrar |
@@ -145,7 +146,10 @@ Cuando el movimiento ya está en una liquidación cerrada, sus adjuntos no se pu
 | correlativo, folio | automáticos por caja, formato `NNLQXX-AREA-0001`: sigla de empresa + `LQ` + n° de caja (2 dígitos) + área + correlativo. Ej. `SLLQ01-MT-0001`, `SLLQ02-OP-0001`, `SPLQ01-GE-0001` |
 | estado | ver ciclo abajo |
 | fecha_inicio, fecha_cierre | |
-| total_gastado | snapshot al cerrar = suma de los movimientos **completos** liquidados |
+| saldo_inicial | saldo final de la liquidación anterior (0 en la primera). Se fija al cerrar la anterior |
+| total_ingresos | snapshot al cerrar: depósitos del periodo (recargas con `liquidacion_ingreso_id` = esta) |
+| total_gastado | snapshot al cerrar = suma de los movimientos **completos** liquidados (EGRESO) |
+| saldo_final | snapshot al cerrar = saldo_inicial + total_ingresos − total_gastado (**POR REEMBOLSAR**) |
 | cerrada_por/en, aprobada_por/en, observaciones | trazabilidad de quién hizo qué |
 
 Solo puede haber **una liquidación abierta por caja** (índice único parcial).
@@ -167,16 +171,24 @@ Reglas del cierre (`cerrar_liquidacion`):
 - `revisar_liquidacion` no permite aprobar si hubiera algún movimiento sin documento y pago.
 
 La vista `v_liquidaciones` añade `total_actual`, `total_liquidable` (solo completos),
-`num_movimientos` y **`num_incompletos`**: en la liquidación abierta se pintan en rojo, porque
-no entrarán al cierre y pasarán a la siguiente.
+`num_movimientos`, **`num_incompletos`** (en la abierta se pintan en rojo: no entrarán al cierre),
+`ingresos_actual` y `saldo_final_actual` (el "por reembolsar" en vivo de la abierta).
+
+Ejemplo verificado con los números de `pruebaliquidacion.xlsx`: la liquidación 1 cierra con
+S/ 217.80; la 2 recibe S/ 217.80 de saldo inicial + S/ 1,000.00 de depósito − S/ 915.20 de
+egresos = **S/ 302.60 por reembolsar**, que pasa como saldo inicial a la 3.
 
 ### `recargas` (entradas)
 | Campo | Nota |
 |---|---|
 | tipo | `apertura` (fondo inicial), `reposicion` (repone una liquidación aprobada), `extraordinaria` (recarga sin liquidación), `ajuste` (corrección, puede ser negativo) |
-| liquidacion_id | obligatorio en `reposicion` y solo ahí; único (una recarga por liquidación) |
+| liquidacion_ingreso_id | **automático**: la liquidación abierta al momento del depósito. La recarga es un INGRESO de esa liquidación |
+| liquidacion_repuesta_id | la liquidación aprobada que esta recarga repone; obligatorio en `reposicion` y solo ahí; único |
 | monto | **libre**: hoy suele ser S/ 1,000 o S/ 2,000, pero varía. No hay fondo fijo por caja |
-| fecha, medio, referencia (N° operación), nota | registro **manual** |
+| fecha | FECHA DEPOSITO |
+| descripcion, recibo, operacion, banco | DESCRIPCION BANCO, RECIBO, OPERACIÓN y banco del Excel |
+| forma | `banco` \| `efectivo` \| `otros`: en qué columna del Excel (BANCO / EFECTIVO / OTROS) va el monto |
+| nota | libre |
 | registrado_por | el aprobador — queda quién y cuándo |
 
 Sin integración bancaria: los bancos no exponen los abonos a cuentas personales sin contrato corporativo.
@@ -185,6 +197,21 @@ Sin integración bancaria: los bancos no exponen los abonos a cuentas personales
 Guarda cada lectura con IA: `storage_path`, `modelo`, `respuesta` (JSON validado con
 [`src/lib/ocr/esquema.ts`](../src/lib/ocr/esquema.ts)), `error`, `aceptada`. Sirve para
 auditar y medir precisión. **Nunca crea movimientos por sí sola.**
+
+## Formato de exportación (Excel)
+
+Réplica de `pruebaliquidacion.xlsx` (formato que pide contabilidad), generado por
+[`src/lib/exportar/liquidacionExcel.ts`](../src/lib/exportar/liquidacionExcel.ts), con las mismas
+celdas que el original:
+
+| Bloque | Contenido |
+|---|---|
+| Título (B4) | `LIQUIDACIÓN CAJA CHICA AREA DE <CAJA> - <EMPRESA>` + folio y periodo (B5) |
+| * INGRESOS (B6) | FECHA DEPOSITO · DESCRIPCION BANCO · RECIBO · OPERACIÓN · BANCO · EFECTIVO · OTROS · TOTAL INGRESO. Primera fila: saldo de la liquidación anterior; luego cada recarga. TOTALES con `SUM` |
+| * EGRESOS (B12) | FECHA · SOLICITANTE · RAZON SOCIAL · RUC / DNI · DETALLE COMPRA · FACTURA · BOL. VTA · REC X HON. · OTROS · YAPE/PLIN · IMPORTE · CENTRO COSTO. El N° de documento va en la columna de su tipo (planilla de movilidad y comprobante de egreso van en OTROS). Solo movimientos **completos** |
+| Pie | `<CIUDAD> dd.mm.aaaa` (fecha de cierre) · INGRESO · EGRESO · POR REEMBOLSAR (fórmulas) |
+
+La ciudad sale de `empresas.ciudad` (por defecto TRUJILLO).
 
 ## Vistas
 

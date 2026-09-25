@@ -12,6 +12,7 @@ visible qué falta sustentar.
 - Diseño aprobado: [`diseno/`](diseno/LEEME.md)
 - Modelo de datos: [`docs/modelo-datos.md`](docs/modelo-datos.md)
 - Roadmap: [`docs/roadmap.md`](docs/roadmap.md)
+- Configurar Supabase paso a paso: [`docs/configurar-supabase.md`](docs/configurar-supabase.md)
 
 ## Módulos
 
