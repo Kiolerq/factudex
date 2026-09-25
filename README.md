@@ -37,9 +37,25 @@ Requisitos: Node.js 20+ y un proyecto en [Supabase](https://supabase.com) (plan 
 
 ```bash
 npm install
-cp .env.example .env.local      # completa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY
 npm run dev                     # http://localhost:3000
 ```
+
+**Modo demo:** si no hay variables de Supabase, la app arranca con datos de ejemplo en memoria
+(empresas, cajas, proveedores, centros de costo y placas de ejemplo) y un aviso "Modo demo" en el
+HUD. Sirve para mostrar la app sin crear nada; los datos se reinician al reiniciar el servidor y
+los archivos adjuntos no se guardan.
+
+**Con Supabase:**
+
+```bash
+cp .env.example .env.local      # completa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY
+npm run dev
+```
+
+El acceso es por enlace mágico al correo (`/login`). Solo entran usuarios creados por un
+administrador en Supabase (**Authentication → Users → Add user**); nadie se autorregistra.
+En **Authentication → URL Configuration** agrega `https://<tu-dominio>/auth/callback` (y
+`http://localhost:3000/auth/callback`) a las *Redirect URLs*.
 
 ### Base de datos
 
@@ -79,7 +95,12 @@ a `main` despliega producción y cada PR genera una preview.
 ```
 src/
   app/             rutas (App Router), layout, estilos globales, manifest PWA
-  lib/supabase/    clientes Supabase (navegador y servidor)
+    (app)/         pantallas con HUD: registro, historial, pendientes, liquidaciones, recargas
+    acciones.ts    Server Actions (seleccionar caja, proveedores, registrar movimiento)
+    login/, auth/  acceso por enlace mágico
+  components/      hud/, registro/, ui/
+  lib/datos/       tipos, esquemas zod y repositorio (Supabase o demo)
+  lib/supabase/    clientes Supabase (navegador, servidor y proxy de sesión)
   lib/tema/        paleta por empresa y colores de estado
   lib/ocr/         contrato JSON de la lectura con IA (fase 2)
   types/           tipos de la base (generados con supabase gen types)

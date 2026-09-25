@@ -19,7 +19,7 @@ La referencia visual aprobada son los HTML de `diseno/`. Copia de ahí espaciado
 - **Tema oscuro siempre.** Nunca fondo blanco ni negro plano. Fondo: degradado `#0A0E1A → #0D1526 → #0A0F1C` (ya en `body`).
 - **Glass**: `rgba(255,255,255,0.045)`, borde `rgba(255,255,255,0.09)`, `blur(16px)`, radio 16px (14px en móvil). Usa `.fx-card`, `.fx-input`, `.fx-label`.
 - **Fuentes**: Space Grotesk para títulos y cifras grandes (`font-display`), IBM Plex Sans para texto (`font-sans`).
-- **Marca por empresa** vía `data-empresa="SL|SIPE"` en `<html>`, que cambia `--fx-primary` / `--fx-accent`:
+- **Marca por empresa** vía `data-empresa="SL|SIPE"` (en el contenedor del layout `(app)`), que cambia `--fx-primary` / `--fx-accent`:
   San Lorenzo `#2E75B6` + `#D3453A` · SIPE `#1FA2C9` + `#2FAE60`. Usa `text-fx-primary`, `bg-fx-primary-soft`, etc. — nunca hex de marca sueltos en componentes.
 - **Estados** (no cambian por empresa): Pendiente `#D9A441` (`fx-pendiente`), Completo `#3FBE72` (`fx-completo`). Incompletos en la liquidación abierta (no entrarán al cierre): rojo `fx-error`.
 - Badges de estado: pastilla con fondo del color al 16%, borde al 40%, texto del color, prefijo `●`.
@@ -37,6 +37,13 @@ La referencia visual aprobada son los HTML de `diseno/`. Copia de ahí espaciado
 - Cambios de estado de liquidación solo por RPC (`cerrar_liquidacion`, `revisar_liquidacion`) o al insertar la recarga.
 - Recargas son **manuales**; no hay integración bancaria.
 - IA/OCR (fase 2): solo **pre-llena**; el usuario confirma siempre. Nunca guardar automático. Contrato en `src/lib/ocr/esquema.ts`. La API key vive solo en el servidor.
+
+## Arquitectura
+- Datos: `src/lib/datos/repositorio.ts` define la interfaz; `supabase.ts` es la real y `demo.ts` la de ejemplo (se usa sola si faltan las variables de Supabase). Toda pantalla nueva agrega sus métodos a **ambas**.
+- Server Actions en `src/app/acciones.ts`: validan con zod (`src/lib/datos/esquemas.ts`) y verifican sesión siempre.
+- Caja activa del HUD: cookie `fx_caja` (`src/lib/seleccion.ts`), solo preferencia de UI.
+- Adjuntos: el navegador comprime la foto (`src/lib/imagen.ts`) y la sube directo a Storage (`src/lib/subida.ts`); la acción solo registra la ruta. No mandar archivos por Server Actions (límite de ~4.5 MB en Vercel).
+- Tokens de marca extra: `fx-primary-light` (texto sobre fondo suave), `fx-primary-dark` (degradado), `fx-primary-line` (bordes).
 
 ## Convenciones
 - Nombres de dominio en español y snake_case en la BD (`movimientos`, `caja_id`); camelCase en TS.

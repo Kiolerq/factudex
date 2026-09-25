@@ -13,13 +13,14 @@ Objetivo: una app usable con datos reales de una o dos cajas, instalada en el ce
 **Infraestructura**
 - [ ] Proyecto Supabase (free) + aplicar migración y seed.
 - [ ] Deploy en Vercel conectado al repo (preview por PR).
-- [ ] Auth por email (magic link) — sin contraseñas que olvidar.
+- [x] Auth por email (magic link) — sin contraseñas que olvidar.
+- [x] Modo demo con datos de ejemplo cuando no hay Supabase configurado.
 - [ ] Cargar las listas reales de centros de costo y placas por empresa, y las cajas reales (número y área).
-- [ ] `src/proxy.ts` para refrescar la sesión y redirigir a `/login`.
+- [x] `src/proxy.ts` para refrescar la sesión y redirigir a `/login`.
 
 **Pantallas** (en este orden; referencia visual en `diseno/`)
-1. [ ] **Shell / HUD**: logo, switch San Lorenzo / SIPE, selector de caja, saldo de cada caja, navegación (pestañas en escritorio, barra inferior en móvil).
-2. [ ] **Registro** (`/registro`): formulario completo en escritorio con panel de vista previa; en móvil botón grande "Tomar foto del comprobante" y barra fija Cancelar/Guardar. Autocompletado de proveedores, alta rápida de proveedor, centro de costo ("General" por defecto) y placa desplegables, medio de pago (Efectivo / Yape / Transferencia), dos espacios de adjunto (documento y constancia de pago; el de pago se oculta si es efectivo) y "Aún no tengo el documento".
+1. [x] **Shell / HUD**: logo, switch San Lorenzo / SIPE, selector de caja, saldo de cada caja, navegación (pestañas en escritorio, barra inferior en móvil).
+2. [x] **Registro** (`/registro`): formulario completo en escritorio con panel de vista previa; en móvil botón grande "Tomar foto del comprobante" y barra fija Cancelar/Guardar. Autocompletado de proveedores, alta rápida de proveedor, centro de costo ("General" por defecto) y placa desplegables, medio de pago (Efectivo / Yape / Transferencia), dos espacios de adjunto (documento y constancia de pago; el de pago se oculta si es efectivo) y "Aún no tengo el documento".
 3. [ ] **Historial** (`/historial`): tabla (escritorio) / tarjetas (móvil), búsqueda, filtros Todos / Pendientes / Completos + empresa/caja. Pendientes en ámbar. Adjuntar comprobante desde el detalle.
 4. [ ] **Pendientes** (`/pendientes`): lista con días de antigüedad (informativo, sin plazo) y qué falta (documento, pago o ambos).
 5. [ ] **Liquidaciones** (`/liquidaciones`): folio, fechas, total liquidable; incompletos en rojo con aviso "pasarán a la siguiente liquidación"; botón "Cerrar liquidación"; aviso cuando el saldo baja del umbral.

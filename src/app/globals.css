@@ -27,12 +27,18 @@
   --fx-primary: #2e75b6;
   --fx-accent: #d3453a;
   --fx-primary-soft: rgba(46, 117, 182, 0.16);
+  --fx-primary-line: rgba(46, 117, 182, 0.4);
+  --fx-primary-light: #79b3e6; /* texto de marca sobre fondo suave */
+  --fx-primary-dark: #1e5a91; /* degradado del botón de cámara */
 }
 
 [data-empresa="SIPE"] {
   --fx-primary: #1fa2c9;
   --fx-accent: #2fae60;
   --fx-primary-soft: rgba(31, 162, 201, 0.16);
+  --fx-primary-line: rgba(31, 162, 201, 0.4);
+  --fx-primary-light: #7fd0ea;
+  --fx-primary-dark: #147a99;
 }
 
 @theme inline {
@@ -50,6 +56,9 @@
   --color-fx-primary: var(--fx-primary);
   --color-fx-accent: var(--fx-accent);
   --color-fx-primary-soft: var(--fx-primary-soft);
+  --color-fx-primary-line: var(--fx-primary-line);
+  --color-fx-primary-light: var(--fx-primary-light);
+  --color-fx-primary-dark: var(--fx-primary-dark);
 
   --font-sans: var(--font-plex), system-ui, sans-serif;
   --font-display: var(--font-grotesk), system-ui, sans-serif;
@@ -64,10 +73,17 @@ body {
   min-height: 100dvh;
   color: var(--fx-text);
   font-family: var(--font-sans);
+}
+
+/* Fondo en una capa fija: background-attachment: fixed no funciona bien en iOS. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
   background:
     radial-gradient(1100px 560px at 12% -8%, rgba(255, 255, 255, 0.05), transparent 60%),
     linear-gradient(165deg, var(--fx-bg-1) 0%, var(--fx-bg-2) 50%, var(--fx-bg-3) 100%);
-  background-attachment: fixed;
 }
 
 h1,
@@ -93,7 +109,40 @@ h3 {
     background: var(--fx-input);
     border: 1px solid var(--fx-input-border);
     color: #fff;
-    font-size: 14px;
+    font-size: 16px; /* 16px evita el zoom automático de iOS al enfocar */
+  }
+
+  @media (min-width: 768px) {
+    .fx-input {
+      font-size: 14px;
+    }
+  }
+
+  .fx-input:focus {
+    outline: none;
+    border-color: var(--fx-primary);
+    box-shadow: 0 0 0 3px var(--fx-primary-soft);
+  }
+
+  .fx-input[aria-invalid="true"] {
+    border-color: var(--fx-error);
+  }
+
+  select.fx-input option {
+    background: var(--fx-bg-2);
+    color: #fff;
+  }
+
+  .fx-btn:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+
+  .fx-scroll-x {
+    scrollbar-width: none;
+  }
+  .fx-scroll-x::-webkit-scrollbar {
+    display: none;
   }
 
   .fx-input::placeholder {
