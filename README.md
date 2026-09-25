@@ -53,10 +53,10 @@ cp .env.example .env.local      # completa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLI
 npm run dev
 ```
 
-El acceso es por enlace mágico al correo (`/login`). Solo entran usuarios creados por un
-administrador en Supabase (**Authentication → Users → Add user**); nadie se autorregistra.
-En **Authentication → URL Configuration** agrega `https://<tu-dominio>/auth/callback` (y
-`http://localhost:3000/auth/callback`) a las *Redirect URLs*.
+El acceso es con **correo y contraseña** (`/login`). No hay registro público: el administrador crea
+cada cuenta en Supabase (**Authentication → Users → Add user → Create new user**, con contraseña y
+*Auto Confirm*) y le asigna su perfil (`perfiles.rol`) y sus cajas (`accesos_caja`). Cada persona
+cambia su contraseña en **Mi cuenta** (`/cuenta`).
 
 ### Base de datos
 
@@ -98,7 +98,7 @@ src/
   app/             rutas (App Router), layout, estilos globales, manifest PWA
     (app)/         pantallas con HUD: registro, historial, pendientes, liquidaciones, recargas
     acciones.ts    Server Actions (seleccionar caja, proveedores, registrar movimiento)
-    login/, auth/  acceso por enlace mágico
+    login/, auth/  acceso con correo y contraseña; (app)/cuenta cambia la contraseña
   components/      hud/, registro/, ui/
   lib/datos/       tipos, esquemas zod y repositorio (Supabase o demo)
   lib/supabase/    clientes Supabase (navegador, servidor y proxy de sesión)

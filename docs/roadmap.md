@@ -12,9 +12,9 @@ Objetivo: una app usable con datos reales de una o dos cajas, instalada en el ce
 
 **Infraestructura**
 - [x] Proyecto Supabase (free, São Paulo) + migración y seed aplicados; probado de punta a punta (login, registro con foto, saldo, alta de proveedor).
-- [ ] Correo propio (SMTP) para enviar enlaces de acceso a todo el equipo, o acceso con contraseña.
+- [x] Acceso con correo y contraseña (cuentas creadas por el administrador) y página Mi cuenta.
+- [ ] Guardar las fotos de comprobantes en Google Drive (ver docs/google-drive.md).
 - [ ] Deploy en Vercel conectado al repo (preview por PR).
-- [x] Auth por email (magic link) — sin contraseñas que olvidar.
 - [x] Modo demo con datos de ejemplo cuando no hay Supabase configurado.
 - [ ] Cargar las listas reales de centros de costo y placas por empresa, y las cajas reales (número y área).
 - [x] `src/proxy.ts` para refrescar la sesión y redirigir a `/login`.

@@ -1,23 +1,25 @@
 "use server";
 
-import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 
-export type EstadoLogin = { enviado: boolean; error?: string; email?: string };
+export type EstadoLogin = { error?: string; email?: string };
 
-export async function enviarEnlace(_: EstadoLogin, formData: FormData): Promise<EstadoLogin> {
-  const email = z.email().safeParse(String(formData.get("email") ?? "").trim().toLowerCase());
-  if (!email.success) return { enviado: false, error: "Ingresa un correo válido." };
+const Credenciales = z.object({
+  email: z.email("Ingresa un correo válido."),
+  password: z.string().min(1, "Ingresa tu contraseña."),
+});
 
-  const h = await headers();
-  const origen = h.get("origin") ?? `https://${h.get("host")}`;
+// Acceso con correo y contraseña. Las cuentas las crea un administrador (no hay registro público);
+// lo que cada persona ve y puede hacer depende de su rol y de las cajas asignadas (accesos_caja).
+export async function iniciarSesion(_: EstadoLogin, formData: FormData): Promise<EstadoLogin> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const datos = Credenciales.safeParse({ email, password: String(formData.get("password") ?? "") });
+  if (!datos.success) return { error: datos.error.issues[0]!.message, email };
+
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email: email.data,
-    // Solo usuarios creados por un administrador; nadie se autorregistra.
-    options: { emailRedirectTo: `${origen}/auth/callback`, shouldCreateUser: false },
-  });
-  if (error) return { enviado: false, error: "No se pudo enviar el enlace. ¿Tu correo está registrado?" };
-  return { enviado: true, email: email.data };
+  const { error } = await supabase.auth.signInWithPassword(datos.data);
+  if (error) return { error: "Correo o contraseña incorrectos.", email };
+  redirect("/registro");
 }

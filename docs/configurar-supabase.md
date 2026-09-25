@@ -3,10 +3,8 @@
 > **Estado:** el proyecto `factudex` (ref `twbwgoyfbhvjwxuuhiwo`, región São Paulo) ya está creado
 > con el esquema y los datos de ejemplo. Esta guía queda para rehacerlo o crear otro ambiente.
 >
-> **Límite del correo por defecto de Supabase:** solo envía enlaces de acceso a los correos que son
-> miembros del equipo de la organización en Supabase, y pocos por hora. Para que el resto del equipo
-> reciba su enlace hay que configurar un SMTP propio (**Authentication → Emails → SMTP Settings**),
-> por ejemplo Resend (gratis hasta 3,000 correos/mes) o una cuenta de Gmail con contraseña de aplicación.
+> El acceso es con correo y contraseña, así que no depende del envío de correos de Supabase
+> (que en el plan gratis solo llega a los miembros del equipo de la organización).
 
 Todo en el plan gratuito. Tiempo estimado: 15 minutos.
 
@@ -21,15 +19,16 @@ Todo en el plan gratuito. Tiempo estimado: 15 minutos.
 3. Nueva consulta: pega `supabase/seed.sql` → **Run**.
    (Crea las empresas, las cajas de ejemplo, categorías, centros de costo y placas de ejemplo.)
 
-## 3. Configurar el acceso por correo
+## 3. Configurar el acceso
 1. **Authentication → Sign In / Providers → Email**: activado. Desactiva *Allow new users to sign up*
-   (solo entran usuarios creados por un administrador).
+   (solo entran usuarios creados por un administrador). Largo mínimo de contraseña: 8.
 2. **Authentication → URL Configuration**:
    - *Site URL*: la dirección de Vercel (ej. `https://factudex.vercel.app`). Mientras no exista, `http://localhost:3000`.
    - *Redirect URLs*: agrega `https://<tu-dominio>/auth/callback` y `http://localhost:3000/auth/callback`.
 
 ## 4. Crear el primer usuario (administrador)
-1. **Authentication → Users → Add user → Create new user**: tu correo, marca *Auto Confirm User*.
+1. **Authentication → Users → Add user → Create new user**: correo + contraseña temporal, marca *Auto Confirm User*.
+   La persona la cambia luego en **Mi cuenta**.
 2. **SQL Editor**:
    ```sql
    update perfiles set rol = 'admin', nombre = 'Tu Nombre' where email = 'tu@correo.com';

@@ -1,4 +1,4 @@
-import { cerrarSesion } from "@/app/acciones";
+import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
 import type { CajaSaldo, Empresa, Usuario } from "@/lib/datos/tipos";
 import { formatoSoles, iniciales } from "@/lib/formato";
@@ -64,15 +64,13 @@ export function Hud({ empresas, cajas, cajaActiva, usuario, demo }: Props) {
               {formatoSoles(cajaActiva.saldo)}
             </span>
           </div>
-          <form action={cerrarSesion} className="hidden md:block">
-            <button
-              type="submit"
-              title={`${usuario.nombre} — cerrar sesión`}
-              className="fx-btn flex h-[34px] w-[34px] items-center justify-center rounded-full border border-white/12 bg-white/8 text-xs font-semibold text-white/70 hover:text-white"
-            >
-              {iniciales(usuario.nombre)}
-            </button>
-          </form>
+          <Link
+            href="/cuenta"
+            title={`${usuario.nombre} — mi cuenta`}
+            className="flex h-[30px] w-[30px] items-center justify-center rounded-full border border-white/12 bg-white/8 text-[11px] font-semibold text-white/70 hover:text-white md:h-[34px] md:w-[34px] md:text-xs"
+          >
+            {iniciales(usuario.nombre)}
+          </Link>
         </div>
       </div>
 
