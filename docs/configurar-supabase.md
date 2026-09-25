@@ -1,5 +1,13 @@
 # Configurar Supabase (paso a paso)
 
+> **Estado:** el proyecto `factudex` (ref `twbwgoyfbhvjwxuuhiwo`, región São Paulo) ya está creado
+> con el esquema y los datos de ejemplo. Esta guía queda para rehacerlo o crear otro ambiente.
+>
+> **Límite del correo por defecto de Supabase:** solo envía enlaces de acceso a los correos que son
+> miembros del equipo de la organización en Supabase, y pocos por hora. Para que el resto del equipo
+> reciba su enlace hay que configurar un SMTP propio (**Authentication → Emails → SMTP Settings**),
+> por ejemplo Resend (gratis hasta 3,000 correos/mes) o una cuenta de Gmail con contraseña de aplicación.
+
 Todo en el plan gratuito. Tiempo estimado: 15 minutos.
 
 ## 1. Crear el proyecto

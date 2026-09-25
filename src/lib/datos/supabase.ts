@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import type { TablesInsert } from "@/types/database";
 import { ErrorDeNegocio, type Repositorio } from "./repositorio";
 import type { CajaSaldo, CodigoEmpresa, Empresa, Opcion, Proveedor } from "./tipos";
 
@@ -50,16 +51,17 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         .order("empresa_codigo", { ascending: false })
         .order("caja_numero");
       fallo(error, "Cajas");
+      // Postgres marca como anulables todas las columnas de una vista; aquí nunca lo son.
       return data.map((c) => ({
-        id: c.caja_id,
-        empresaId: c.empresa_id,
+        id: c.caja_id!,
+        empresaId: c.empresa_id!,
         empresaCodigo: c.empresa_codigo as CodigoEmpresa,
-        numero: c.caja_numero,
-        area: c.caja_area,
-        nombre: c.nombre,
+        numero: c.caja_numero!,
+        area: c.caja_area!,
+        nombre: c.nombre!,
         umbralAlerta: Number(c.umbral_alerta),
         saldo: Number(c.saldo),
-        bajoUmbral: c.bajo_umbral,
+        bajoUmbral: !!c.bajo_umbral,
         pendientes: Number(c.movimientos_pendientes),
       }));
     },
@@ -124,7 +126,8 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
     },
 
     async registrarMovimiento(m) {
-      const { error } = await sb.from("movimientos").insert({
+      // liquidacion_id y estado los asigna el trigger movimientos_asignar_liquidacion.
+      const fila = {
         id: m.id,
         caja_id: m.cajaId,
         fecha: m.fecha,
@@ -139,7 +142,8 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         serie_numero: m.serieNumero,
         medio_pago: m.medioPago,
         operacion_pago: m.operacionPago,
-      });
+      } as TablesInsert<"movimientos">;
+      const { error } = await sb.from("movimientos").insert(fila);
       if (error?.code === "P0001") throw new ErrorDeNegocio(error.message); // raise exception de triggers
       fallo(error, "Registrar movimiento");
 
