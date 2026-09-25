@@ -1,5 +1,5 @@
 -- Datos iniciales para la demo (fase 1).
--- Centros de costo y placas son EJEMPLOS: reemplazar por las listas reales.
+-- Centros de costo, solicitantes y proveedores son EJEMPLOS: reemplazar por las listas reales.
 
 insert into empresas (codigo, sigla, nombre_corto, razon_social, color_primario, color_acento) values
   ('SL',   'SL', 'San Lorenzo', 'Compañía San Lorenzo S.A.C.', '#2E75B6', '#D3453A'),
@@ -40,15 +40,20 @@ select e.id, v.codigo, v.nombre, v.orden
   ) as v(empresa, codigo, nombre, orden)
   join empresas e on e.codigo = v.empresa;
 
--- Placas (EJEMPLO, tomadas del prototipo en diseno/).
-insert into vehiculos (empresa_id, placa, descripcion)
-select e.id, v.placa, v.descripcion
+-- Placas como centros de costo (EJEMPLO, tomadas del prototipo en diseno/).
+insert into centros_costo (empresa_id, codigo, nombre, orden)
+select e.id, v.placa, v.placa, 100
+  from (values ('SL', 'T1Y-461'), ('SL', 'BZL-893'), ('SL', 'CAE-899'), ('SIPE', 'T1P-831')) as v(empresa, placa)
+  join empresas e on e.codigo = v.empresa;
+
+-- Solicitantes (EJEMPLO).
+insert into solicitantes (empresa_id, nombre, area)
+select e.id, v.nombre, v.area
   from (values
-    ('SL',   'T1Y-461', 'Vehículo de ejemplo'),
-    ('SL',   'BZL-893', 'Vehículo de ejemplo'),
-    ('SL',   'CAE-899', 'Vehículo de ejemplo'),
-    ('SIPE', 'T1P-831', 'Vehículo de ejemplo')
-  ) as v(empresa, placa, descripcion)
+    ('SL',   'Carlos Ramírez', 'Mantenimiento'),
+    ('SL',   'Johan Mesa',     'Operaciones'),
+    ('SIPE', 'María Torres',   'General')
+  ) as v(empresa, nombre, area)
   join empresas e on e.codigo = v.empresa;
 
 -- Proveedores de ejemplo tomados del prototipo (diseno/).

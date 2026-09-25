@@ -21,7 +21,7 @@ export interface Repositorio {
   listarCajas(): Promise<CajaSaldo[]>;
   listarCategorias(empresaId: string): Promise<Opcion[]>;
   listarCentrosCosto(empresaId: string): Promise<Opcion[]>;
-  listarVehiculos(empresaId: string): Promise<Opcion[]>;
+  listarSolicitantes(empresaId: string): Promise<string[]>;
   buscarProveedores(texto: string): Promise<Proveedor[]>;
   crearProveedor(p: NuevoProveedor): Promise<Proveedor>;
   registrarMovimiento(m: NuevoMovimiento): Promise<{ id: string; estado: EstadoMovimiento }>;

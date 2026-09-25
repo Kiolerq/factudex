@@ -27,7 +27,6 @@ export const EsquemaNuevoMovimiento = z
     proveedorId: z.uuid().nullable(),
     categoriaId: z.uuid("Elige una categoría"),
     centroCostoId: z.uuid().nullable(),
-    vehiculoId: z.uuid().nullable(),
     detalle: z.string().trim().min(3, "Describe el gasto").max(300),
     monto: z
       .number("Ingresa el monto")

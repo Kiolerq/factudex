@@ -88,15 +88,15 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       return data;
     },
 
-    async listarVehiculos(empresaId): Promise<Opcion[]> {
+    async listarSolicitantes(empresaId): Promise<string[]> {
       const { data, error } = await sb
-        .from("vehiculos")
-        .select("id, placa")
+        .from("solicitantes")
+        .select("nombre")
         .eq("empresa_id", empresaId)
         .eq("activo", true)
-        .order("placa");
-      fallo(error, "Vehículos");
-      return data.map((v) => ({ id: v.id, codigo: v.placa, nombre: v.placa }));
+        .order("nombre");
+      fallo(error, "Solicitantes");
+      return data.map((s) => s.nombre);
     },
 
     async buscarProveedores(texto): Promise<Proveedor[]> {
@@ -135,7 +135,6 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         proveedor_id: m.proveedorId,
         categoria_id: m.categoriaId,
         centro_costo_id: m.centroCostoId,
-        vehiculo_id: m.vehiculoId,
         detalle: m.detalle,
         monto: m.monto,
         tipo_documento: m.tipoDocumento,

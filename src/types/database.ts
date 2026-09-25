@@ -434,7 +434,6 @@ export type Database = {
           solicitante: string | null
           tipo_documento: Database["public"]["Enums"]["tipo_documento"] | null
           updated_at: string
-          vehiculo_id: string | null
         }
         Insert: {
           anulado?: boolean
@@ -458,7 +457,6 @@ export type Database = {
           solicitante?: string | null
           tipo_documento?: Database["public"]["Enums"]["tipo_documento"] | null
           updated_at?: string
-          vehiculo_id?: string | null
         }
         Update: {
           anulado?: boolean
@@ -482,7 +480,6 @@ export type Database = {
           solicitante?: string | null
           tipo_documento?: Database["public"]["Enums"]["tipo_documento"] | null
           updated_at?: string
-          vehiculo_id?: string | null
         }
         Relationships: [
           {
@@ -539,13 +536,6 @@ export type Database = {
             columns: ["proveedor_id"]
             isOneToOne: false
             referencedRelation: "proveedores"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "movimientos_vehiculo_id_fkey"
-            columns: ["vehiculo_id"]
-            isOneToOne: false
-            referencedRelation: "vehiculos"
             referencedColumns: ["id"]
           },
         ]
@@ -725,31 +715,34 @@ export type Database = {
           },
         ]
       }
-      vehiculos: {
+      solicitantes: {
         Row: {
           activo: boolean
-          descripcion: string | null
+          area: string | null
+          created_at: string
           empresa_id: string
           id: string
-          placa: string
+          nombre: string
         }
         Insert: {
           activo?: boolean
-          descripcion?: string | null
+          area?: string | null
+          created_at?: string
           empresa_id: string
           id?: string
-          placa: string
+          nombre: string
         }
         Update: {
           activo?: boolean
-          descripcion?: string | null
+          area?: string | null
+          created_at?: string
           empresa_id?: string
           id?: string
-          placa?: string
+          nombre?: string
         }
         Relationships: [
           {
-            foreignKeyName: "vehiculos_empresa_id_fkey"
+            foreignKeyName: "solicitantes_empresa_id_fkey"
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
@@ -842,7 +835,6 @@ export type Database = {
           solicitante: string | null
           tipo_documento: Database["public"]["Enums"]["tipo_documento"] | null
           updated_at: string | null
-          vehiculo_id: string | null
         }
         Insert: {
           anulado?: boolean | null
@@ -869,7 +861,6 @@ export type Database = {
           solicitante?: string | null
           tipo_documento?: Database["public"]["Enums"]["tipo_documento"] | null
           updated_at?: string | null
-          vehiculo_id?: string | null
         }
         Update: {
           anulado?: boolean | null
@@ -896,7 +887,6 @@ export type Database = {
           solicitante?: string | null
           tipo_documento?: Database["public"]["Enums"]["tipo_documento"] | null
           updated_at?: string | null
-          vehiculo_id?: string | null
         }
         Relationships: [
           {
@@ -953,13 +943,6 @@ export type Database = {
             columns: ["proveedor_id"]
             isOneToOne: false
             referencedRelation: "proveedores"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "movimientos_vehiculo_id_fkey"
-            columns: ["vehiculo_id"]
-            isOneToOne: false
-            referencedRelation: "vehiculos"
             referencedColumns: ["id"]
           },
         ]

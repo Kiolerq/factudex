@@ -26,8 +26,7 @@ export interface EgresoExcel {
   medioPago: MedioPago | null;
   operacionPago: string | null;
   monto: number;
-  centroCosto: string | null;
-  placa: string | null; // va en la misma columna CENTRO COSTO
+  centroCosto: string | null; // área, placa u otro destino del gasto
 }
 
 export interface DatosLiquidacionExcel {
@@ -232,7 +231,7 @@ export async function generarLiquidacionExcel(d: DatosLiquidacionExcel): Promise
     }
     set("K", textoYape(e));
     set("L", e.monto, CONTABLE);
-    set("M", [e.centroCosto, e.placa].filter(Boolean).join(" / ") || null);
+    set("M", e.centroCosto);
   }
   if (d.egresos.length === 0) fila += 1; // deja una fila vacía para que el SUM tenga rango
   const ultimaEgreso = fila;
