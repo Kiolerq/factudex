@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/ui/Logo";
 import { modoDemo } from "@/lib/datos/repositorio";
@@ -20,6 +21,10 @@ export default async function PaginaLogin({ searchParams }: PageProps<"/login">)
           </div>
         </div>
         <FormularioLogin errorEnlace={error === "enlace"} />
+        <nav className="flex justify-center gap-4 text-[11px] text-white/40">
+          <Link href="/privacidad" className="hover:text-white">Privacidad</Link>
+          <Link href="/terminos" className="hover:text-white">Condiciones</Link>
+        </nav>
       </div>
     </main>
   );
