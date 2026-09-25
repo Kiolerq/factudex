@@ -21,15 +21,18 @@ La referencia visual aprobada son los HTML de `diseno/`. Copia de ahí espaciado
 - **Fuentes**: Space Grotesk para títulos y cifras grandes (`font-display`), IBM Plex Sans para texto (`font-sans`).
 - **Marca por empresa** vía `data-empresa="SL|SIPE"` en `<html>`, que cambia `--fx-primary` / `--fx-accent`:
   San Lorenzo `#2E75B6` + `#D3453A` · SIPE `#1FA2C9` + `#2FAE60`. Usa `text-fx-primary`, `bg-fx-primary-soft`, etc. — nunca hex de marca sueltos en componentes.
-- **Estados** (no cambian por empresa): Pendiente `#D9A441` (`fx-pendiente`), Completo `#3FBE72` (`fx-completo`). Incompletos en liquidación: rojo `fx-error`.
+- **Estados** (no cambian por empresa): Pendiente `#D9A441` (`fx-pendiente`), Completo `#3FBE72` (`fx-completo`). Incompletos en la liquidación abierta (no entrarán al cierre): rojo `fx-error`.
 - Badges de estado: pastilla con fondo del color al 16%, borde al 40%, texto del color, prefijo `●`.
 - **Mobile-first**: botón grande "Tomar foto del comprobante" y barra inferior fija con Cancelar / Guardar. Escritorio: formulario + panel lateral de vista previa.
 
 ## Reglas de negocio
 - El saldo **se calcula** (`v_saldo_cajas`), nunca se guarda ni se calcula en el cliente.
-- Pendiente/Completo lo decide la BD (trigger sobre `adjuntos`): completo = tiene adjunto `comprobante`. Yape solo NO completa.
+- Pendiente/Completo lo decide la BD (trigger sobre `adjuntos`): completo = tiene adjunto `documento` (factura, boleta, planilla de movilidad, comprobante de egreso…) **y** adjunto `pago` (captura Yape, voucher…). Con uno solo sigue pendiente.
+- Solo se liquidan movimientos completos. Los pendientes no tienen plazo: al cerrar, `cerrar_liquidacion` los pasa a la siguiente liquidación.
+- Centro de costo: lista fija por empresa (`centros_costo`), siempre desplegable, nunca texto libre.
+- Monto de recarga libre (no hay fondo fijo por caja).
 - "Se pagó por Yape" es independiente del tipo de documento (pueden coexistir).
-- Movimientos no se borran: se anulan con motivo. Si la liquidación ya se cerró, no se editan (solo se adjuntan documentos).
+- Movimientos no se borran: se anulan con motivo. Si la liquidación ya se cerró, no se editan ni se les quitan adjuntos.
 - Cambios de estado de liquidación solo por RPC (`cerrar_liquidacion`, `revisar_liquidacion`) o al insertar la recarga.
 - Recargas son **manuales**; no hay integración bancaria.
 - IA/OCR (fase 2): solo **pre-llena**; el usuario confirma siempre. Nunca guardar automático. Contrato en `src/lib/ocr/esquema.ts`. La API key vive solo en el servidor.

@@ -14,15 +14,16 @@ Objetivo: una app usable con datos reales de una o dos cajas, instalada en el ce
 - [ ] Proyecto Supabase (free) + aplicar migración y seed.
 - [ ] Deploy en Vercel conectado al repo (preview por PR).
 - [ ] Auth por email (magic link) — sin contraseñas que olvidar.
+- [ ] Cargar la lista real de centros de costo por empresa.
 - [ ] `src/proxy.ts` para refrescar la sesión y redirigir a `/login`.
 
 **Pantallas** (en este orden; referencia visual en `diseno/`)
 1. [ ] **Shell / HUD**: logo, switch San Lorenzo / SIPE, selector de caja, saldo de cada caja, navegación (pestañas en escritorio, barra inferior en móvil).
-2. [ ] **Registro** (`/registro`): formulario completo en escritorio con panel de vista previa; en móvil botón grande "Tomar foto del comprobante" y barra fija Cancelar/Guardar. Autocompletado de proveedores, alta rápida de proveedor, checks "Se pagó por Yape" y "Aún no tengo el comprobante".
+2. [ ] **Registro** (`/registro`): formulario completo en escritorio con panel de vista previa; en móvil botón grande "Tomar foto del comprobante" y barra fija Cancelar/Guardar. Autocompletado de proveedores, alta rápida de proveedor, centro de costo desplegable, check "Se pagó por Yape", dos espacios de adjunto (documento y constancia de pago) y "Aún no tengo el documento".
 3. [ ] **Historial** (`/historial`): tabla (escritorio) / tarjetas (móvil), búsqueda, filtros Todos / Pendientes / Completos + empresa/caja. Pendientes en ámbar. Adjuntar comprobante desde el detalle.
-4. [ ] **Pendientes** (`/pendientes`): lista por antigüedad con alerta (reciente / atención / crítico).
-5. [ ] **Liquidaciones** (`/liquidaciones`): folio, fechas, total, incompletos en rojo; botón "Cerrar liquidación"; aviso cuando el saldo baja del umbral.
-6. [ ] **Recargas** (`/recargas`): bandeja del aprobador — aprobar/observar liquidación y registrar recarga manual.
+4. [ ] **Pendientes** (`/pendientes`): lista con días de antigüedad (informativo, sin plazo) y qué falta (documento, pago o ambos).
+5. [ ] **Liquidaciones** (`/liquidaciones`): folio, fechas, total liquidable; incompletos en rojo con aviso "pasarán a la siguiente liquidación"; botón "Cerrar liquidación"; aviso cuando el saldo baja del umbral.
+6. [ ] **Recargas** (`/recargas`): bandeja del aprobador — aprobar/observar liquidación y registrar la recarga manual con monto libre (sugerido: total liquidado).
 7. [ ] **Compartir** (`/compartir`): recibe el POST del Web Share Target (Android), pregunta "Registro nuevo / Uno existente" y adjunta la imagen.
 8. [ ] Admin mínimo: usuarios y accesos por caja (puede empezar desde el panel de Supabase).
 

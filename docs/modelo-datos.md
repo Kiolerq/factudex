@@ -18,7 +18,9 @@ erDiagram
   liquidaciones ||--o| recargas : "se repone con"
   proveedores ||--o{ movimientos : ""
   categorias ||--o{ movimientos : ""
-  movimientos ||--o{ adjuntos : "comprobante / captura Yape"
+  empresas ||--o{ centros_costo : "lista fija"
+  centros_costo ||--o{ movimientos : ""
+  movimientos ||--o{ adjuntos : "documento + pago"
   adjuntos ||--o{ extracciones_ocr : "fase 2"
 ```
 
@@ -27,13 +29,16 @@ erDiagram
 1. **El saldo no se guarda, se calcula.** `saldo = Σ recargas − Σ movimientos no anulados`
    (vista `v_saldo_cajas`). Así un gasto descuenta al instante y no hay saldos desincronizados.
 2. **El estado Pendiente/Completo es un campo del movimiento**, mantenido por un trigger:
-   pasa a `completo` en cuanto existe un adjunto de tipo `comprobante`. Una captura de Yape
-   **no** completa el gasto (es prueba de pago, no sustento tributario).
-3. **Nada se borra.** Los movimientos se *anulan* con motivo; las liquidaciones cerradas
+   pasa a `completo` solo cuando tiene **los dos** adjuntos: el **documento** (factura, boleta,
+   recibo por honorarios, planilla de movilidad, comprobante de egreso…) **y** la **constancia
+   del pago** (captura de Yape, voucher de transferencia…). Con uno solo sigue pendiente.
+3. **Solo se liquidan movimientos completos.** Un pendiente no tiene plazo máximo: al cerrar la
+   liquidación se traslada automáticamente a la siguiente, y así hasta que se complete.
+4. **Nada se borra.** Los movimientos se *anulan* con motivo; las liquidaciones cerradas
    congelan sus movimientos (solo se les pueden seguir adjuntando documentos).
-4. **Las transiciones de liquidación solo ocurren por RPC** (`cerrar_liquidacion`,
+5. **Las transiciones de liquidación solo ocurren por RPC** (`cerrar_liquidacion`,
    `revisar_liquidacion`) y por el registro de la recarga; el cliente no puede cambiar `estado` directo.
-5. **Montos** en `numeric(12,2)` (soles). **Fechas de negocio** en `date`, zona `America/Lima`.
+6. **Montos** en `numeric(12,2)` (soles). **Fechas de negocio** en `date`, zona `America/Lima`.
 
 ## Tablas
 
@@ -54,7 +59,6 @@ erDiagram
 | empresa_id | FK empresas | |
 | codigo | text | `MANT`, `OPER`, `GEN` — único por empresa, va en el folio |
 | nombre | text | "Mantenimiento" |
-| fondo_fijo | numeric | monto al que se repone la caja (ej. S/ 2,000) |
 | umbral_alerta | numeric | aviso cuando el saldo baja de aquí (ej. S/ 200) |
 | responsable_id | FK perfiles | quien la liquida normalmente |
 
@@ -71,7 +75,7 @@ erDiagram
 Una persona puede ser registradora en una caja y aprobadora en otra. **Esto resuelve el
 problema de origen**: si la persona habitual falta, se le da acceso a otra en minutos.
 
-### `proveedores` (maestro compartido entre empresas)
+### `proveedores` (maestro compartido entre SL y SIPE — confirmado)
 | Campo | Tipo | Nota |
 |---|---|---|
 | tipo_doc | enum `RUC` \| `DNI` \| `CE` \| `OTRO` | |
@@ -87,22 +91,28 @@ solo admin edita.
 `nombre`, `orden`, `empresa_id` (null = global). Semilla: Peajes, Combustible, Repuestos y
 ferretería, Llantas, Alimentación, Movilidad, Útiles de oficina, Servicios, Otros.
 
+### `centros_costo` (lista fija por empresa)
+`empresa_id`, `codigo` (único por empresa), `nombre`, `activo`, `orden`. Solo admin la
+mantiene; en el registro se elige de un desplegable. Un trigger impide usar un centro de costo
+de otra empresa o inactivo. **Falta cargar la lista real.**
+
 ### `movimientos` (gastos)
 | Campo | Tipo | Nota |
 |---|---|---|
 | caja_id | FK | no se puede cambiar después |
-| liquidacion_id | FK | **automático**: la liquidación abierta de la caja (se crea si no hay) |
+| liquidacion_id | FK | **automático**: la liquidación abierta de la caja (se crea si no hay). Si sigue pendiente al cerrar, pasa a la siguiente |
 | fecha | date | fecha del gasto |
 | solicitante | text | quién pidió el gasto |
 | proveedor_id | FK, nullable | null = "Por definir" |
 | categoria_id | FK, nullable | null = "Sin categorizar" |
-| centro_costo | text | centro de costo o placa (ej. `T1Y-461`) |
+| centro_costo_id | FK centros_costo, nullable | lista fija de la empresa de la caja |
+| placa | text | opcional (ej. `T1Y-461`) |
 | detalle | text | "Peaje pesado 3 ejes" |
 | monto | numeric > 0 | |
-| tipo_documento | enum `factura` \| `boleta` \| `rxh` \| `otro`, nullable | null = aún no se sabe |
+| tipo_documento | enum `factura` \| `boleta` \| `rxh` \| `planilla_movilidad` \| `comprobante_egreso` \| `otro`, nullable | null = aún no se sabe |
 | serie_numero | text | ej. `F001-00012345` |
 | pagado_yape | bool | **independiente** del tipo de documento |
-| estado | enum `pendiente` \| `completo` | lo mantiene el trigger de adjuntos |
+| estado | enum `pendiente` \| `completo` | trigger: completo = adjunto `documento` + adjunto `pago` |
 | origen | enum `manual` \| `compartido` \| `ocr` | de dónde vino (métrica de adopción) |
 | anulado / motivo_anulacion | | en vez de borrar |
 | creado_por, created_at, updated_at | | auditoría |
@@ -113,10 +123,11 @@ Archivos en Supabase Storage, bucket privado `comprobantes`, ruta
 
 | Campo | Nota |
 |---|---|
-| tipo | `comprobante` (completa el movimiento) \| `captura_yape` \| `otro` |
+| tipo | `documento` (factura, boleta, planilla…) \| `pago` (captura Yape, voucher…) \| `otro`. Hacen falta `documento` **y** `pago` para completar |
 | storage_path, mime_type, tamano_bytes | JPG/PNG/WEBP/HEIC/PDF, máx. 10 MB |
 
 Un movimiento puede tener varios adjuntos (ej. captura de Yape hoy + factura la próxima semana).
+Cuando el movimiento ya está en una liquidación cerrada, sus adjuntos no se pueden quitar.
 
 ### `liquidaciones`
 | Campo | Nota |
@@ -124,7 +135,7 @@ Un movimiento puede tener varios adjuntos (ej. captura de Yape hoy + factura la 
 | correlativo, folio | automáticos por caja: `SL-MANT-0001`, `SL-MANT-0002`… |
 | estado | ver ciclo abajo |
 | fecha_inicio, fecha_cierre | |
-| total_gastado | snapshot al cerrar |
+| total_gastado | snapshot al cerrar = suma de los movimientos **completos** liquidados |
 | cerrada_por/en, aprobada_por/en, observaciones | trazabilidad de quién hizo qué |
 
 Solo puede haber **una liquidación abierta por caja** (índice único parcial).
@@ -132,7 +143,7 @@ Solo puede haber **una liquidación abierta por caja** (índice único parcial).
 ```mermaid
 stateDiagram-v2
   [*] --> abierta : primer gasto
-  abierta --> en_revision : cerrar_liquidacion()<br/>(= solicitud de recarga,<br/>se abre la siguiente)
+  abierta --> en_revision : cerrar_liquidacion()<br/>(= solicitud de recarga; se abre la siguiente<br/>y los pendientes pasan a ella)
   en_revision --> aprobada : revisar_liquidacion(true)
   en_revision --> observada : revisar_liquidacion(false)
   observada --> en_revision : corregir y re-cerrar
@@ -140,15 +151,22 @@ stateDiagram-v2
   repuesta --> [*]
 ```
 
-La vista `v_liquidaciones` añade `total_actual`, `num_movimientos` y **`num_incompletos`**
-(movimientos pendientes → se pintan en rojo en la liquidación).
+Reglas del cierre (`cerrar_liquidacion`):
+- Exige al menos un movimiento completo.
+- Los movimientos pendientes **no** se liquidan: se trasladan a la liquidación abierta siguiente.
+- `revisar_liquidacion` no permite aprobar si hubiera algún movimiento sin documento y pago.
+
+La vista `v_liquidaciones` añade `total_actual`, `total_liquidable` (solo completos),
+`num_movimientos` y **`num_incompletos`**: en la liquidación abierta se pintan en rojo, porque
+no entrarán al cierre y pasarán a la siguiente.
 
 ### `recargas` (entradas)
 | Campo | Nota |
 |---|---|
-| tipo | `apertura` (fondo inicial), `reposicion` (repone una liquidación aprobada), `ajuste` (corrección, puede ser negativo) |
-| liquidacion_id | obligatorio en `reposicion`, único (una recarga por liquidación) |
-| monto, fecha, medio, referencia (N° operación), nota | registro **manual** |
+| tipo | `apertura` (fondo inicial), `reposicion` (repone una liquidación aprobada), `extraordinaria` (recarga sin liquidación), `ajuste` (corrección, puede ser negativo) |
+| liquidacion_id | obligatorio en `reposicion` y solo ahí; único (una recarga por liquidación) |
+| monto | **libre**: hoy suele ser S/ 1,000 o S/ 2,000, pero varía. No hay fondo fijo por caja |
+| fecha, medio, referencia (N° operación), nota | registro **manual** |
 | registrado_por | el aprobador — queda quién y cuándo |
 
 Sin integración bancaria: los bancos no exponen los abonos a cuentas personales sin contrato corporativo.
@@ -163,7 +181,7 @@ auditar y medir precisión. **Nunca crea movimientos por sí sola.**
 | Vista | Para |
 |---|---|
 | `v_saldo_cajas` | HUD: saldo por caja, `bajo_umbral`, n° de pendientes |
-| `v_pendientes` | Módulo Pendientes: `dias_antiguedad` y `nivel_alerta` (`reciente` ≤3d, `atencion` 4–7d, `critico` >7d) |
+| `v_pendientes` | Módulo Pendientes: `dias_antiguedad` (informativo, sin plazo máximo), `falta_documento`, `falta_pago` |
 | `v_liquidaciones` | Módulo Liquidaciones: totales e incompletos |
 
 Todas con `security_invoker`, así respetan el RLS de quien consulta.
@@ -174,21 +192,33 @@ Todas con `security_invoker`, así respetan el RLS de quien consulta.
   `tiene_acceso_caja(caja, rol_minimo)`, `tiene_acceso_empresa(empresa)`.
 - Cada usuario ve solo empresas/cajas asignadas; admin ve todo.
 - `movimientos`: insertar/editar requiere rol ≥ registrador en la caja; no hay `DELETE`.
-- `adjuntos`: se pueden subir aunque la liquidación esté cerrada (para completar pendientes).
+- `adjuntos`: se suben en cualquier momento; no se pueden quitar de un movimiento ya liquidado.
+- `centros_costo`: lectura por empresa asignada; solo admin los administra.
 - `recargas`: solo aprobador de la caja.
 - `liquidaciones`: solo lectura directa; los cambios pasan por las RPC.
 - Storage `comprobantes`: el primer segmento de la ruta (`caja_id`) decide el acceso.
 - El rol de un usuario nunca se puede autoasignar.
 
 Verificado contra PostgreSQL 16 (con *stubs* de `auth`/`storage`): flujo completo
-apertura → gastos → adjunto → cierre → aprobación → recarga, y rechazos de RLS
-(caja ajena, registrador aprobando, auto-promoción a admin).
+apertura → gastos → documento + pago → cierre (pendientes trasladados) → aprobación → recarga;
+y rechazos: caja ajena, registrador aprobando, auto-promoción a admin, centro de costo de otra
+empresa, quitar adjuntos de un movimiento liquidado, cerrar sin movimientos completos.
 
-## Preguntas abiertas (para aprobar)
+## Decisiones tomadas
+
+| Tema | Decisión |
+|---|---|
+| Completo / aprobación | Todo movimiento necesita **documento + constancia de pago** adjuntos |
+| Plazo de pendientes | Sin plazo máximo. No se liquidan; pasan a la siguiente liquidación |
+| Monto de recarga | Libre (hoy S/ 1,000 o S/ 2,000); no hay fondo fijo |
+| Proveedores | Maestro compartido entre SL y SIPE |
+| Centro de costo | Lista fija por empresa (`centros_costo`) |
+
+## Preguntas abiertas
 
 1. **Formato del folio**: la propuesta PDF dice `LIQ-SL-MANT-0001`, el pedido dice `SL-MANT-0001`. Implementado el segundo; es un cambio de una línea.
-2. **¿Se puede aprobar una liquidación con movimientos pendientes?** Hoy se permite (se marcan en rojo). Alternativa: bloquear la aprobación.
-3. **Días de alerta de pendientes**: 3 y 7 días propuestos.
-4. **Fondo fijo y umbral por caja**: seed con S/ 2,000 y S/ 200 provisionales.
-5. **Proveedores por empresa o compartidos**: propuesto compartido (el mismo RUC sirve a ambas).
-6. **Centro de costo/placa**: texto libre con autocompletado de valores usados. ¿Se necesita un maestro de placas?
+2. **Pagos en efectivo**: ¿qué sirve como constancia de pago cuando no hay Yape ni transferencia (ej. la misma boleta con sello "cancelado", un recibo firmado)?
+3. **Lista de centros de costo** de cada empresa (código y nombre).
+4. **¿Centro de costo obligatorio** en todo movimiento, o solo en algunas categorías?
+5. **Placa**: ¿texto libre (como está) o también lista fija de vehículos?
+6. **Umbral de alerta de saldo** por caja (seed con S/ 200 provisional).

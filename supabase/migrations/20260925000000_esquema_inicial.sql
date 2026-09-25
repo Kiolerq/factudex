@@ -11,12 +11,14 @@ create extension if not exists pg_trgm;   -- búsqueda difusa de proveedores
 -- -----------------------------------------------------------------------------
 create type rol_usuario        as enum ('admin', 'aprobador', 'registrador', 'lector');
 create type tipo_doc_identidad as enum ('RUC', 'DNI', 'CE', 'OTRO');
-create type tipo_comprobante   as enum ('factura', 'boleta', 'rxh', 'otro');
+create type tipo_documento     as enum ('factura', 'boleta', 'rxh', 'planilla_movilidad', 'comprobante_egreso', 'otro');
 create type estado_movimiento  as enum ('pendiente', 'completo');
-create type tipo_adjunto       as enum ('comprobante', 'captura_yape', 'otro');
+-- documento = sustento (factura, boleta, planilla de movilidad, comprobante de egreso…)
+-- pago      = constancia del pago (captura de Yape/Plin, voucher de transferencia…)
+create type tipo_adjunto       as enum ('documento', 'pago', 'otro');
 create type origen_movimiento  as enum ('manual', 'compartido', 'ocr');
 create type estado_liquidacion as enum ('abierta', 'en_revision', 'observada', 'aprobada', 'repuesta');
-create type tipo_recarga       as enum ('apertura', 'reposicion', 'ajuste');
+create type tipo_recarga       as enum ('apertura', 'reposicion', 'extraordinaria', 'ajuste');
 
 -- -----------------------------------------------------------------------------
 -- Utilidad: updated_at automático
@@ -51,7 +53,6 @@ create table cajas (
   empresa_id     uuid not null references empresas(id),
   codigo         text not null check (codigo ~ '^[A-Z0-9]{2,6}$'),         -- 'MANT', 'OPER', 'GEN'
   nombre         text not null,                                            -- 'Mantenimiento'
-  fondo_fijo     numeric(12,2) not null check (fondo_fijo > 0),            -- monto al que se repone (ej. 2000)
   umbral_alerta  numeric(12,2) not null default 200 check (umbral_alerta >= 0),
   responsable_id uuid,                                                     -- FK a perfiles (más abajo)
   activa         boolean not null default true,
@@ -137,6 +138,19 @@ create table categorias (
 create unique index categorias_nombre_uq on categorias (coalesce(empresa_id, '00000000-0000-0000-0000-000000000000'::uuid), lower(nombre));
 
 -- -----------------------------------------------------------------------------
+-- Centros de costo: lista fija por empresa (la administra admin)
+-- -----------------------------------------------------------------------------
+create table centros_costo (
+  id         uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null references empresas(id),
+  codigo     text not null,
+  nombre     text not null,
+  activo     boolean not null default true,
+  orden      int not null default 0,
+  unique (empresa_id, codigo)
+);
+
+-- -----------------------------------------------------------------------------
 -- Liquidaciones (folio numerado por caja: SL-MANT-0001)
 -- -----------------------------------------------------------------------------
 create table liquidaciones (
@@ -147,7 +161,7 @@ create table liquidaciones (
   estado          estado_liquidacion not null default 'abierta',
   fecha_inicio    date not null default (now() at time zone 'America/Lima')::date,
   fecha_cierre    date,
-  total_gastado   numeric(12,2),              -- snapshot al cerrar
+  total_gastado   numeric(12,2),              -- snapshot al cerrar (solo movimientos completos)
   cerrada_por     uuid references perfiles(id),
   cerrada_en      timestamptz,
   aprobada_por    uuid references perfiles(id),
@@ -194,13 +208,14 @@ create table movimientos (
   solicitante     text,                                         -- quién pidió el gasto
   proveedor_id    uuid references proveedores(id),              -- null = "Por definir"
   categoria_id    uuid references categorias(id),               -- null = "Sin categorizar"
-  centro_costo    text,                                         -- centro de costo o placa (ej. T1Y-461)
+  centro_costo_id uuid references centros_costo(id),            -- lista fija de la empresa
+  placa           text,                                         -- opcional (ej. T1Y-461)
   detalle         text not null,
   monto           numeric(12,2) not null check (monto > 0),
-  tipo_documento  tipo_comprobante,                             -- null = aún no se sabe
+  tipo_documento  tipo_documento,                               -- null = aún no se sabe
   serie_numero    text,                                         -- ej. F001-00012345
   pagado_yape     boolean not null default false,               -- independiente del tipo de documento
-  estado          estado_movimiento not null default 'pendiente', -- lo mantiene un trigger sobre adjuntos
+  estado          estado_movimiento not null default 'pendiente', -- trigger: completo = documento + pago adjuntos
   origen          origen_movimiento not null default 'manual',
   anulado         boolean not null default false,
   motivo_anulacion text,
@@ -231,12 +246,28 @@ begin
     returning id into new.liquidacion_id;
   end if;
 
-  new.estado := 'pendiente';  -- se vuelve 'completo' al subir el comprobante
+  new.estado := 'pendiente';  -- se vuelve 'completo' al adjuntar documento + pago
   return new;
 end $$;
 
 create trigger movimientos_asignar_liquidacion before insert on movimientos
   for each row execute function tg_movimiento_liquidacion();
+
+-- El centro de costo debe pertenecer a la misma empresa que la caja.
+create or replace function tg_movimiento_centro_costo() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.centro_costo_id is not null and not exists (
+       select 1 from centros_costo cc join cajas c on c.empresa_id = cc.empresa_id
+        where cc.id = new.centro_costo_id and c.id = new.caja_id and cc.activo)
+  then
+    raise exception 'El centro de costo no pertenece a la empresa de la caja o está inactivo';
+  end if;
+  return new;
+end $$;
+
+create trigger movimientos_centro_costo before insert or update of centro_costo_id, caja_id on movimientos
+  for each row execute function tg_movimiento_centro_costo();
 
 -- Movimientos de una liquidación ya cerrada no se editan (solo se pueden adjuntar documentos).
 create or replace function tg_movimiento_bloqueo() returns trigger
@@ -246,6 +277,10 @@ declare
 begin
   if new.caja_id <> old.caja_id then
     raise exception 'No se puede mover un movimiento a otra caja; anúlalo y regístralo de nuevo';
+  end if;
+  -- cerrar_liquidacion() traslada los pendientes a la siguiente liquidación.
+  if current_setting('factudex.trasladando_pendientes', true) = 'on' then
+    return new;
   end if;
   select estado into v_estado from liquidaciones where id = old.liquidacion_id;
   if v_estado <> 'abierta' and v_estado <> 'observada' and (
@@ -268,7 +303,7 @@ create trigger movimientos_bloqueo before update on movimientos
 create table adjuntos (
   id             uuid primary key default gen_random_uuid(),
   movimiento_id  uuid not null references movimientos(id) on delete cascade,
-  tipo           tipo_adjunto not null default 'comprobante',
+  tipo           tipo_adjunto not null,
   storage_path   text not null unique,
   mime_type      text not null check (mime_type in ('image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf')),
   tamano_bytes   int  not null check (tamano_bytes between 1 and 10485760),  -- máx 10 MB
@@ -277,20 +312,38 @@ create table adjuntos (
 );
 create index adjuntos_movimiento_idx on adjuntos (movimiento_id);
 
--- Estado del movimiento = completo si tiene al menos un adjunto tipo 'comprobante'.
--- Una captura de Yape sola NO completa el movimiento.
+-- Estado del movimiento = completo si tiene AMBOS: un adjunto 'documento' (factura, boleta,
+-- planilla de movilidad, comprobante de egreso…) y un adjunto 'pago' (constancia del pago).
+-- Solo los movimientos completos pueden liquidarse.
 create or replace function tg_recalcular_estado() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare
   v_mov uuid := coalesce(new.movimiento_id, old.movimiento_id);
 begin
   update movimientos m
-     set estado = case when exists (
-           select 1 from adjuntos a where a.movimiento_id = v_mov and a.tipo = 'comprobante'
-         ) then 'completo'::estado_movimiento else 'pendiente'::estado_movimiento end
+     set estado = case
+           when exists (select 1 from adjuntos a where a.movimiento_id = v_mov and a.tipo = 'documento')
+            and exists (select 1 from adjuntos a where a.movimiento_id = v_mov and a.tipo = 'pago')
+           then 'completo'::estado_movimiento
+           else 'pendiente'::estado_movimiento
+         end
    where m.id = v_mov;
   return null;
 end $$;
+
+-- Un movimiento ya liquidado no puede perder sus adjuntos (dejaría de estar sustentado).
+create or replace function tg_adjunto_bloqueo() returns trigger
+language plpgsql as $$
+begin
+  if exists (select 1 from movimientos m join liquidaciones l on l.id = m.liquidacion_id
+              where m.id = old.movimiento_id and l.estado not in ('abierta', 'observada')) then
+    raise exception 'El movimiento ya está en una liquidación cerrada; sus adjuntos no se pueden quitar ni cambiar';
+  end if;
+  return coalesce(new, old);
+end $$;
+
+create trigger adjuntos_bloqueo before update or delete on adjuntos
+  for each row execute function tg_adjunto_bloqueo();
 
 create trigger adjuntos_estado after insert or update or delete on adjuntos
   for each row execute function tg_recalcular_estado();
@@ -301,16 +354,16 @@ create trigger adjuntos_estado after insert or update or delete on adjuntos
 create table recargas (
   id              uuid primary key default gen_random_uuid(),
   caja_id         uuid not null references cajas(id),
-  liquidacion_id  uuid unique references liquidaciones(id),     -- null en apertura / ajuste
+  liquidacion_id  uuid unique references liquidaciones(id),     -- solo en reposición
   tipo            tipo_recarga not null default 'reposicion',
-  monto           numeric(12,2) not null check (monto <> 0),     -- ajuste puede ser negativo
+  monto           numeric(12,2) not null check (monto <> 0),     -- monto libre (hoy S/ 1,000 o 2,000); ajuste puede ser negativo
   fecha           date not null default (now() at time zone 'America/Lima')::date,
   medio           text,                                          -- transferencia BCP, efectivo, Yape…
   referencia      text,                                          -- N° de operación
   nota            text,
   registrado_por  uuid not null references perfiles(id) default auth.uid(),
   created_at      timestamptz not null default now(),
-  check (tipo <> 'reposicion' or liquidacion_id is not null),
+  check ((tipo = 'reposicion') = (liquidacion_id is not null)),
   check (tipo = 'ajuste' or monto > 0)
 );
 create index recargas_caja_idx on recargas (caja_id, fecha desc);
@@ -398,12 +451,14 @@ begin
   if v.estado not in ('abierta', 'observada') then
     raise exception 'La liquidación % está %', v.folio, v.estado;
   end if;
+  if not exists (select 1 from movimientos
+                  where liquidacion_id = v.id and not anulado and estado = 'completo') then
+    raise exception 'La liquidación % no tiene movimientos completos para liquidar', v.folio;
+  end if;
 
   update liquidaciones
      set estado        = 'en_revision',
          fecha_cierre  = coalesce(p_fecha_cierre, (now() at time zone 'America/Lima')::date),
-         total_gastado = (select coalesce(sum(monto), 0) from movimientos
-                           where liquidacion_id = v.id and not anulado),
          cerrada_por   = auth.uid(),
          cerrada_en    = now()
    where id = v.id
@@ -414,6 +469,18 @@ begin
   insert into liquidaciones (caja_id, fecha_inicio)
   select v.caja_id, v.fecha_cierre
    where not exists (select 1 from liquidaciones where caja_id = v.caja_id and estado = 'abierta');
+
+  -- Solo se liquidan movimientos completos: los pendientes pasan a la liquidación abierta.
+  perform set_config('factudex.trasladando_pendientes', 'on', true);
+  update movimientos
+     set liquidacion_id = (select id from liquidaciones where caja_id = v.caja_id and estado = 'abierta')
+   where liquidacion_id = v.id and estado = 'pendiente' and not anulado;
+  perform set_config('factudex.trasladando_pendientes', 'off', true);
+
+  update liquidaciones
+     set total_gastado = (select sum(monto) from movimientos where liquidacion_id = v.id and not anulado)
+   where id = v.id
+   returning * into v;
   return v;
 end $$;
 
@@ -430,6 +497,10 @@ begin
   end if;
   if v.estado <> 'en_revision' then
     raise exception 'La liquidación % no está en revisión', v.folio;
+  end if;
+  if p_aprobar and exists (select 1 from movimientos
+                            where liquidacion_id = v.id and not anulado and estado <> 'completo') then
+    raise exception 'La liquidación % tiene movimientos sin documento y pago adjuntos', v.folio;
   end if;
 
   update liquidaciones
@@ -453,7 +524,6 @@ select c.id as caja_id,
        e.codigo as empresa_codigo,
        c.codigo as caja_codigo,
        c.nombre,
-       c.fondo_fijo,
        c.umbral_alerta,
        coalesce(r.total, 0) - coalesce(m.total, 0) as saldo,
        (coalesce(r.total, 0) - coalesce(m.total, 0)) < c.umbral_alerta as bajo_umbral,
@@ -466,22 +536,22 @@ select c.id as caja_id,
                from movimientos where not anulado group by caja_id) m on m.caja_id = c.id
  where c.activa;
 
--- Pendientes con antigüedad y nivel de alerta (umbrales a confirmar: 3 y 7 días).
+-- Pendientes: sin plazo máximo. Se muestran los días (informativo) y qué adjunto falta.
+-- No entran a la liquidación mientras sigan pendientes; se trasladan a la siguiente.
 create view v_pendientes with (security_invoker = true) as
 select m.*,
        ((now() at time zone 'America/Lima')::date - m.fecha) as dias_antiguedad,
-       case
-         when (now() at time zone 'America/Lima')::date - m.fecha > 7 then 'critico'
-         when (now() at time zone 'America/Lima')::date - m.fecha > 3 then 'atencion'
-         else 'reciente'
-       end as nivel_alerta
+       not exists (select 1 from adjuntos a where a.movimiento_id = m.id and a.tipo = 'documento') as falta_documento,
+       not exists (select 1 from adjuntos a where a.movimiento_id = m.id and a.tipo = 'pago')      as falta_pago
   from movimientos m
  where m.estado = 'pendiente' and not m.anulado;
 
--- Resumen por liquidación: totales e incompletos (para marcar en rojo).
+-- Resumen por liquidación. En la abierta, los incompletos se marcan en rojo:
+-- no se liquidarán y pasarán a la siguiente al cerrar.
 create view v_liquidaciones with (security_invoker = true) as
 select l.*,
        coalesce(sum(m.monto) filter (where not m.anulado), 0)                          as total_actual,
+       coalesce(sum(m.monto) filter (where not m.anulado and m.estado = 'completo'), 0) as total_liquidable,
        count(m.id) filter (where not m.anulado)                                        as num_movimientos,
        count(m.id) filter (where not m.anulado and m.estado = 'pendiente')             as num_incompletos
   from liquidaciones l
@@ -497,6 +567,7 @@ alter table perfiles         enable row level security;
 alter table accesos_caja     enable row level security;
 alter table proveedores      enable row level security;
 alter table categorias       enable row level security;
+alter table centros_costo    enable row level security;
 alter table liquidaciones    enable row level security;
 alter table movimientos      enable row level security;
 alter table adjuntos         enable row level security;
@@ -527,6 +598,9 @@ create policy categorias_select on categorias for select to authenticated
   using (empresa_id is null or tiene_acceso_empresa(empresa_id));
 create policy categorias_admin on categorias for all to authenticated using (es_admin()) with check (es_admin());
 
+create policy centros_costo_select on centros_costo for select to authenticated using (tiene_acceso_empresa(empresa_id));
+create policy centros_costo_admin  on centros_costo for all    to authenticated using (es_admin()) with check (es_admin());
+
 -- Liquidaciones: lectura por acceso a caja. Cambios de estado solo vía RPC (security definer).
 create policy liquidaciones_select on liquidaciones for select to authenticated using (tiene_acceso_caja(caja_id));
 
@@ -538,7 +612,7 @@ create policy movimientos_update on movimientos for update to authenticated
   using (tiene_acceso_caja(caja_id, 'registrador'))
   with check (tiene_acceso_caja(caja_id, 'registrador'));
 
--- Adjuntos: se pueden subir incluso con la liquidación cerrada (para completar pendientes).
+-- Adjuntos: se pueden subir en cualquier momento (los pendientes siempre están en una liquidación abierta).
 create policy adjuntos_select on adjuntos for select to authenticated
   using (exists (select 1 from movimientos m where m.id = movimiento_id and tiene_acceso_caja(m.caja_id)));
 create policy adjuntos_insert on adjuntos for insert to authenticated

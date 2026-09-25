@@ -8,7 +8,9 @@ export const ExtraccionComprobante = z.object({
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(), // ISO YYYY-MM-DD
   proveedor_razon_social: z.string().nullable(),
   proveedor_num_doc: z.string().regex(/^(\d{8}|\d{11})$/).nullable(), // DNI (8) o RUC (11)
-  tipo_documento: z.enum(["factura", "boleta", "rxh", "otro"]).nullable(),
+  tipo_documento: z
+    .enum(["factura", "boleta", "rxh", "planilla_movilidad", "comprobante_egreso", "otro"])
+    .nullable(),
   serie_numero: z.string().nullable(), // ej. F001-00012345
   concepto: z.string().nullable(),
   es_captura_yape: z.boolean(),

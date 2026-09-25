@@ -17,10 +17,10 @@ visible qué falta sustentar.
 
 | Módulo | Qué hace |
 |---|---|
-| Registro | Nuevo gasto: empresa/caja, monto, fecha, proveedor (autocompletado por RUC/DNI o nombre), categoría, centro de costo/placa, tipo de documento, "Se pagó por Yape", foto o archivo. Opción "Aún no tengo el comprobante" → queda **Pendiente**. |
+| Registro | Nuevo gasto: empresa/caja, monto, fecha, proveedor (autocompletado por RUC/DNI o nombre), categoría, centro de costo (lista fija), placa, tipo de documento (factura, boleta, RxH, planilla de movilidad, comprobante de egreso, otro), "Se pagó por Yape". Se adjunta el **documento** y la **constancia de pago**; si falta alguno queda **Pendiente**. |
 | Historial | Todos los movimientos con búsqueda y filtros (Todos / Pendientes / Completos, empresa, caja). |
-| Pendientes | Movimientos sin documento, con alerta por días de antigüedad. |
-| Liquidaciones | Folio por caja (`SL-MANT-0001`), fechas de inicio/cierre, aviso de saldo bajo umbral, incompletos en rojo. |
+| Pendientes | Movimientos a los que les falta el documento o el pago, con los días que llevan (sin plazo máximo). |
+| Liquidaciones | Folio por caja (`SL-MANT-0001`), fechas de inicio/cierre, aviso de saldo bajo umbral. Solo se liquidan movimientos completos; los pendientes pasan a la siguiente liquidación. |
 | Recargas | El aprobador da visto bueno y registra manualmente la recarga que repone la caja. |
 
 Fase 2: lectura automática de comprobantes con un modelo de IA con visión que **pre-llena**
