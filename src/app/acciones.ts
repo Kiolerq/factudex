@@ -13,6 +13,12 @@ import { ErrorDeNegocio, modoDemo, obtenerRepositorio } from "@/lib/datos/reposi
 import type { EstadoMovimiento, NuevoProveedor, Proveedor } from "@/lib/datos/tipos";
 import { COOKIE_CAJA } from "@/lib/seleccion";
 import { createClient } from "@/lib/supabase/server";
+import { asegurarCarpeta, driveConfigurado, iniciarSubida, metadatos } from "@/lib/drive/google";
+import { headers } from "next/headers";
+import type { TipoAdjunto } from "@/lib/datos/tipos";
+import { MIME_PERMITIDOS } from "@/lib/datos/tipos";
+import { TAMANO_MAXIMO } from "@/lib/datos/esquemas";
+import { z } from "zod";
 
 // Toda acción verifica sesión: las Server Actions son invocables por POST directo.
 async function repoAutenticado() {
@@ -65,10 +71,23 @@ export async function registrarMovimiento(entrada: EntradaMovimiento): Promise<R
   if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
   const { sinDocumento: _, ...movimiento } = datos.data;
 
-  // Los archivos solo pueden venir de la carpeta de este movimiento (ver convención de Storage).
-  const prefijo = `${movimiento.cajaId}/${movimiento.id}/`;
-  if (!modoDemo() && movimiento.adjuntos.some((a) => !a.storagePath.startsWith(prefijo))) {
-    return { ok: false, errores: { _: "Ruta de archivo inválida" } };
+  // Los archivos solo pueden ser de este movimiento: en Storage, su carpeta; en Drive, un
+  // archivo creado por la app con las marcas (appProperties) de este movimiento y caja.
+  if (!modoDemo()) {
+    const prefijo = `${movimiento.cajaId}/${movimiento.id}/`;
+    for (const a of movimiento.adjuntos) {
+      if (a.storagePath.startsWith("drive:")) {
+        const meta = await metadatos(a.storagePath.slice(6)).catch(() => null);
+        const p = meta?.appProperties;
+        if (!meta || p?.movimientoId !== movimiento.id || p?.cajaId !== movimiento.cajaId || p?.tipo !== a.tipo) {
+          return { ok: false, errores: { _: "No se pudo verificar el archivo en Google Drive" } };
+        }
+        a.tamanoBytes = Number(meta.size ?? a.tamanoBytes);
+        a.nombreArchivo = meta.name;
+      } else if (!a.storagePath.startsWith(prefijo)) {
+        return { ok: false, errores: { _: "Ruta de archivo inválida" } };
+      }
+    }
   }
 
   const repo = await repoAutenticado();
@@ -79,6 +98,67 @@ export async function registrarMovimiento(entrada: EntradaMovimiento): Promise<R
   } catch (e) {
     if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
     throw e;
+  }
+}
+
+const EsquemaSubidaDrive = z.object({
+  cajaId: z.uuid(),
+  movimientoId: z.uuid(),
+  tipo: z.enum(["documento", "pago", "otro"]),
+  mime: z.enum(MIME_PERMITIDOS),
+  tamano: z.number().int().positive().max(TAMANO_MAXIMO),
+  fecha: z.iso.date(),
+  referencia: z.string().max(120), // proveedor o detalle, para el nombre del archivo
+  monto: z.number().nonnegative().nullable(),
+});
+
+const EXTENSION: Record<string, string> = {
+  "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic", "application/pdf": "pdf",
+};
+
+/**
+ * Prepara la subida de un comprobante a Google Drive: verifica que el usuario pueda registrar
+ * en la caja, crea/ubica la carpeta Factudex/<Empresa>/Caja NN - <Nombre>/<AAAA-MM> y devuelve
+ * la URL a la que el navegador sube el archivo directamente.
+ */
+export async function iniciarSubidaDrive(
+  entrada: z.input<typeof EsquemaSubidaDrive>,
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const d = EsquemaSubidaDrive.safeParse(entrada);
+  if (!d.success || modoDemo() || !driveConfigurado()) return { ok: false, error: "Subida a Drive no disponible" };
+  const repo = await repoAutenticado();
+  const sb = await createClient();
+  const { data: puede } = await sb.rpc("tiene_acceso_caja", { p_caja: d.data.cajaId, p_min: "registrador" });
+  if (!puede) return { ok: false, error: "Sin permiso para registrar en esta caja" };
+
+  const [cajas, empresas] = await Promise.all([repo.listarCajas(), repo.listarEmpresas()]);
+  const caja = cajas.find((c) => c.id === d.data.cajaId);
+  const empresa = empresas.find((e) => e.id === caja?.empresaId);
+  if (!caja || !empresa) return { ok: false, error: "Caja no encontrada" };
+
+  const tipo: TipoAdjunto = d.data.tipo;
+  const monto = d.data.monto !== null ? `S-${d.data.monto.toFixed(2)}` : "";
+  const nombre = [d.data.fecha, d.data.referencia, monto, tipo].filter(Boolean).join("_") + `.${EXTENSION[d.data.mime]}`;
+  try {
+    const carpetaId = await asegurarCarpeta([
+      empresa.nombreCorto,
+      `Caja ${String(caja.numero).padStart(2, "0")} - ${caja.nombre}`,
+      d.data.fecha.slice(0, 7),
+    ]);
+    const h = await headers();
+    const origen = h.get("origin") ?? `https://${h.get("host")}`;
+    const url = await iniciarSubida({
+      nombre,
+      mime: d.data.mime,
+      tamano: d.data.tamano,
+      carpetaId,
+      origen,
+      propiedades: { movimientoId: d.data.movimientoId, cajaId: d.data.cajaId, tipo },
+    });
+    return { ok: true, url };
+  } catch (e) {
+    console.error("Subida a Drive:", e);
+    return { ok: false, error: "No se pudo preparar la subida a Google Drive" };
   }
 }
 

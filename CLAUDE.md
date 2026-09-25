@@ -44,7 +44,8 @@ La referencia visual aprobada son los HTML de `diseno/`. Copia de ahí espaciado
 - Datos: `src/lib/datos/repositorio.ts` define la interfaz; `supabase.ts` es la real y `demo.ts` la de ejemplo (se usa sola si faltan las variables de Supabase). Toda pantalla nueva agrega sus métodos a **ambas**.
 - Server Actions en `src/app/acciones.ts`: validan con zod (`src/lib/datos/esquemas.ts`) y verifican sesión siempre.
 - Caja activa del HUD: cookie `fx_caja` (`src/lib/seleccion.ts`), solo preferencia de UI.
-- Adjuntos: el navegador comprime la foto (`src/lib/imagen.ts`) y la sube directo a Storage (`src/lib/subida.ts`); la acción solo registra la ruta. No mandar archivos por Server Actions (límite de ~4.5 MB en Vercel).
+- Adjuntos: el navegador comprime la foto (`src/lib/imagen.ts`) y la sube directo a su destino (`src/lib/subida.ts`): **Google Drive** si está conectado (`docs/google-drive.md`, `adjuntos.almacen = 'drive'`, `storage_path = 'drive:<fileId>'`) o Supabase Storage como respaldo. La acción solo registra la ruta (y verifica las marcas del archivo en Drive). No mandar archivos por Server Actions (límite de ~4.5 MB en Vercel). Para mostrar un adjunto usar `/api/archivos/<id>`.
+- `SUPABASE_SERVICE_ROLE_KEY` solo en el servidor (`src/lib/supabase/admin.ts`, `import "server-only"`) y solo para tablas internas sin políticas (`integraciones`, `drive_carpetas`).
 - Exportación de liquidación a Excel: `src/lib/exportar/liquidacionExcel.ts` replica el formato de contabilidad (`pruebaliquidacion.xlsx`): mismas columnas y celdas, totales como fórmulas con su valor ya calculado. No cambiar columnas sin que lo pida contabilidad.
 - Tokens de marca extra: `fx-primary-light` (texto sobre fondo suave), `fx-primary-dark` (degradado), `fx-primary-line` (bordes).
 

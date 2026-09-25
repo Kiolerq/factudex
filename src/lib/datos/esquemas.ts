@@ -16,6 +16,7 @@ export const EsquemaAdjunto = z.object({
   storagePath: z.string().min(1).max(300),
   mimeType: z.enum(MIME_PERMITIDOS),
   tamanoBytes: z.number().int().positive().max(TAMANO_MAXIMO),
+  nombreArchivo: z.string().max(200).nullish(),
 });
 
 export const EsquemaNuevoMovimiento = z

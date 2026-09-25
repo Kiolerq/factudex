@@ -154,6 +154,8 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
             storage_path: a.storagePath,
             mime_type: a.mimeType,
             tamano_bytes: a.tamanoBytes,
+            almacen: a.storagePath.startsWith("drive:") ? "drive" : "supabase",
+            nombre_archivo: a.nombreArchivo ?? null,
           })),
         );
         fallo(errAdj, "Registrar adjuntos");
