@@ -7,7 +7,12 @@ import { FormularioContrasena } from "./FormularioContrasena";
 export const metadata = { title: "Mi cuenta · Factudex" };
 
 const AVISOS: Record<string, { texto: string; ok: boolean }> = {
-  ok: { texto: "Google Drive conectado. Las fotos nuevas se guardarán en la carpeta Factudex.", ok: true },
+  ok: { texto: "Google Drive conectado. Las fotos nuevas se guardarán en la carpeta elegida.", ok: true },
+  "carpeta-invalida": { texto: "El enlace de la carpeta no es válido. Copia el enlace desde la barra del navegador.", ok: false },
+  "carpeta-sin-acceso": {
+    texto: "Esa cuenta de Google no puede escribir en la carpeta. Conéctate con la cuenta dueña de la carpeta (o con permiso de editor).",
+    ok: false,
+  },
   cancelado: { texto: "Cancelaste la autorización en Google.", ok: false },
   "sin-refresh": { texto: "Google no entregó el permiso permanente. Vuelve a intentarlo.", ok: false },
   "sin-permiso": { texto: "Solo el administrador puede conectar Google Drive.", ok: false },
@@ -44,29 +49,52 @@ export default async function PaginaCuenta({ searchParams }: PageProps<"/cuenta"
               <p className="text-sm text-white/55">
                 Falta configurar en Vercel: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET y SUPABASE_SERVICE_ROLE_KEY.
               </p>
-            ) : drive.conectado ? (
-              <>
-                <p className="text-sm text-white/70">
-                  <span className="text-fx-completo">● Conectado</span>
-                  {drive.cuenta && <> a {drive.cuenta}</>}. Las fotos se guardan en la carpeta{" "}
-                  <span className="font-semibold">Factudex</span>, ordenadas por empresa, caja y mes.
-                </p>
-                <a href="/api/google/conectar" className="text-[12.5px] text-white/45 underline hover:text-white/70">
-                  Reconectar u otra cuenta
-                </a>
-              </>
             ) : (
               <>
-                <p className="text-sm text-white/55">
-                  Conecta tu cuenta de Google para guardar las fotos de los comprobantes en tu Drive. La app
-                  solo verá los archivos que ella misma cree.
-                </p>
-                <a
-                  href="/api/google/conectar"
-                  className="fx-btn self-start rounded-[10px] bg-fx-primary px-5 py-2.5 text-[13px] font-semibold text-white"
-                >
-                  Conectar Google Drive
-                </a>
+                {drive.conectado ? (
+                  <p className="text-sm text-white/70">
+                    <span className="text-fx-completo">● Conectado</span>
+                    {drive.cuenta && <> a {drive.cuenta}</>}. Las fotos se guardan en{" "}
+                    {drive.carpetaId ? (
+                      <a
+                        href={`https://drive.google.com/drive/folders/${drive.carpetaId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-fx-primary-light underline"
+                      >
+                        esta carpeta
+                      </a>
+                    ) : (
+                      "la carpeta elegida"
+                    )}
+                    , ordenadas por empresa, caja y mes.
+                  </p>
+                ) : (
+                  <p className="text-sm text-white/55">
+                    Pega el enlace de la carpeta de Drive donde irán todos los comprobantes y conecta tu cuenta de
+                    Google (la dueña de esa carpeta).
+                  </p>
+                )}
+                {/* GET normal (no Server Action): Google redirige fuera de la app. */}
+                <form action="/api/google/conectar" method="get" className="flex flex-col gap-2.5">
+                  <label htmlFor="carpeta" className="fx-label">
+                    Carpeta de Drive (enlace)
+                  </label>
+                  <input
+                    id="carpeta"
+                    name="carpeta"
+                    className="fx-input"
+                    placeholder="https://drive.google.com/drive/folders/…"
+                    defaultValue={drive.carpetaId ? `https://drive.google.com/drive/folders/${drive.carpetaId}` : ""}
+                    required
+                  />
+                  <button
+                    type="submit"
+                    className="fx-btn self-start rounded-[10px] bg-fx-primary px-5 py-2.5 text-[13px] font-semibold text-white"
+                  >
+                    {drive.conectado ? "Reconectar / cambiar carpeta" : "Conectar Google Drive"}
+                  </button>
+                </form>
               </>
             )}
           </section>
