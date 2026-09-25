@@ -9,7 +9,7 @@
 ```mermaid
 erDiagram
   empresas ||--o{ cajas : tiene
-  cajas ||--o{ liquidaciones : "folios SL-MANT-0001…"
+  cajas ||--o{ liquidaciones : "folios SLLQ01-MT-0001…"
   cajas ||--o{ movimientos : registra
   cajas ||--o{ recargas : recibe
   cajas ||--o{ accesos_caja : "quién opera"
@@ -20,6 +20,8 @@ erDiagram
   categorias ||--o{ movimientos : ""
   empresas ||--o{ centros_costo : "lista fija"
   centros_costo ||--o{ movimientos : ""
+  empresas ||--o{ vehiculos : "placas"
+  vehiculos ||--o{ movimientos : ""
   movimientos ||--o{ adjuntos : "documento + pago"
   adjuntos ||--o{ extracciones_ocr : "fase 2"
 ```
@@ -29,9 +31,10 @@ erDiagram
 1. **El saldo no se guarda, se calcula.** `saldo = Σ recargas − Σ movimientos no anulados`
    (vista `v_saldo_cajas`). Así un gasto descuenta al instante y no hay saldos desincronizados.
 2. **El estado Pendiente/Completo es un campo del movimiento**, mantenido por un trigger:
-   pasa a `completo` solo cuando tiene **los dos** adjuntos: el **documento** (factura, boleta,
-   recibo por honorarios, planilla de movilidad, comprobante de egreso…) **y** la **constancia
-   del pago** (captura de Yape, voucher de transferencia…). Con uno solo sigue pendiente.
+   pasa a `completo` cuando tiene el **documento** (factura, boleta, recibo por honorarios,
+   planilla de movilidad, comprobante de egreso…) **y** la **constancia del pago** (captura de
+   Yape, voucher de transferencia…). **Excepción: pago en efectivo** — basta el documento
+   (boleta física, comprobante de egreso…), porque no existe constancia digital.
 3. **Solo se liquidan movimientos completos.** Un pendiente no tiene plazo máximo: al cerrar la
    liquidación se traslada automáticamente a la siguiente, y así hasta que se complete.
 4. **Nada se borra.** Los movimientos se *anulan* con motivo; las liquidaciones cerradas
@@ -46,7 +49,8 @@ erDiagram
 | Campo | Tipo | Nota |
 |---|---|---|
 | id | uuid PK | |
-| codigo | text único | `SL`, `SIPE` — se usa en el folio |
+| codigo | text único | `SL`, `SIPE` — identifica la empresa en la app (tema de color) |
+| sigla | char(2) único | `SL`, `SP` — va en el folio |
 | nombre_corto / razon_social | text | "San Lorenzo" / "Compañía San Lorenzo S.A.C." |
 | ruc | char(11) | opcional |
 | color_primario / color_acento | text `#RRGGBB` | tema dinámico del HUD |
@@ -57,7 +61,8 @@ erDiagram
 |---|---|---|
 | id | uuid PK | |
 | empresa_id | FK empresas | |
-| codigo | text | `MANT`, `OPER`, `GEN` — único por empresa, va en el folio |
+| numero | smallint | N° de caja dentro de la empresa (1, 2…), único por empresa — va en el folio como `01` |
+| area | text | sigla del área: `MT` Mantenimiento, `OP` Operaciones, `GE` General… — va en el folio |
 | nombre | text | "Mantenimiento" |
 | umbral_alerta | numeric | aviso cuando el saldo baja de aquí (ej. S/ 200) |
 | responsable_id | FK perfiles | quien la liquida normalmente |
@@ -93,8 +98,13 @@ ferretería, Llantas, Alimentación, Movilidad, Útiles de oficina, Servicios, O
 
 ### `centros_costo` (lista fija por empresa)
 `empresa_id`, `codigo` (único por empresa), `nombre`, `activo`, `orden`. Solo admin la
-mantiene; en el registro se elige de un desplegable. Un trigger impide usar un centro de costo
-de otra empresa o inactivo. **Falta cargar la lista real.**
+mantiene; en el registro se elige de un desplegable con **"General" preseleccionado** (no es
+obligatorio). Un trigger impide usar un centro de costo de otra empresa o inactivo.
+El seed trae una lista **de ejemplo**; falta cargar la real.
+
+### `vehiculos` (lista fija de placas por empresa)
+`empresa_id`, `placa` (única), `descripcion`, `activo`. Mismo esquema que centros de costo:
+desplegable opcional, validado contra la empresa de la caja. El seed trae placas **de ejemplo**.
 
 ### `movimientos` (gastos)
 | Campo | Tipo | Nota |
@@ -106,13 +116,13 @@ de otra empresa o inactivo. **Falta cargar la lista real.**
 | proveedor_id | FK, nullable | null = "Por definir" |
 | categoria_id | FK, nullable | null = "Sin categorizar" |
 | centro_costo_id | FK centros_costo, nullable | lista fija de la empresa de la caja |
-| placa | text | opcional (ej. `T1Y-461`) |
+| vehiculo_id | FK vehiculos, nullable | placa, de la lista fija de la empresa |
 | detalle | text | "Peaje pesado 3 ejes" |
 | monto | numeric > 0 | |
 | tipo_documento | enum `factura` \| `boleta` \| `rxh` \| `planilla_movilidad` \| `comprobante_egreso` \| `otro`, nullable | null = aún no se sabe |
 | serie_numero | text | ej. `F001-00012345` |
-| pagado_yape | bool | **independiente** del tipo de documento |
-| estado | enum `pendiente` \| `completo` | trigger: completo = adjunto `documento` + adjunto `pago` |
+| medio_pago | enum `efectivo` \| `yape` \| `transferencia` \| `otro`, nullable | **independiente** del tipo de documento. En `efectivo` no se exige constancia de pago |
+| estado | enum `pendiente` \| `completo` | trigger (`fx_estado_movimiento`): documento + pago, o documento solo si es efectivo |
 | origen | enum `manual` \| `compartido` \| `ocr` | de dónde vino (métrica de adopción) |
 | anulado / motivo_anulacion | | en vez de borrar |
 | creado_por, created_at, updated_at | | auditoría |
@@ -123,7 +133,7 @@ Archivos en Supabase Storage, bucket privado `comprobantes`, ruta
 
 | Campo | Nota |
 |---|---|
-| tipo | `documento` (factura, boleta, planilla…) \| `pago` (captura Yape, voucher…) \| `otro`. Hacen falta `documento` **y** `pago` para completar |
+| tipo | `documento` (factura, boleta, planilla…) \| `pago` (captura Yape, voucher…) \| `otro`. Hacen falta `documento` **y** `pago` para completar (en efectivo, solo `documento`) |
 | storage_path, mime_type, tamano_bytes | JPG/PNG/WEBP/HEIC/PDF, máx. 10 MB |
 
 Un movimiento puede tener varios adjuntos (ej. captura de Yape hoy + factura la próxima semana).
@@ -132,7 +142,7 @@ Cuando el movimiento ya está en una liquidación cerrada, sus adjuntos no se pu
 ### `liquidaciones`
 | Campo | Nota |
 |---|---|
-| correlativo, folio | automáticos por caja: `SL-MANT-0001`, `SL-MANT-0002`… |
+| correlativo, folio | automáticos por caja, formato `NNLQXX-AREA-0001`: sigla de empresa + `LQ` + n° de caja (2 dígitos) + área + correlativo. Ej. `SLLQ01-MT-0001`, `SLLQ02-OP-0001`, `SPLQ01-GE-0001` |
 | estado | ver ciclo abajo |
 | fecha_inicio, fecha_cierre | |
 | total_gastado | snapshot al cerrar = suma de los movimientos **completos** liquidados |
@@ -193,7 +203,7 @@ Todas con `security_invoker`, así respetan el RLS de quien consulta.
 - Cada usuario ve solo empresas/cajas asignadas; admin ve todo.
 - `movimientos`: insertar/editar requiere rol ≥ registrador en la caja; no hay `DELETE`.
 - `adjuntos`: se suben en cualquier momento; no se pueden quitar de un movimiento ya liquidado.
-- `centros_costo`: lectura por empresa asignada; solo admin los administra.
+- `centros_costo` y `vehiculos`: lectura por empresa asignada; solo admin los administra.
 - `recargas`: solo aprobador de la caja.
 - `liquidaciones`: solo lectura directa; los cambios pasan por las RPC.
 - Storage `comprobantes`: el primer segmento de la ruta (`caja_id`) decide el acceso.
@@ -208,17 +218,17 @@ empresa, quitar adjuntos de un movimiento liquidado, cerrar sin movimientos comp
 
 | Tema | Decisión |
 |---|---|
-| Completo / aprobación | Todo movimiento necesita **documento + constancia de pago** adjuntos |
+| Folio | `NNLQXX-AREA-0001` → `SLLQ01-MT-0001`, `SPLQ01-GE-0001` |
+| Completo / aprobación | Documento + constancia de pago. En **efectivo**, basta el documento (boleta física, comprobante de egreso) |
 | Plazo de pendientes | Sin plazo máximo. No se liquidan; pasan a la siguiente liquidación |
 | Monto de recarga | Libre (hoy S/ 1,000 o S/ 2,000); no hay fondo fijo |
+| Umbral de alerta | S/ 200 por caja (editable por caja) |
 | Proveedores | Maestro compartido entre SL y SIPE |
-| Centro de costo | Lista fija por empresa (`centros_costo`) |
+| Centro de costo | Lista fija por empresa, opcional, "General" por defecto |
+| Placa | Lista fija de vehículos por empresa, opcional |
 
-## Preguntas abiertas
+## Pendiente de recibir
 
-1. **Formato del folio**: la propuesta PDF dice `LIQ-SL-MANT-0001`, el pedido dice `SL-MANT-0001`. Implementado el segundo; es un cambio de una línea.
-2. **Pagos en efectivo**: ¿qué sirve como constancia de pago cuando no hay Yape ni transferencia (ej. la misma boleta con sello "cancelado", un recibo firmado)?
-3. **Lista de centros de costo** de cada empresa (código y nombre).
-4. **¿Centro de costo obligatorio** en todo movimiento, o solo en algunas categorías?
-5. **Placa**: ¿texto libre (como está) o también lista fija de vehículos?
-6. **Umbral de alerta de saldo** por caja (seed con S/ 200 provisional).
+1. Lista real de centros de costo por empresa (hoy hay ejemplos).
+2. Lista real de placas por empresa (hoy hay ejemplos).
+3. Cajas reales: número y área de cada una (hoy: SL 01 MT, SL 02 OP, SIPE 01 GE).

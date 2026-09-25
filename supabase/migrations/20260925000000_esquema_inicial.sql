@@ -13,6 +13,7 @@ create type rol_usuario        as enum ('admin', 'aprobador', 'registrador', 'le
 create type tipo_doc_identidad as enum ('RUC', 'DNI', 'CE', 'OTRO');
 create type tipo_documento     as enum ('factura', 'boleta', 'rxh', 'planilla_movilidad', 'comprobante_egreso', 'otro');
 create type estado_movimiento  as enum ('pendiente', 'completo');
+create type medio_pago         as enum ('efectivo', 'yape', 'transferencia', 'otro');
 -- documento = sustento (factura, boleta, planilla de movilidad, comprobante de egreso…)
 -- pago      = constancia del pago (captura de Yape/Plin, voucher de transferencia…)
 create type tipo_adjunto       as enum ('documento', 'pago', 'otro');
@@ -35,7 +36,8 @@ end $$;
 -- -----------------------------------------------------------------------------
 create table empresas (
   id             uuid primary key default gen_random_uuid(),
-  codigo         text not null unique check (codigo ~ '^[A-Z0-9]{2,6}$'),  -- 'SL', 'SIPE'
+  codigo         text not null unique check (codigo ~ '^[A-Z0-9]{2,6}$'),  -- 'SL', 'SIPE' (tema de la app)
+  sigla          char(2) not null unique check (sigla ~ '^[A-Z]{2}$'),     -- 'SL', 'SP' (va en el folio)
   nombre_corto   text not null,                                            -- 'San Lorenzo'
   razon_social   text not null,                                            -- 'Compañía San Lorenzo S.A.C.'
   ruc            char(11) unique check (ruc ~ '^\d{11}$'),
@@ -51,13 +53,14 @@ create table empresas (
 create table cajas (
   id             uuid primary key default gen_random_uuid(),
   empresa_id     uuid not null references empresas(id),
-  codigo         text not null check (codigo ~ '^[A-Z0-9]{2,6}$'),         -- 'MANT', 'OPER', 'GEN'
+  numero         smallint not null check (numero between 1 and 99),        -- N° de caja en la empresa (01, 02…)
+  area           text not null check (area ~ '^[A-Z]{2,4}$'),               -- 'MT' Mantenimiento, 'OP' Operaciones…
   nombre         text not null,                                            -- 'Mantenimiento'
   umbral_alerta  numeric(12,2) not null default 200 check (umbral_alerta >= 0),
   responsable_id uuid,                                                     -- FK a perfiles (más abajo)
   activa         boolean not null default true,
   created_at     timestamptz not null default now(),
-  unique (empresa_id, codigo)
+  unique (empresa_id, numero)
 );
 
 -- -----------------------------------------------------------------------------
@@ -151,7 +154,18 @@ create table centros_costo (
 );
 
 -- -----------------------------------------------------------------------------
--- Liquidaciones (folio numerado por caja: SL-MANT-0001)
+-- Vehículos: lista fija de placas por empresa (la administra admin)
+-- -----------------------------------------------------------------------------
+create table vehiculos (
+  id          uuid primary key default gen_random_uuid(),
+  empresa_id  uuid not null references empresas(id),
+  placa       text not null unique check (placa ~ '^[A-Z0-9-]{5,8}$'),  -- ej. T1Y-461 (mayúsculas)
+  descripcion text,                                                          -- ej. 'Tracto Volvo FH'
+  activo      boolean not null default true
+);
+
+-- -----------------------------------------------------------------------------
+-- Liquidaciones (folio por caja: NNLQXX-AREA-0001, ej. SLLQ01-MT-0001)
 -- -----------------------------------------------------------------------------
 create table liquidaciones (
   id              uuid primary key default gen_random_uuid(),
@@ -176,13 +190,13 @@ create table liquidaciones (
 -- Solo una liquidación abierta por caja a la vez.
 create unique index liquidaciones_una_abierta_uq on liquidaciones (caja_id) where estado = 'abierta';
 
--- Asigna correlativo y folio: <EMPRESA>-<CAJA>-0001
+-- Asigna correlativo y folio: <sigla empresa>LQ<n° caja>-<área>-<correlativo>, ej. SLLQ01-MT-0001
 create or replace function tg_liquidacion_folio() returns trigger
 language plpgsql as $$
 declare
   v_prefijo text;
 begin
-  select e.codigo || '-' || c.codigo into v_prefijo
+  select e.sigla || 'LQ' || lpad(c.numero::text, 2, '0') || '-' || c.area into v_prefijo
     from cajas c join empresas e on e.id = c.empresa_id
    where c.id = new.caja_id;
 
@@ -209,13 +223,13 @@ create table movimientos (
   proveedor_id    uuid references proveedores(id),              -- null = "Por definir"
   categoria_id    uuid references categorias(id),               -- null = "Sin categorizar"
   centro_costo_id uuid references centros_costo(id),            -- lista fija de la empresa
-  placa           text,                                         -- opcional (ej. T1Y-461)
+  vehiculo_id     uuid references vehiculos(id),                -- placa, de la lista fija (opcional)
   detalle         text not null,
   monto           numeric(12,2) not null check (monto > 0),
   tipo_documento  tipo_documento,                               -- null = aún no se sabe
   serie_numero    text,                                         -- ej. F001-00012345
-  pagado_yape     boolean not null default false,               -- independiente del tipo de documento
-  estado          estado_movimiento not null default 'pendiente', -- trigger: completo = documento + pago adjuntos
+  medio_pago      medio_pago,                                   -- independiente del tipo de documento; null = sin indicar
+  estado          estado_movimiento not null default 'pendiente', -- ver fx_estado_movimiento()
   origen          origen_movimiento not null default 'manual',
   anulado         boolean not null default false,
   motivo_anulacion text,
@@ -253,8 +267,8 @@ end $$;
 create trigger movimientos_asignar_liquidacion before insert on movimientos
   for each row execute function tg_movimiento_liquidacion();
 
--- El centro de costo debe pertenecer a la misma empresa que la caja.
-create or replace function tg_movimiento_centro_costo() returns trigger
+-- Centro de costo y vehículo deben pertenecer a la misma empresa que la caja y estar activos.
+create or replace function tg_movimiento_listas() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
   if new.centro_costo_id is not null and not exists (
@@ -263,11 +277,17 @@ begin
   then
     raise exception 'El centro de costo no pertenece a la empresa de la caja o está inactivo';
   end if;
+  if new.vehiculo_id is not null and not exists (
+       select 1 from vehiculos v join cajas c on c.empresa_id = v.empresa_id
+        where v.id = new.vehiculo_id and c.id = new.caja_id and v.activo)
+  then
+    raise exception 'La placa no pertenece a la empresa de la caja o está inactiva';
+  end if;
   return new;
 end $$;
 
-create trigger movimientos_centro_costo before insert or update of centro_costo_id, caja_id on movimientos
-  for each row execute function tg_movimiento_centro_costo();
+create trigger movimientos_listas before insert or update of centro_costo_id, vehiculo_id, caja_id on movimientos
+  for each row execute function tg_movimiento_listas();
 
 -- Movimientos de una liquidación ya cerrada no se editan (solo se pueden adjuntar documentos).
 create or replace function tg_movimiento_bloqueo() returns trigger
@@ -284,9 +304,9 @@ begin
   end if;
   select estado into v_estado from liquidaciones where id = old.liquidacion_id;
   if v_estado <> 'abierta' and v_estado <> 'observada' and (
-       new.monto, new.fecha, new.liquidacion_id, new.detalle, new.anulado)
+       new.monto, new.fecha, new.liquidacion_id, new.detalle, new.anulado, new.medio_pago)
        is distinct from
-      (old.monto, old.fecha, old.liquidacion_id, old.detalle, old.anulado)
+      (old.monto, old.fecha, old.liquidacion_id, old.detalle, old.anulado, old.medio_pago)
   then
     raise exception 'La liquidación está % y el movimiento ya no puede modificarse', v_estado;
   end if;
@@ -312,22 +332,27 @@ create table adjuntos (
 );
 create index adjuntos_movimiento_idx on adjuntos (movimiento_id);
 
--- Estado del movimiento = completo si tiene AMBOS: un adjunto 'documento' (factura, boleta,
--- planilla de movilidad, comprobante de egreso…) y un adjunto 'pago' (constancia del pago).
+-- Estado del movimiento. Completo cuando tiene:
+--   · un adjunto 'documento' (factura, boleta, planilla de movilidad, comprobante de egreso…), Y
+--   · un adjunto 'pago' (constancia del pago) — salvo que se pagó en EFECTIVO, donde basta el documento.
 -- Solo los movimientos completos pueden liquidarse.
+create or replace function fx_estado_movimiento(p_mov uuid, p_medio medio_pago) returns estado_movimiento
+language sql stable security definer set search_path = public as $$
+  select case
+           when exists (select 1 from adjuntos a where a.movimiento_id = p_mov and a.tipo = 'documento')
+            and (p_medio = 'efectivo'
+                 or exists (select 1 from adjuntos a where a.movimiento_id = p_mov and a.tipo = 'pago'))
+           then 'completo'::estado_movimiento
+           else 'pendiente'::estado_movimiento
+         end;
+$$;
+
 create or replace function tg_recalcular_estado() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare
   v_mov uuid := coalesce(new.movimiento_id, old.movimiento_id);
 begin
-  update movimientos m
-     set estado = case
-           when exists (select 1 from adjuntos a where a.movimiento_id = v_mov and a.tipo = 'documento')
-            and exists (select 1 from adjuntos a where a.movimiento_id = v_mov and a.tipo = 'pago')
-           then 'completo'::estado_movimiento
-           else 'pendiente'::estado_movimiento
-         end
-   where m.id = v_mov;
+  update movimientos m set estado = fx_estado_movimiento(m.id, m.medio_pago) where m.id = v_mov;
   return null;
 end $$;
 
@@ -347,6 +372,17 @@ create trigger adjuntos_bloqueo before update or delete on adjuntos
 
 create trigger adjuntos_estado after insert or update or delete on adjuntos
   for each row execute function tg_recalcular_estado();
+
+-- Cambiar el medio de pago (ej. a efectivo) también recalcula el estado.
+create or replace function tg_movimiento_medio_pago() returns trigger
+language plpgsql as $$
+begin
+  new.estado := fx_estado_movimiento(new.id, new.medio_pago);
+  return new;
+end $$;
+
+create trigger movimientos_medio_pago before update of medio_pago on movimientos
+  for each row execute function tg_movimiento_medio_pago();
 
 -- -----------------------------------------------------------------------------
 -- Recargas / entradas (registro MANUAL, sin integración bancaria)
@@ -522,7 +558,8 @@ create view v_saldo_cajas with (security_invoker = true) as
 select c.id as caja_id,
        c.empresa_id,
        e.codigo as empresa_codigo,
-       c.codigo as caja_codigo,
+       c.numero as caja_numero,
+       c.area   as caja_area,
        c.nombre,
        c.umbral_alerta,
        coalesce(r.total, 0) - coalesce(m.total, 0) as saldo,
@@ -542,7 +579,8 @@ create view v_pendientes with (security_invoker = true) as
 select m.*,
        ((now() at time zone 'America/Lima')::date - m.fecha) as dias_antiguedad,
        not exists (select 1 from adjuntos a where a.movimiento_id = m.id and a.tipo = 'documento') as falta_documento,
-       not exists (select 1 from adjuntos a where a.movimiento_id = m.id and a.tipo = 'pago')      as falta_pago
+       (m.medio_pago is distinct from 'efectivo'
+        and not exists (select 1 from adjuntos a where a.movimiento_id = m.id and a.tipo = 'pago')) as falta_pago
   from movimientos m
  where m.estado = 'pendiente' and not m.anulado;
 
@@ -568,6 +606,7 @@ alter table accesos_caja     enable row level security;
 alter table proveedores      enable row level security;
 alter table categorias       enable row level security;
 alter table centros_costo    enable row level security;
+alter table vehiculos        enable row level security;
 alter table liquidaciones    enable row level security;
 alter table movimientos      enable row level security;
 alter table adjuntos         enable row level security;
@@ -600,6 +639,9 @@ create policy categorias_admin on categorias for all to authenticated using (es_
 
 create policy centros_costo_select on centros_costo for select to authenticated using (tiene_acceso_empresa(empresa_id));
 create policy centros_costo_admin  on centros_costo for all    to authenticated using (es_admin()) with check (es_admin());
+
+create policy vehiculos_select on vehiculos for select to authenticated using (tiene_acceso_empresa(empresa_id));
+create policy vehiculos_admin  on vehiculos for all    to authenticated using (es_admin()) with check (es_admin());
 
 -- Liquidaciones: lectura por acceso a caja. Cambios de estado solo vía RPC (security definer).
 create policy liquidaciones_select on liquidaciones for select to authenticated using (tiene_acceso_caja(caja_id));

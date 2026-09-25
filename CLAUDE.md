@@ -27,11 +27,12 @@ La referencia visual aprobada son los HTML de `diseno/`. Copia de ahí espaciado
 
 ## Reglas de negocio
 - El saldo **se calcula** (`v_saldo_cajas`), nunca se guarda ni se calcula en el cliente.
-- Pendiente/Completo lo decide la BD (trigger sobre `adjuntos`): completo = tiene adjunto `documento` (factura, boleta, planilla de movilidad, comprobante de egreso…) **y** adjunto `pago` (captura Yape, voucher…). Con uno solo sigue pendiente.
+- Pendiente/Completo lo decide la BD (`fx_estado_movimiento`): completo = adjunto `documento` (factura, boleta, planilla de movilidad, comprobante de egreso…) **y** adjunto `pago` (captura Yape, voucher…). Si `medio_pago = 'efectivo'`, basta el documento.
 - Solo se liquidan movimientos completos. Los pendientes no tienen plazo: al cerrar, `cerrar_liquidacion` los pasa a la siguiente liquidación.
-- Centro de costo: lista fija por empresa (`centros_costo`), siempre desplegable, nunca texto libre.
+- Centro de costo (`centros_costo`) y placa (`vehiculos`): listas fijas por empresa, siempre desplegable, nunca texto libre. Opcionales; centro de costo preselecciona "General".
+- Folio de liquidación: `NNLQXX-AREA-0001` (ej. `SLLQ01-MT-0001`), lo genera la BD con `empresas.sigla`, `cajas.numero` y `cajas.area`.
 - Monto de recarga libre (no hay fondo fijo por caja).
-- "Se pagó por Yape" es independiente del tipo de documento (pueden coexistir).
+- El medio de pago (efectivo / Yape / transferencia / otro) es independiente del tipo de documento.
 - Movimientos no se borran: se anulan con motivo. Si la liquidación ya se cerró, no se editan ni se les quitan adjuntos.
 - Cambios de estado de liquidación solo por RPC (`cerrar_liquidacion`, `revisar_liquidacion`) o al insertar la recarga.
 - Recargas son **manuales**; no hay integración bancaria.
