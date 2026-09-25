@@ -1,5 +1,6 @@
 import { FormularioRegistro } from "@/components/registro/FormularioRegistro";
-import { modoDemo, obtenerRepositorio } from "@/lib/datos/repositorio";
+import { obtenerRepositorio } from "@/lib/datos/repositorio";
+import { almacenActivo } from "@/lib/drive/estado";
 import { leerCajaActiva } from "@/lib/seleccion";
 
 export const metadata = { title: "Registro · Factudex" };
@@ -10,10 +11,11 @@ export default async function PaginaRegistro() {
   const caja = await leerCajaActiva(cajas);
   if (!caja) return null; // el layout ya muestra el aviso de "sin cajas asignadas"
 
-  const [categorias, centrosCosto, solicitantes] = await Promise.all([
+  const [categorias, centrosCosto, solicitantes, almacen] = await Promise.all([
     repo.listarCategorias(caja.empresaId),
     repo.listarCentrosCosto(caja.empresaId),
     repo.listarSolicitantes(caja.empresaId),
+    almacenActivo(),
   ]);
 
   return (
@@ -25,7 +27,7 @@ export default async function PaginaRegistro() {
       categorias={categorias}
       centrosCosto={centrosCosto}
       solicitantes={solicitantes}
-      demo={modoDemo()}
+      almacen={almacen}
     />
   );
 }

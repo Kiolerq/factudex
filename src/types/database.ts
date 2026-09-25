@@ -58,30 +58,36 @@ export type Database = {
       }
       adjuntos: {
         Row: {
+          almacen: string
           created_at: string
           id: string
           mime_type: string
           movimiento_id: string
+          nombre_archivo: string | null
           storage_path: string
           subido_por: string
           tamano_bytes: number
           tipo: Database["public"]["Enums"]["tipo_adjunto"]
         }
         Insert: {
+          almacen?: string
           created_at?: string
           id?: string
           mime_type: string
           movimiento_id: string
+          nombre_archivo?: string | null
           storage_path: string
           subido_por?: string
           tamano_bytes: number
           tipo: Database["public"]["Enums"]["tipo_adjunto"]
         }
         Update: {
+          almacen?: string
           created_at?: string
           id?: string
           mime_type?: string
           movimiento_id?: string
+          nombre_archivo?: string | null
           storage_path?: string
           subido_por?: string
           tamano_bytes?: number
@@ -229,6 +235,24 @@ export type Database = {
           },
         ]
       }
+      drive_carpetas: {
+        Row: {
+          created_at: string
+          folder_id: string
+          ruta: string
+        }
+        Insert: {
+          created_at?: string
+          folder_id: string
+          ruta: string
+        }
+        Update: {
+          created_at?: string
+          folder_id?: string
+          ruta?: string
+        }
+        Relationships: []
+      }
       empresas: {
         Row: {
           activa: boolean
@@ -316,6 +340,41 @@ export type Database = {
           {
             foreignKeyName: "extracciones_ocr_solicitado_por_fkey"
             columns: ["solicitado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integraciones: {
+        Row: {
+          carpeta_raiz_id: string
+          conectado_en: string
+          conectado_por: string | null
+          cuenta_email: string | null
+          proveedor: string
+          refresh_token: string
+        }
+        Insert: {
+          carpeta_raiz_id: string
+          conectado_en?: string
+          conectado_por?: string | null
+          cuenta_email?: string | null
+          proveedor: string
+          refresh_token: string
+        }
+        Update: {
+          carpeta_raiz_id?: string
+          conectado_en?: string
+          conectado_por?: string | null
+          cuenta_email?: string | null
+          proveedor?: string
+          refresh_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integraciones_conectado_por_fkey"
+            columns: ["conectado_por"]
             isOneToOne: false
             referencedRelation: "perfiles"
             referencedColumns: ["id"]
@@ -999,6 +1058,13 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      drive_conectado: {
+        Args: never
+        Returns: {
+          conectado: boolean
+          cuenta_email: string
+        }[]
       }
       es_admin: { Args: never; Returns: boolean }
       fx_estado_movimiento: {

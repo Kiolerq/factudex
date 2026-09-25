@@ -23,7 +23,7 @@ import {
 } from "@/lib/datos/tipos";
 import { formatoSoles, leerMonto } from "@/lib/formato";
 import { comprimirImagen } from "@/lib/imagen";
-import { subirAdjunto } from "@/lib/subida";
+import { subirAdjunto, type Almacen } from "@/lib/subida";
 import { nuevoUuid } from "@/lib/uuid";
 import { BuscadorProveedor } from "./BuscadorProveedor";
 import { CampoAdjunto } from "./CampoAdjunto";
@@ -34,13 +34,13 @@ interface Props {
   categorias: Opcion[];
   centrosCosto: Opcion[];
   solicitantes: string[];
-  demo: boolean;
+  almacen: Almacen;
 }
 
 type Archivos = Record<"documento" | "pago", File | null>;
 
 
-export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCosto, solicitantes, demo }: Props) {
+export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCosto, solicitantes, almacen }: Props) {
   const centroGeneral = centrosCosto.find((c) => c.codigo === "GEN" || c.nombre === "General")?.id ?? "";
 
   const [movimientoId, setMovimientoId] = useState(() => nuevoUuid());
@@ -151,7 +151,18 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
         );
         for (const [i, [tipo, archivo]] of porSubir.entries()) {
           setPaso(`Subiendo archivo ${i + 1} de ${porSubir.length}…`);
-          adjuntos.push(await subirAdjunto({ demo, cajaId: caja.id, movimientoId, tipo, archivo: archivo! }));
+          adjuntos.push(
+            await subirAdjunto({
+              almacen,
+              cajaId: caja.id,
+              movimientoId,
+              tipo,
+              archivo: archivo!,
+              fecha,
+              referencia: proveedor?.razonSocial ?? detalle,
+              monto: Number.isNaN(monto) ? null : monto,
+            }),
+          );
         }
         setPaso("Guardando…");
         const r = await registrarMovimiento({ ...entrada, adjuntos });

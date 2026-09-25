@@ -91,6 +91,7 @@ export interface AdjuntoSubido {
   storagePath: string;
   mimeType: MimePermitido;
   tamanoBytes: number;
+  nombreArchivo?: string | null; // nombre legible (en Drive: el nombre del archivo)
 }
 
 export interface NuevoMovimiento {
