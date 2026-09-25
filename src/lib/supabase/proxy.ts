@@ -27,7 +27,7 @@ export async function actualizarSesion(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const publica = ["/login", "/auth"].some((p) => request.nextUrl.pathname.startsWith(p));
+  const publica = ["/login", "/auth", "/privacidad", "/terminos"].some((p) => request.nextUrl.pathname.startsWith(p));
   if (!user && !publica) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
