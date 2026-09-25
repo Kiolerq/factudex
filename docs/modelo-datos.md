@@ -20,8 +20,7 @@ erDiagram
   categorias ||--o{ movimientos : ""
   empresas ||--o{ centros_costo : "lista fija"
   centros_costo ||--o{ movimientos : ""
-  empresas ||--o{ vehiculos : "placas"
-  vehiculos ||--o{ movimientos : ""
+  empresas ||--o{ solicitantes : "sugerencias"
   movimientos ||--o{ adjuntos : "documento + pago"
   adjuntos ||--o{ extracciones_ocr : "fase 2"
 ```
@@ -102,9 +101,9 @@ mantiene; en el registro se elige de un desplegable con **"General" preseleccion
 obligatorio). Un trigger impide usar un centro de costo de otra empresa o inactivo.
 El seed trae una lista **de ejemplo**; falta cargar la real.
 
-### `vehiculos` (lista fija de placas por empresa)
-`empresa_id`, `placa` (única), `descripcion`, `activo`. Mismo esquema que centros de costo:
-desplegable opcional, validado contra la empresa de la caja. El seed trae placas **de ejemplo**.
+### `solicitantes` (lista por empresa)
+`empresa_id`, `nombre`, `area` (opcional), `activo`. Solo sugiere nombres en el campo Solicitante
+del registro; el movimiento guarda el nombre como texto (así sale en la liquidación).
 
 ### `movimientos` (gastos)
 | Campo | Tipo | Nota |
@@ -116,7 +115,6 @@ desplegable opcional, validado contra la empresa de la caja. El seed trae placas
 | proveedor_id | FK, nullable | null = "Por definir" |
 | categoria_id | FK, nullable | null = "Sin categorizar" |
 | centro_costo_id | FK centros_costo, nullable | lista fija de la empresa de la caja |
-| vehiculo_id | FK vehiculos, nullable | placa, de la lista fija de la empresa |
 | detalle | text | "Peaje pesado 3 ejes" |
 | monto | numeric > 0 | |
 | tipo_documento | enum `factura` \| `boleta` \| `rxh` \| `planilla_movilidad` \| `comprobante_egreso` \| `otro`, nullable | null = aún no se sabe |
@@ -230,7 +228,7 @@ Todas con `security_invoker`, así respetan el RLS de quien consulta.
 - Cada usuario ve solo empresas/cajas asignadas; admin ve todo.
 - `movimientos`: insertar/editar requiere rol ≥ registrador en la caja; no hay `DELETE`.
 - `adjuntos`: se suben en cualquier momento; no se pueden quitar de un movimiento ya liquidado.
-- `centros_costo` y `vehiculos`: lectura por empresa asignada; solo admin los administra.
+- `centros_costo` y `solicitantes`: lectura por empresa asignada; solo admin los administra.
 - `recargas`: solo aprobador de la caja.
 - `liquidaciones`: solo lectura directa; los cambios pasan por las RPC.
 - Storage `comprobantes`: el primer segmento de la ruta (`caja_id`) decide el acceso.
@@ -252,7 +250,7 @@ empresa, quitar adjuntos de un movimiento liquidado, cerrar sin movimientos comp
 | Umbral de alerta | S/ 200 por caja (editable por caja) |
 | Proveedores | Maestro compartido entre SL y SIPE |
 | Centro de costo | Lista fija por empresa, opcional, "General" por defecto |
-| Placa | Lista fija de vehículos por empresa, opcional |
+| Placa | No es un campo aparte: las placas son **centros de costo** |
 
 ## Pendiente de recibir
 

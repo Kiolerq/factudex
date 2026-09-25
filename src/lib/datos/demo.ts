@@ -31,7 +31,7 @@ interface Almacen {
   cajas: CajaDemo[];
   categorias: Opcion[];
   centrosCosto: (Opcion & { empresaId: string })[];
-  vehiculos: (Opcion & { empresaId: string })[];
+  solicitantes: { empresaId: string; nombre: string }[];
   proveedores: Proveedor[];
   movimientos: MovimientoDemo[];
   recargas: { cajaId: string; monto: number }[];
@@ -111,7 +111,6 @@ function sembrar(): Almacen {
     proveedorId: null,
     categoriaId: cat("Otros"),
     centroCostoId: null,
-    vehiculoId: null,
     tipoDocumento: null,
     serieNumero: null,
     medioPago: null,
@@ -156,12 +155,15 @@ function sembrar(): Almacen {
     cajas: [mant, oper, gen],
     categorias,
     centrosCosto: [
-      ...opciones(sl.id, [["GEN", "General"], ["PLA", "Planta"], ["TRA", "Transporte"], ["ADM", "Administración"]]),
-      ...opciones(sipe.id, [["GEN", "General"], ["OPE", "Operaciones"], ["ADM", "Administración"]]),
+      // Placas, áreas o cualquier destino del gasto: todo es centro de costo.
+      ...opciones(sl.id, [["GEN", "General"], ["PLA", "Planta"], ["TRA", "Transporte"], ["ADM", "Administración"],
+        ["T1Y-461", "T1Y-461"], ["BZL-893", "BZL-893"], ["CAE-899", "CAE-899"]]),
+      ...opciones(sipe.id, [["GEN", "General"], ["OPE", "Operaciones"], ["ADM", "Administración"], ["T1P-831", "T1P-831"]]),
     ],
-    vehiculos: [
-      ...opciones(sl.id, [["T1Y-461", "T1Y-461"], ["BZL-893", "BZL-893"], ["CAE-899", "CAE-899"]]),
-      ...opciones(sipe.id, [["T1P-831", "T1P-831"]]),
+    solicitantes: [
+      { empresaId: sl.id, nombre: "Carlos Ramírez" },
+      { empresaId: sl.id, nombre: "Johan Mesa" },
+      { empresaId: sipe.id, nombre: "María Torres" },
     ],
     proveedores,
     movimientos,
@@ -213,8 +215,8 @@ export const repositorioDemo: Repositorio = {
     return db.centrosCosto.filter((c) => c.empresaId === empresaId).map(sinOrigen);
   },
 
-  async listarVehiculos(empresaId) {
-    return db.vehiculos.filter((v) => v.empresaId === empresaId).map(sinOrigen);
+  async listarSolicitantes(empresaId) {
+    return db.solicitantes.filter((x) => x.empresaId === empresaId).map((x) => x.nombre);
   },
 
   async buscarProveedores(texto) {
@@ -240,8 +242,6 @@ export const repositorioDemo: Repositorio = {
     const empresaId = caja.empresaId;
     if (m.centroCostoId && !db.centrosCosto.some((c) => c.id === m.centroCostoId && c.empresaId === empresaId))
       throw new ErrorDeNegocio("El centro de costo no pertenece a la empresa de la caja");
-    if (m.vehiculoId && !db.vehiculos.some((v) => v.id === m.vehiculoId && v.empresaId === empresaId))
-      throw new ErrorDeNegocio("La placa no pertenece a la empresa de la caja");
     if (db.movimientos.some((x) => x.id === m.id)) throw new ErrorDeNegocio("Movimiento duplicado");
 
     const estado = estadoEsperado(

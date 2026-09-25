@@ -101,7 +101,6 @@ export interface NuevoMovimiento {
   proveedorId: string | null;
   categoriaId: string;
   centroCostoId: string | null;
-  vehiculoId: string | null;
   detalle: string;
   monto: number;
   tipoDocumento: TipoDocumento | null;

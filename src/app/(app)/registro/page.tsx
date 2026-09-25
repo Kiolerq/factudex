@@ -10,21 +10,21 @@ export default async function PaginaRegistro() {
   const caja = await leerCajaActiva(cajas);
   if (!caja) return null; // el layout ya muestra el aviso de "sin cajas asignadas"
 
-  const [categorias, centrosCosto, vehiculos] = await Promise.all([
+  const [categorias, centrosCosto, solicitantes] = await Promise.all([
     repo.listarCategorias(caja.empresaId),
     repo.listarCentrosCosto(caja.empresaId),
-    repo.listarVehiculos(caja.empresaId),
+    repo.listarSolicitantes(caja.empresaId),
   ]);
 
   return (
     <FormularioRegistro
-      // Al cambiar de caja el formulario se reinicia (centros de costo y placas dependen de la empresa).
+      // Al cambiar de caja el formulario se reinicia (centros de costo y solicitantes dependen de la empresa).
       key={caja.id}
       caja={caja}
       empresaNombre={empresas.find((e) => e.id === caja.empresaId)?.nombreCorto ?? ""}
       categorias={categorias}
       centrosCosto={centrosCosto}
-      vehiculos={vehiculos}
+      solicitantes={solicitantes}
       demo={modoDemo()}
     />
   );

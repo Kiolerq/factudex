@@ -18,7 +18,7 @@ visible qué falta sustentar.
 
 | Módulo | Qué hace |
 |---|---|
-| Registro | Nuevo gasto: empresa/caja, monto, fecha, proveedor (autocompletado por RUC/DNI o nombre), categoría, centro de costo y placa (listas fijas), tipo de documento (factura, boleta, RxH, planilla de movilidad, comprobante de egreso, otro), medio de pago (efectivo / Yape / transferencia). Se adjunta el **documento** y la **constancia de pago** (en efectivo basta el documento); si falta algo queda **Pendiente**. |
+| Registro | Nuevo gasto: empresa/caja, monto, fecha, proveedor (autocompletado por RUC/DNI o nombre), categoría, centro de costo (lista fija; incluye placas), tipo de documento (factura, boleta, RxH, planilla de movilidad, comprobante de egreso, otro), medio de pago (efectivo / Yape / transferencia). Se adjunta el **documento** y la **constancia de pago** (en efectivo basta el documento); si falta algo queda **Pendiente**. |
 | Historial | Todos los movimientos con búsqueda y filtros (Todos / Pendientes / Completos, empresa, caja). |
 | Pendientes | Movimientos a los que les falta el documento o el pago, con los días que llevan (sin plazo máximo). |
 | Liquidaciones | Folio por caja (`SLLQ01-MT-0001`), fechas de inicio/cierre, aviso de saldo bajo umbral. Solo se liquidan movimientos completos; los pendientes pasan a la siguiente liquidación. |

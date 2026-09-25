@@ -33,14 +33,14 @@ interface Props {
   empresaNombre: string;
   categorias: Opcion[];
   centrosCosto: Opcion[];
-  vehiculos: Opcion[];
+  solicitantes: string[];
   demo: boolean;
 }
 
 type Archivos = Record<"documento" | "pago", File | null>;
 
 
-export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCosto, vehiculos, demo }: Props) {
+export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCosto, solicitantes, demo }: Props) {
   const centroGeneral = centrosCosto.find((c) => c.codigo === "GEN" || c.nombre === "General")?.id ?? "";
 
   const [movimientoId, setMovimientoId] = useState(() => nuevoUuid());
@@ -49,7 +49,6 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
   const [proveedor, setProveedor] = useState<Proveedor | null>(null);
   const [categoriaId, setCategoriaId] = useState("");
   const [centroCostoId, setCentroCostoId] = useState(centroGeneral);
-  const [vehiculoId, setVehiculoId] = useState("");
   const [detalle, setDetalle] = useState("");
   const [montoTexto, setMontoTexto] = useState("");
   const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento | null>(null);
@@ -105,7 +104,6 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
     setProveedor(null);
     setCategoriaId("");
     setCentroCostoId(centroGeneral);
-    setVehiculoId("");
     setDetalle("");
     setMontoTexto("");
     setTipoDocumento(null);
@@ -129,7 +127,6 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
       proveedorId: proveedor?.id ?? null,
       categoriaId,
       centroCostoId: centroCostoId || null,
-      vehiculoId: vehiculoId || null,
       detalle,
       monto,
       tipoDocumento,
@@ -283,9 +280,16 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
                   className="fx-input"
                   type="text"
                   placeholder="Quién pide el gasto"
+                  list="lista-solicitantes"
+                  autoComplete="off"
                   value={solicitante}
                   onChange={(e) => setSolicitante(e.target.value)}
                 />
+                <datalist id="lista-solicitantes">
+                  {solicitantes.map((n) => (
+                    <option key={n} value={n} />
+                  ))}
+                </datalist>
               </div>
             </div>
 
@@ -301,8 +305,8 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
               />
             </div>
 
-            <div className="order-3 grid grid-cols-2 gap-3.5 md:grid-cols-3 md:gap-4">
-              <div className="col-span-2 md:col-span-1">
+            <div className="order-3 grid gap-3.5 md:grid-cols-2 md:gap-4">
+              <div>
                 <label htmlFor="categoria" className="fx-label">
                   Categoría *
                 </label>
@@ -336,19 +340,6 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
                   {centrosCosto.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="placa" className="fx-label">
-                  Placa
-                </label>
-                <select id="placa" className="fx-input" value={vehiculoId} onChange={(e) => setVehiculoId(e.target.value)}>
-                  <option value="">Sin placa</option>
-                  {vehiculos.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.nombre}
                     </option>
                   ))}
                 </select>

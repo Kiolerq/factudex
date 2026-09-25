@@ -29,7 +29,9 @@ La referencia visual aprobada son los HTML de `diseno/`. Copia de ahí espaciado
 - El saldo **se calcula** (`v_saldo_cajas`), nunca se guarda ni se calcula en el cliente.
 - Pendiente/Completo lo decide la BD (`fx_estado_movimiento`): completo = adjunto `documento` (factura, boleta, planilla de movilidad, comprobante de egreso…) **y** adjunto `pago` (captura Yape, voucher…). Si `medio_pago = 'efectivo'`, basta el documento.
 - Solo se liquidan movimientos completos. Los pendientes no tienen plazo: al cerrar, `cerrar_liquidacion` los pasa a la siguiente liquidación.
-- Centro de costo (`centros_costo`) y placa (`vehiculos`): listas fijas por empresa, siempre desplegable, nunca texto libre. Opcionales; centro de costo preselecciona "General".
+- Centro de costo (`centros_costo`): lista fija por empresa, siempre desplegable, nunca texto libre. Incluye **placas** o cualquier destino del gasto (no hay campo placa aparte). Opcional; preselecciona "General".
+- Solicitantes (`solicitantes`): lista por empresa que solo sugiere nombres; el movimiento guarda el texto.
+- Datos maestros llegan en `docs/plantillas/datos_maestros_factudex.xlsx` (centros de costo, solicitantes, proveedores).
 - Folio de liquidación: `NNLQXX-AREA-0001` (ej. `SLLQ01-MT-0001`), lo genera la BD con `empresas.sigla`, `cajas.numero` y `cajas.area`.
 - Monto de recarga libre (no hay fondo fijo por caja).
 - El medio de pago (efectivo / Yape / transferencia / otro) es independiente del tipo de documento.
