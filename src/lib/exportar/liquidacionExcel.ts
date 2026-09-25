@@ -27,6 +27,7 @@ export interface EgresoExcel {
   operacionPago: string | null;
   monto: number;
   centroCosto: string | null;
+  placa: string | null; // va en la misma columna CENTRO COSTO
 }
 
 export interface DatosLiquidacionExcel {
@@ -151,7 +152,7 @@ export async function generarLiquidacionExcel(d: DatosLiquidacionExcel): Promise
 
   const filaIngreso = (valores: {
     fecha: string | null; descripcion: string; recibo?: string | null; operacion?: string | null;
-    banco?: number | null; efectivo?: number | null; otros?: number | null; total?: number;
+    banco?: string | null; efectivo?: number | null; otros?: number | null; total: number;
   }) => {
     fila += 1;
     hoja.mergeCells(`C${fila}:D${fila}`);
@@ -166,16 +167,10 @@ export async function generarLiquidacionExcel(d: DatosLiquidacionExcel): Promise
     set("C", valores.descripcion);
     set("E", valores.recibo ?? null);
     set("G", valores.operacion ?? null);
-    set("H", valores.banco ?? null, CONTABLE);
+    set("H", valores.banco ?? null); // nombre del banco de la entrada (BCP, Interbank…)
     set("I", valores.efectivo ?? null, CONTABLE);
     set("J", valores.otros ?? null, CONTABLE);
-    // Saldo anterior: solo total. Depósitos: total = suma de BANCO + EFECTIVO + OTROS.
-    const suma = (valores.banco ?? 0) + (valores.efectivo ?? 0) + (valores.otros ?? 0);
-    set(
-      "K",
-      valores.total !== undefined ? valores.total : { formula: `SUM(H${fila}:J${fila})`, result: suma },
-      CONTABLE,
-    );
+    set("K", valores.total, CONTABLE);
   };
 
   filaIngreso({
@@ -186,12 +181,13 @@ export async function generarLiquidacionExcel(d: DatosLiquidacionExcel): Promise
   for (const i of d.ingresos) {
     filaIngreso({
       fecha: i.fecha,
-      descripcion: [i.descripcion, i.banco].filter(Boolean).join(" · "),
+      descripcion: i.descripcion,
       recibo: i.recibo,
       operacion: i.operacion,
-      banco: i.forma === "banco" ? i.monto : null,
+      banco: i.banco,
       efectivo: i.forma === "efectivo" ? i.monto : null,
       otros: i.forma === "otros" ? i.monto : null,
+      total: i.monto,
     });
   }
   const ultimaIngreso = fila;
@@ -236,7 +232,7 @@ export async function generarLiquidacionExcel(d: DatosLiquidacionExcel): Promise
     }
     set("K", textoYape(e));
     set("L", e.monto, CONTABLE);
-    set("M", e.centroCosto);
+    set("M", [e.centroCosto, e.placa].filter(Boolean).join(" / ") || null);
   }
   if (d.egresos.length === 0) fila += 1; // deja una fila vacía para que el SUM tenga rango
   const ultimaEgreso = fila;

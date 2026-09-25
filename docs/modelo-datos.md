@@ -186,8 +186,8 @@ egresos = **S/ 302.60 por reembolsar**, que pasa como saldo inicial a la 3.
 | liquidacion_repuesta_id | la liquidación aprobada que esta recarga repone; obligatorio en `reposicion` y solo ahí; único |
 | monto | **libre**: hoy suele ser S/ 1,000 o S/ 2,000, pero varía. No hay fondo fijo por caja |
 | fecha | FECHA DEPOSITO |
-| descripcion, recibo, operacion, banco | DESCRIPCION BANCO, RECIBO, OPERACIÓN y banco del Excel |
-| forma | `banco` \| `efectivo` \| `otros`: en qué columna del Excel (BANCO / EFECTIVO / OTROS) va el monto |
+| descripcion, recibo, operacion, banco | DESCRIPCION BANCO, RECIBO, OPERACIÓN y BANCO (nombre del banco de la entrada: BCP, Interbank…) del Excel |
+| forma | `banco` \| `efectivo` \| `otros`. En `efectivo`/`otros` el monto también se muestra en esa columna del Excel; el TOTAL INGRESO siempre lleva el monto |
 | nota | libre |
 | registrado_por | el aprobador — queda quién y cuándo |
 
@@ -207,8 +207,8 @@ celdas que el original:
 | Bloque | Contenido |
 |---|---|
 | Título (B4) | `LIQUIDACIÓN CAJA CHICA AREA DE <CAJA> - <EMPRESA>` + folio y periodo (B5) |
-| * INGRESOS (B6) | FECHA DEPOSITO · DESCRIPCION BANCO · RECIBO · OPERACIÓN · BANCO · EFECTIVO · OTROS · TOTAL INGRESO. Primera fila: saldo de la liquidación anterior; luego cada recarga. TOTALES con `SUM` |
-| * EGRESOS (B12) | FECHA · SOLICITANTE · RAZON SOCIAL · RUC / DNI · DETALLE COMPRA · FACTURA · BOL. VTA · REC X HON. · OTROS · YAPE/PLIN · IMPORTE · CENTRO COSTO. El N° de documento va en la columna de su tipo (planilla de movilidad y comprobante de egreso van en OTROS). Solo movimientos **completos** |
+| * INGRESOS (B6) | FECHA DEPOSITO · DESCRIPCION BANCO · RECIBO · OPERACIÓN · BANCO (nombre) · EFECTIVO · OTROS · TOTAL INGRESO. Primera fila: saldo de la liquidación anterior; luego cada recarga. TOTALES con `SUM` |
+| * EGRESOS (B12) | FECHA · SOLICITANTE · RAZON SOCIAL · RUC / DNI · DETALLE COMPRA · FACTURA · BOL. VTA · REC X HON. · OTROS · YAPE/PLIN · IMPORTE · CENTRO COSTO (centro de costo / placa, ej. `General / T1Y-461`). El N° de documento va en la columna de su tipo (planilla de movilidad y comprobante de egreso van en OTROS). Solo movimientos **completos** |
 | Pie | `<CIUDAD> dd.mm.aaaa` (fecha de cierre) · INGRESO · EGRESO · POR REEMBOLSAR (fórmulas) |
 
 La ciudad sale de `empresas.ciudad` (por defecto TRUJILLO).
