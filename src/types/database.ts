@@ -1062,6 +1062,7 @@ export type Database = {
       drive_conectado: {
         Args: never
         Returns: {
+          carpeta_id: string
           conectado: boolean
           cuenta_email: string
         }[]

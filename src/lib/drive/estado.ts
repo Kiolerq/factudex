@@ -13,8 +13,14 @@ export async function almacenActivo(): Promise<Almacen> {
   return data?.[0]?.conectado ? "drive" : "supabase";
 }
 
-export async function estadoDrive(): Promise<{ configurado: boolean; conectado: boolean; cuenta: string | null }> {
-  if (modoDemo() || !driveConfigurado()) return { configurado: false, conectado: false, cuenta: null };
+export async function estadoDrive(): Promise<{
+  configurado: boolean;
+  conectado: boolean;
+  cuenta: string | null;
+  carpetaId: string | null;
+}> {
+  if (modoDemo() || !driveConfigurado()) return { configurado: false, conectado: false, cuenta: null, carpetaId: null };
   const { data } = await (await createClient()).rpc("drive_conectado");
-  return { configurado: true, conectado: !!data?.[0]?.conectado, cuenta: data?.[0]?.cuenta_email ?? null };
+  const d = data?.[0];
+  return { configurado: true, conectado: !!d?.conectado, cuenta: d?.cuenta_email ?? null, carpetaId: d?.carpeta_id ?? null };
 }

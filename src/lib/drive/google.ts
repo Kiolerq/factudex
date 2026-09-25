@@ -1,10 +1,11 @@
 import "server-only";
 import { crearClienteAdmin } from "@/lib/supabase/admin";
 
-// Google Drive vía REST (sin librerías pesadas). Permiso `drive.file`: la app solo ve los
-// archivos y carpetas que ella misma crea, no el resto del Drive.
+// Google Drive vía REST (sin librerías pesadas).
+// Permiso `drive`: necesario para escribir en una carpeta que ya existía en el Drive (la que
+// elige el administrador). El código SOLO crea y lee dentro de esa carpeta raíz.
 
-const ALCANCE = "https://www.googleapis.com/auth/drive.file";
+const ALCANCE = "https://www.googleapis.com/auth/drive";
 const CARPETA = "application/vnd.google-apps.folder";
 export const NOMBRE_RAIZ = "Factudex";
 
@@ -14,6 +15,39 @@ export function driveConfigurado(): boolean {
     process.env.GOOGLE_CLIENT_SECRET &&
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
+}
+
+/**
+ * URL pública fija de la app. Google solo acepta la dirección de retorno registrada
+ * (https://factudex.vercel.app/api/google/callback), así que no se usa el dominio de cada
+ * deploy de Vercel. VERCEL_PROJECT_PRODUCTION_URL la define Vercel automáticamente.
+ */
+export function urlPublica(origenPeticion: string): string {
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  return origenPeticion;
+}
+
+/** Acepta el enlace de una carpeta de Drive o su id; devuelve el id o null. */
+export function idCarpetaDesdeTexto(texto: string): string | null {
+  const t = texto.trim();
+  const m = t.match(/\/folders\/([\w-]{10,})/) ?? t.match(/[?&]id=([\w-]{10,})/);
+  if (m) return m[1]!;
+  return /^[\w-]{10,}$/.test(t) ? t : null;
+}
+
+/** Verifica que la cuenta conectada pueda crear archivos dentro de la carpeta. */
+export async function carpetaUtilizable(id: string, token: string): Promise<boolean> {
+  try {
+    const d = await drive<{ mimeType: string; trashed?: boolean; capabilities?: { canAddChildren?: boolean } }>(
+      `files/${encodeURIComponent(id)}?fields=mimeType,trashed,capabilities(canAddChildren)&supportsAllDrives=true`,
+      {},
+      token,
+    );
+    return d.mimeType === CARPETA && !d.trashed && d.capabilities?.canAddChildren === true;
+  } catch {
+    return false;
+  }
 }
 
 export function urlAutorizacion(estado: string, redirectUri: string): string {
@@ -90,7 +124,7 @@ async function drive<T>(ruta: string, init: RequestInit = {}, token?: string): P
 
 export async function crearCarpeta(nombre: string, padre: string | null, token?: string): Promise<string> {
   const d = await drive<{ id: string }>(
-    "files?fields=id",
+    "files?fields=id&supportsAllDrives=true",
     { method: "POST", body: JSON.stringify({ name: nombre, mimeType: CARPETA, parents: padre ? [padre] : undefined }) },
     token,
   );
@@ -99,7 +133,7 @@ export async function crearCarpeta(nombre: string, padre: string | null, token?:
 
 export async function carpetaVisible(id: string, token: string): Promise<boolean> {
   try {
-    const d = await drive<{ trashed?: boolean }>(`files/${encodeURIComponent(id)}?fields=id,trashed`, {}, token);
+    const d = await drive<{ trashed?: boolean }>(`files/${encodeURIComponent(id)}?fields=id,trashed&supportsAllDrives=true`, {}, token);
     return !d.trashed;
   } catch {
     return false;
@@ -139,7 +173,7 @@ export async function asegurarCarpeta(segmentos: string[]): Promise<string> {
       continue;
     }
     const q = `name = '${seg.replace(/'/g, "\\'")}' and '${padre}' in parents and mimeType = '${CARPETA}' and trashed = false`;
-    const hallada = await drive<{ files: { id: string }[] }>(`files?q=${encodeURIComponent(q)}&fields=files(id)`);
+    const hallada = await drive<{ files: { id: string }[] }>(`files?q=${encodeURIComponent(q)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`);
     padre = hallada.files[0]?.id ?? (await crearCarpeta(seg, padre));
     await admin.from("drive_carpetas").upsert({ ruta, folder_id: padre });
   }
@@ -158,7 +192,7 @@ export async function iniciarSubida(o: {
   origen: string;
   propiedades: Record<string, string>;
 }): Promise<string> {
-  const r = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id", {
+  const r = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id&supportsAllDrives=true", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${await tokenAcceso()}`,
@@ -176,12 +210,12 @@ export async function iniciarSubida(o: {
 
 export function metadatos(fileId: string) {
   return drive<{ id: string; name: string; mimeType: string; size?: string; appProperties?: Record<string, string> }>(
-    `files/${encodeURIComponent(fileId)}?fields=id,name,mimeType,size,appProperties`,
+    `files/${encodeURIComponent(fileId)}?fields=id,name,mimeType,size,appProperties&supportsAllDrives=true`,
   );
 }
 
 export async function descargar(fileId: string): Promise<Response> {
-  return fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, {
+  return fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`, {
     headers: { Authorization: `Bearer ${await tokenAcceso()}` },
   });
 }
