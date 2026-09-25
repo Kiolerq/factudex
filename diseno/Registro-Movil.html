@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Factudex — Registro (Móvil)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  body { margin: 0; font-family: 'IBM Plex Sans', sans-serif; }
+  h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; margin: 0; }
+  .fx-btn { border: none; cursor: pointer; font-family: 'IBM Plex Sans', sans-serif; }
+  .fx-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #fff; font-size: 14px; font-family: 'IBM Plex Sans', sans-serif; }
+  .fx-label { font-size: 11.5px; color: rgba(255,255,255,0.5); margin-bottom: 6px; display: block; }
+  .fx-card { background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09); backdrop-filter: blur(16px); border-radius: 14px; }
+</style>
+</helmet>
+
+<div style="width: 390px; min-height: 844px; box-sizing: border-box; background: radial-gradient(700px 400px at 20% -10%, rgba(255,255,255,0.05), transparent 60%), linear-gradient(165deg, #0A0E1A 0%, #0D1526 55%, #0A0F1C 100%); color: rgba(255,255,255,0.92); display: flex; flex-direction: column;">
+
+  <!-- STATUS / HEADER -->
+  <div style="padding: 18px 20px 10px; display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, #2E75B6, #D3453A); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; color: #0A0E1A;">F</div>
+      <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px;">Factudex</div>
+    </div>
+    <div style="font-size: 11px; padding: 5px 10px; border-radius: 999px; background: rgba(46,117,182,0.16); color: #79b3e6; border: 1px solid rgba(46,117,182,0.4);">S/ 560.00</div>
+  </div>
+
+  <div style="padding: 6px 20px 100px; display: flex; flex-direction: column; gap: 14px; flex-grow: 1; overflow-y: auto;" class="fx-scroll">
+
+    <div style="font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700; margin-top: 6px;">Nuevo registro</div>
+
+    <!-- SHARE-TARGET CARD (simula recepción desde Yape) -->
+    <div class="fx-card" style="padding: 14px; display: flex; gap: 12px; align-items: flex-start; border-color: rgba(217,164,65,0.4);">
+      <div style="width: 40px; height: 40px; border-radius: 9px; background: rgba(217,164,65,0.15); display: flex; align-items: center; justify-content: center; font-size: 18px;">📩</div>
+      <div style="flex-grow: 1;">
+        <div style="font-size: 12.5px; font-weight: 600; margin-bottom: 3px;">Imagen recibida desde Yape</div>
+        <div style="font-size: 11px; color: rgba(255,255,255,0.45); margin-bottom: 10px;">yape_captura_2609.jpg — compartida desde la app de Yape</div>
+        <div style="display: flex; gap: 8px;">
+          <button class="fx-btn" onClick="{{pickNuevo}}" style="flex-grow: 1; padding: 8px; border-radius: 8px; font-size: 11.5px; font-weight: 600; background: {{nuevoBg}}; color: {{nuevoColor}}; border: 1px solid {{nuevoBorder}};">Registro nuevo</button>
+          <button class="fx-btn" onClick="{{pickExistente}}" style="flex-grow: 1; padding: 8px; border-radius: 8px; font-size: 11.5px; font-weight: 600; background: {{existBg}}; color: {{existColor}}; border: 1px solid {{existBorder}};">Uno existente</button>
+        </div>
+        <div style="margin-top: 10px;">{{extraField}}</div>
+      </div>
+    </div>
+
+    <!-- CAMARA -->
+    <button class="fx-btn" style="width: 100%; padding: 16px; border-radius: 14px; background: linear-gradient(135deg, #2E75B6, #1e5a91); display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 14px; font-weight: 700;">
+      <span style="font-size: 18px;">📷</span> Tomar foto del comprobante
+    </button>
+    <div style="text-align: center; font-size: 11px; color: rgba(255,255,255,0.35); margin-top: -6px;">o sube un archivo desde tu galería</div>
+
+    <div class="fx-card" style="padding: 16px;">
+      <label class="fx-label">Monto (S/) *</label>
+      <input class="fx-input" style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px; margin-bottom: 12px;" type="text" placeholder="0.00" value="25.00">
+
+      <label class="fx-label">Proveedor *</label>
+      <input class="fx-input" style="margin-bottom: 12px;" type="text" placeholder="Buscar…" value="ESTACION DE SERVICIOS SR">
+
+      <label class="fx-label">Categoría *</label>
+      <select class="fx-input" style="margin-bottom: 12px;">
+        <option>Combustible</option>
+        <option>Peajes</option>
+        <option>Alimentación</option>
+      </select>
+
+      <label class="fx-label">Centro de costo / Placa</label>
+      <input class="fx-input" type="text" placeholder="Ej. T1P-831">
+    </div>
+
+    <label style="display: flex; align-items: center; gap: 10px; padding: 4px 4px;">
+      <span style="width: 18px; height: 18px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.3); background: #D9A441; display: flex; align-items: center; justify-content: center; font-size: 11px;">✓</span>
+      <span style="font-size: 12.5px; color: rgba(255,255,255,0.75);">Aún no tengo la factura — marcar pendiente</span>
+    </label>
+  </div>
+
+  <!-- STICKY BOTTOM BAR -->
+  <div style="position: sticky; bottom: 0; padding: 14px 20px 22px; background: linear-gradient(0deg, #0A0F1C 60%, transparent); display: flex; gap: 10px;">
+    <button class="fx-btn" style="flex: 1; padding: 14px; border-radius: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.6); font-size: 13px; font-weight: 600;">Cancelar</button>
+    <button class="fx-btn" style="flex: 2; padding: 14px; border-radius: 12px; background: #2E75B6; color: #fff; font-size: 13px; font-weight: 700;">Guardar registro</button>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { shareMode: "nuevo" };
+  }
+  renderVals() {
+    const mode = this.state.shareMode;
+    const nuevo = mode === "nuevo";
+    return {
+      nuevoBg: nuevo ? "rgba(217,164,65,0.22)" : "rgba(255,255,255,0.05)",
+      nuevoColor: nuevo ? "#ffffff" : "rgba(255,255,255,0.55)",
+      nuevoBorder: nuevo ? "#D9A441" : "rgba(255,255,255,0.12)",
+      existBg: !nuevo ? "rgba(217,164,65,0.22)" : "rgba(255,255,255,0.05)",
+      existColor: !nuevo ? "#ffffff" : "rgba(255,255,255,0.55)",
+      existBorder: !nuevo ? "#D9A441" : "rgba(255,255,255,0.12)",
+      extraField: nuevo
+        ? "La captura de Yape se adjunta como pago; completa el resto del formulario abajo."
+        : "Elige a qué registro de Historial se une esta captura de Yape.",
+      pickNuevo: () => this.setState({ shareMode: "nuevo" }),
+      pickExistente: () => this.setState({ shareMode: "existente" })
+    };
+  }
+}
+</script>
+</body>
+</html>

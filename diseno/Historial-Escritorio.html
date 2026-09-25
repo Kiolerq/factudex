@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Factudex — Historial (Escritorio)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  body { margin: 0; font-family: 'IBM Plex Sans', sans-serif; }
+  h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; margin: 0; }
+  .fx-btn { border: none; cursor: pointer; font-family: 'IBM Plex Sans', sans-serif; }
+  .fx-card { background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09); backdrop-filter: blur(16px); box-shadow: 0 10px 30px rgba(0,0,0,0.35); border-radius: 16px; }
+  .fx-row:hover { background: rgba(255,255,255,0.035); }
+</style>
+</helmet>
+
+<div style="width: 100%; min-height: 900px; box-sizing: border-box; background: radial-gradient(1100px 560px at 12% -8%, rgba(255,255,255,0.05), transparent 60%), linear-gradient(165deg, #0A0E1A 0%, #0D1526 50%, #0A0F1C 100%); color: rgba(255,255,255,0.92); padding: 36px 56px 56px; display: flex; flex-direction: column; gap: 22px;">
+
+  <!-- HEADER -->
+  <div style="display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <div style="width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #2E75B6, #D3453A); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px; color: #0A0E1A;">F</div>
+      <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px;">Factudex</div>
+      <div style="width: 1px; height: 22px; background: rgba(255,255,255,0.14); margin: 0 6px;"></div>
+      <div style="font-size: 13px; color: rgba(255,255,255,0.55);">Historial de movimientos</div>
+    </div>
+    <button class="fx-btn" style="padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 600; background: #2E75B6; color: #fff;">+ Nuevo registro</button>
+  </div>
+
+  <!-- FILTERS -->
+  <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+    <input class="fx-input" style="flex-grow: 1; min-width: 220px; box-sizing: border-box; padding: 10px 14px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #fff; font-size: 13px;" type="text" placeholder="Buscar por proveedor, detalle o N°…">
+    <div style="display: flex; gap: 6px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 999px; padding: 5px;">
+      <button class="fx-btn" onClick="{{pickAll}}" style="padding: 8px 16px; border-radius: 999px; font-size: 12px; font-weight: 600; background: {{allBg}}; color: {{allColor}};">Todos</button>
+      <button class="fx-btn" onClick="{{pickPend}}" style="padding: 8px 16px; border-radius: 999px; font-size: 12px; font-weight: 600; background: {{pendBg}}; color: {{pendColor}};">Pendientes</button>
+      <button class="fx-btn" onClick="{{pickOk}}" style="padding: 8px 16px; border-radius: 999px; font-size: 12px; font-weight: 600; background: {{okBg}}; color: {{okColor}};">Completos</button>
+    </div>
+    <select class="fx-input" style="box-sizing: border-box; padding: 10px 14px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #fff; font-size: 13px;">
+      <option>Todas las cajas</option>
+      <option>San Lorenzo — Mantenimiento</option>
+      <option>San Lorenzo — Operaciones</option>
+      <option>SIPE — General</option>
+    </select>
+  </div>
+
+  <!-- TABLE -->
+  <div class="fx-card" style="overflow: hidden;">
+    <div style="display: grid; grid-template-columns: 100px 1.3fr 1.6fr 1fr 110px 1fr 140px; gap: 10px; padding: 14px 20px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: rgba(255,255,255,0.4); border-bottom: 1px solid rgba(255,255,255,0.08);">
+      <span>Fecha</span><span>Proveedor</span><span>Detalle</span><span>Categoría</span><span style="text-align: right;">Monto</span><span>Documento</span><span>Estado</span>
+    </div>
+
+    <div class="fx-row" style="display: grid; grid-template-columns: 100px 1.3fr 1.6fr 1fr 110px 1fr 140px; gap: 10px; padding: 14px 20px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center;">
+      <span style="color: rgba(255,255,255,0.5);">21/09</span><span>COVISOL - Peaje Chicama</span><span style="color: rgba(255,255,255,0.65);">Peaje pesado 4 ejes</span><span style="color: rgba(255,255,255,0.65);">Peajes</span><span style="text-align: right; font-weight: 600;">S/ 40.90</span><span style="color: rgba(255,255,255,0.5);">Factura</span>
+      <span style="padding: 5px 11px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(63,190,114,0.16); color: #3FBE72; border: 1px solid rgba(63,190,114,0.4); width: fit-content;">● Completo</span>
+    </div>
+
+    <div class="fx-row" style="display: grid; grid-template-columns: 100px 1.3fr 1.6fr 1fr 110px 1fr 140px; gap: 10px; padding: 14px 20px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center;">
+      <span style="color: rgba(255,255,255,0.5);">19/09</span><span>Johan Yarlin Mesa Rios</span><span style="color: rgba(255,255,255,0.65);">Parchado de llantas CAE899</span><span style="color: rgba(255,255,255,0.65);">Llantas</span><span style="text-align: right; font-weight: 600;">S/ 60.00</span><span style="color: rgba(255,255,255,0.5);">Boleta de venta</span>
+      <span style="padding: 5px 11px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(63,190,114,0.16); color: #3FBE72; border: 1px solid rgba(63,190,114,0.4); width: fit-content;">● Completo</span>
+    </div>
+
+    <div class="fx-row" style="display: grid; grid-template-columns: 100px 1.3fr 1.6fr 1fr 110px 1fr 140px; gap: 10px; padding: 14px 20px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center; background: rgba(217,164,65,0.05);">
+      <span style="color: rgba(255,255,255,0.5);">18/09</span><span>Carlos Ramírez</span><span style="color: rgba(255,255,255,0.65);">Bomba manual</span><span style="color: rgba(255,255,255,0.65);">Repuestos</span><span style="text-align: right; font-weight: 600;">S/ 135.00</span><span style="color: #D9A441;">Yape · sin comprobante</span>
+      <span style="padding: 5px 11px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(217,164,65,0.16); color: #D9A441; border: 1px solid rgba(217,164,65,0.4); width: fit-content;">● Pendiente</span>
+    </div>
+
+    <div class="fx-row" style="display: grid; grid-template-columns: 100px 1.3fr 1.6fr 1fr 110px 1fr 140px; gap: 10px; padding: 14px 20px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center;">
+      <span style="color: rgba(255,255,255,0.5);">17/09</span><span>Inversiones y Servicios Tiara</span><span style="color: rgba(255,255,255,0.65);">Pernos acerados x50</span><span style="color: rgba(255,255,255,0.65);">Repuestos</span><span style="text-align: right; font-weight: 600;">S/ 135.00</span><span style="color: rgba(255,255,255,0.5);">Factura</span>
+      <span style="padding: 5px 11px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(63,190,114,0.16); color: #3FBE72; border: 1px solid rgba(63,190,114,0.4); width: fit-content;">● Completo</span>
+    </div>
+
+    <div class="fx-row" style="display: grid; grid-template-columns: 100px 1.3fr 1.6fr 1fr 110px 1fr 140px; gap: 10px; padding: 14px 20px; font-size: 13px; align-items: center; background: rgba(217,164,65,0.05);">
+      <span style="color: rgba(255,255,255,0.5);">10/09</span><span>Por definir</span><span style="color: rgba(255,255,255,0.65);">Equipos para planta / muestra</span><span style="color: rgba(255,255,255,0.65);">Sin categorizar</span><span style="text-align: right; font-weight: 600;">S/ 50.00</span><span style="color: #D9A441;">Sin documento</span>
+      <span style="padding: 5px 11px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(217,164,65,0.16); color: #D9A441; border: 1px solid rgba(217,164,65,0.4); width: fit-content;">● Pendiente</span>
+    </div>
+  </div>
+
+  <div style="font-size: 12px; color: rgba(255,255,255,0.35);">Mostrando 5 de 140 movimientos · 2 pendientes de documento</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filter: "all" };
+  }
+  renderVals() {
+    const f = this.state.filter;
+    const mk = (key) => ({
+      bg: f === key ? "rgba(255,255,255,0.14)" : "transparent",
+      color: f === key ? "#ffffff" : "rgba(255,255,255,0.5)"
+    });
+    const all = mk("all"), pend = mk("pend"), ok = mk("ok");
+    return {
+      allBg: all.bg, allColor: all.color,
+      pendBg: pend.bg, pendColor: pend.color,
+      okBg: ok.bg, okColor: ok.color,
+      pickAll: () => this.setState({ filter: "all" }),
+      pickPend: () => this.setState({ filter: "pend" }),
+      pickOk: () => this.setState({ filter: "ok" })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Factudex — Paleta y estilo</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  body { margin: 0; font-family: 'IBM Plex Sans', sans-serif; }
+  h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; margin: 0; }
+  .fx-btn { border: none; cursor: pointer; font-family: 'IBM Plex Sans', sans-serif; }
+  .fx-btn:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+  .fx-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+  .fx-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 8px; }
+</style>
+</helmet>
+
+<div style="width: 100%; min-height: 940px; box-sizing: border-box; background: radial-gradient(1100px 560px at 12% -8%, rgba(255,255,255,0.05), transparent 60%), linear-gradient(165deg, #0A0E1A 0%, #0D1526 50%, #0A0F1C 100%); color: rgba(255,255,255,0.92); padding: 40px 56px 64px; display: flex; flex-direction: column; gap: 32px;">
+
+  <!-- HEADER -->
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 24px;">
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <div style="width: 40px; height: 40px; border-radius: 11px; background: linear-gradient(135deg, {{theme.primary}}, {{theme.accent}}); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; color: #0A0E1A;">F</div>
+      <div>
+        <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px; letter-spacing: 0.2px;">Factudex</div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.45);">Control de cajas chicas</div>
+      </div>
+    </div>
+
+    <!-- COMPANY SWITCHER -->
+    <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09); border-radius: 999px; padding: 5px;">
+      <button class="fx-btn" onClick="{{pickSL}}" style="padding: 9px 18px; border-radius: 999px; font-size: 13px; font-weight: 600; transition: background .15s, color .15s; background: {{slBg}}; color: {{slColor}};">SAN LORENZO</button>
+      <button class="fx-btn" onClick="{{pickSIPE}}" style="padding: 9px 18px; border-radius: 999px; font-size: 13px; font-weight: 600; transition: background .15s, color .15s; background: {{sipeBg}}; color: {{sipeColor}};">SIPE</button>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);"></div>
+    </div>
+  </div>
+
+  <!-- PALETA ACTIVA -->
+  <div>
+    <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.4); margin-bottom: 12px;">Paleta activa — {{theme.label}}</div>
+    <div style="display: flex; gap: 14px; flex-wrap: wrap;">
+      <div style="display: flex; flex-direction: column; gap: 8px; width: 168px;">
+        <div style="height: 56px; border-radius: 12px; background: #0A0E1A; border: 1px solid rgba(255,255,255,0.09);"></div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.6);">Fondo base<br><span style="color: rgba(255,255,255,0.35); font-family: monospace;">#0A0E1A</span></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; width: 168px;">
+        <div style="height: 56px; border-radius: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); backdrop-filter: blur(10px);"></div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.6);">Superficie glass<br><span style="color: rgba(255,255,255,0.35); font-family: monospace;">rgba(255,255,255,.06)</span></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; width: 168px;">
+        <div style="height: 56px; border-radius: 12px; background: {{theme.primary}};"></div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.6);">Primario ({{theme.label}})<br><span style="color: rgba(255,255,255,0.35); font-family: monospace;">{{theme.primary}}</span></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; width: 168px;">
+        <div style="height: 56px; border-radius: 12px; background: {{theme.accent}};"></div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.6);">Acento ({{theme.label}})<br><span style="color: rgba(255,255,255,0.35); font-family: monospace;">{{theme.accent}}</span></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; width: 168px;">
+        <div style="height: 56px; border-radius: 12px; background: #D9A441;"></div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.6);">Estado: pendiente<br><span style="color: rgba(255,255,255,0.35); font-family: monospace;">#D9A441</span></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; width: 168px;">
+        <div style="height: 56px; border-radius: 12px; background: #3FBE72;"></div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.6);">Estado: aprobado<br><span style="color: rgba(255,255,255,0.35); font-family: monospace;">#3FBE72</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px;">
+    <div style="position: relative; overflow: hidden; padding: 22px 22px 20px 24px; border-radius: 16px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09); backdrop-filter: blur(16px); box-shadow: 0 10px 30px rgba(0,0,0,0.35);">
+      <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: {{theme.primary}};"></div>
+      <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 10px;">Saldo en caja</div>
+      <div style="font-family: 'Space Grotesk', sans-serif; font-size: 30px; font-weight: 700;">S/ 1,240.00</div>
+      <div style="font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 6px;">Caja Mantenimiento — {{theme.label}}</div>
+    </div>
+    <div style="position: relative; overflow: hidden; padding: 22px 22px 20px 24px; border-radius: 16px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09); backdrop-filter: blur(16px); box-shadow: 0 10px 30px rgba(0,0,0,0.35);">
+      <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: {{theme.accent}};"></div>
+      <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 10px;">Movimientos del mes</div>
+      <div style="font-family: 'Space Grotesk', sans-serif; font-size: 30px; font-weight: 700;">37</div>
+      <div style="font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 6px;">4 sin comprobante aún</div>
+    </div>
+    <div style="position: relative; overflow: hidden; padding: 22px 22px 20px 24px; border-radius: 16px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09); backdrop-filter: blur(16px); box-shadow: 0 10px 30px rgba(0,0,0,0.35);">
+      <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #D9A441;"></div>
+      <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 10px;">Por liquidar</div>
+      <div style="font-family: 'Space Grotesk', sans-serif; font-size: 30px; font-weight: 700;">S/ 760.00</div>
+      <div style="font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 6px;">Límite S/ 200 restantes</div>
+    </div>
+  </div>
+
+  <!-- NAV PILLS + LIMITE -->
+  <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; align-items: stretch;">
+
+    <div style="padding: 20px 22px; border-radius: 16px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09); backdrop-filter: blur(16px); display: flex; flex-direction: column; gap: 16px;">
+      <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.4);">Navegación</div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <div style="padding: 9px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; background: {{theme.primarySoft}}; color: {{theme.primary}}; border: 1px solid {{theme.primary}};">Registro</div>
+        <div style="padding: 9px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.09);">Pendientes</div>
+        <div style="padding: 9px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.09);">Historial</div>
+        <div style="padding: 9px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.09);">Recargas</div>
+      </div>
+      <div style="display: flex; gap: 10px; margin-top: 4px;">
+        <button class="fx-btn" style="padding: 11px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; background: {{theme.primary}}; color: #0A0E1A;">+ Nuevo registro</button>
+        <button class="fx-btn" style="padding: 11px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; background: transparent; border: 1px solid {{theme.accent}}; color: {{theme.accent}};">Ver historial</button>
+      </div>
+    </div>
+
+    <div style="padding: 20px 22px; border-radius: 16px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09); backdrop-filter: blur(16px); display: flex; flex-direction: column; gap: 14px;">
+      <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.4);">Umbral de liquidación</div>
+      <div style="display: flex; justify-content: space-between; font-size: 12px; color: rgba(255,255,255,0.55);">
+        <span>S/ 1,240 consumidos</span><span>Límite S/ 1,800</span>
+      </div>
+      <div style="height: 10px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden;">
+        <div style="height: 100%; width: 69%; border-radius: 999px; background: linear-gradient(90deg, {{theme.primary}}, {{theme.accent}});"></div>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 4px;">
+        <span style="padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(217,164,65,0.16); color: #D9A441; border: 1px solid rgba(217,164,65,0.4);">● Pendiente</span>
+        <span style="padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(63,190,114,0.16); color: #3FBE72; border: 1px solid rgba(63,190,114,0.4);">● Aprobado</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="font-size: 12px; color: rgba(255,255,255,0.35); text-align: center; margin-top: 4px;">
+    Explora el toggle San Lorenzo / SIPE arriba — el fondo oscuro y el vidrio esmerilado se mantienen, solo cambia el color de marca.
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":940}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { company: "SL" };
+  }
+  renderVals() {
+    const companies = {
+      SL: {
+        label: "San Lorenzo",
+        primary: "#2E75B6",
+        accent: "#D3453A",
+        primarySoft: "rgba(46,117,182,0.16)"
+      },
+      SIPE: {
+        label: "SIPE",
+        primary: "#1FA2C9",
+        accent: "#2FAE60",
+        primarySoft: "rgba(31,162,201,0.16)"
+      }
+    };
+    const active = this.state.company || "SL";
+    const theme = companies[active];
+
+    return {
+      theme,
+      slBg: active === "SL" ? "rgba(255,255,255,0.12)" : "transparent",
+      slColor: active === "SL" ? "#ffffff" : "rgba(255,255,255,0.5)",
+      sipeBg: active === "SIPE" ? "rgba(255,255,255,0.12)" : "transparent",
+      sipeColor: active === "SIPE" ? "#ffffff" : "rgba(255,255,255,0.5)",
+      pickSL: () => this.setState({ company: "SL" }),
+      pickSIPE: () => this.setState({ company: "SIPE" })
+    };
+  }
+}
+</script>
+</body>
+</html>
