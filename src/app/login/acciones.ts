@@ -25,7 +25,7 @@ export async function iniciarSesion(_: EstadoLogin, formData: FormData): Promise
     if (error.code === "email_not_confirmed") return { error: "Tu correo aún no está confirmado. Avisa al administrador.", email };
     // Cualquier otro error es de conexión o configuración con Supabase, no de la persona.
     console.error("Login:", error.status, error.code, error.message);
-    return { error: "No se pudo conectar con la base de datos. Avisa al administrador.", email };
+    return { error: `No se pudo conectar con la base de datos (${error.status ?? "sin respuesta"} · ${error.code ?? error.name}). Avisa al administrador.`, email };
   }
   redirect("/registro");
 }
