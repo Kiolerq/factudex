@@ -103,7 +103,7 @@ src/
   lib/datos/       tipos, esquemas zod y repositorio (Supabase o demo)
   lib/supabase/    clientes Supabase (navegador, servidor y proxy de sesión)
   lib/tema/        paleta por empresa y colores de estado
-  lib/ocr/         contrato JSON de la lectura con IA (fase 2)
+  lib/ocr/         lectura de comprobantes con IA (contrato, llamada a Claude, cliente)
   types/           tipos de la base (generados con supabase gen types)
 supabase/
   migrations/      esquema SQL + RLS
