@@ -38,7 +38,7 @@ La referencia visual aprobada son los HTML de `diseno/`. Copia de ahí espaciado
 - Movimientos no se borran: se anulan con motivo. Si la liquidación ya se cerró, no se editan ni se les quitan adjuntos.
 - Cambios de estado de liquidación solo por RPC (`cerrar_liquidacion`, `revisar_liquidacion`) o al insertar la recarga.
 - Recargas son **manuales**; no hay integración bancaria.
-- IA/OCR: solo **pre-llena** campos vacíos; el usuario confirma siempre. Nunca guardar automático. Contrato en `src/lib/ocr/esquema.ts`, llamada a Claude en `src/lib/ocr/leer.ts` (`ANTHROPIC_API_KEY` solo en el servidor), ruta `POST /api/ocr`. Ver `docs/lectura-ia.md`.
+- IA/OCR: solo **pre-llena** campos vacíos; el usuario confirma siempre. Nunca guardar automático. Contrato en `src/lib/ocr/esquema.ts`, llamada en `src/lib/ocr/leer.ts`: Gemini si hay `GEMINI_API_KEY`, si no Claude con `ANTHROPIC_API_KEY` (claves solo en el servidor), ruta `POST /api/ocr`. Ver `docs/lectura-ia.md`.
 - Compartir (Android): `public/sw.js` recibe el POST de `/compartir` (Web Share Target), guarda los archivos en la caché `fx-compartido` y abre `/registro?compartido=1`.
 
 ## Arquitectura

@@ -1,14 +1,18 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
+import { ApiError, GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { z } from "zod";
 import { fechaHoyLima } from "@/lib/datos/esquemas";
 import { normalizarExtraccion, RespuestaModeloOcr, type ExtraccionComprobante } from "./esquema";
 
-// Lectura de comprobantes con Claude (visión). La API key vive solo en el servidor.
-export const MODELO_OCR = process.env.OCR_MODELO || "claude-opus-5-5";
+// Lectura de comprobantes con IA (visión). Usa Gemini si hay GEMINI_API_KEY; si no, Claude con
+// ANTHROPIC_API_KEY. Las claves viven solo en el servidor.
+const PROVEEDOR_OCR: "gemini" | "claude" = process.env.GEMINI_API_KEY ? "gemini" : "claude";
+export const MODELO_OCR = process.env.OCR_MODELO || (PROVEEDOR_OCR === "gemini" ? "gemini-3.8-flash" : "claude-opus-5-5");
 
 export function ocrConfigurado(): boolean {
-  return !!process.env.ANTHROPIC_API_KEY;
+  return !!(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY);
 }
 
 export class ErrorOcr extends Error {}
@@ -35,6 +39,55 @@ Reglas:
 
 /** Lee una imagen o PDF y devuelve los datos para pre-llenar. Lanza ErrorOcr con un mensaje para el usuario. */
 export async function leerComprobante(datos: Buffer, mime: string): Promise<ExtraccionComprobante> {
+  return PROVEEDOR_OCR === "gemini" ? leerConGemini(datos, mime) : leerConClaude(datos, mime);
+}
+
+const pedido = () => `Fecha de hoy: ${fechaHoyLima()}. Extrae los datos.`;
+
+// El esquema se arma una vez; Gemini no necesita la clave "$schema".
+const { $schema: _, ...ESQUEMA_JSON } = z.toJSONSchema(RespuestaModeloOcr);
+
+async function leerConGemini(datos: Buffer, mime: string): Promise<ExtraccionComprobante> {
+  const cliente = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  let respuesta;
+  try {
+    respuesta = await cliente.models.generateContent({
+      model: MODELO_OCR,
+      contents: [
+        { role: "user", parts: [{ inlineData: { mimeType: mime, data: datos.toString("base64") } }, { text: pedido() }] },
+      ],
+      config: {
+        systemInstruction: INSTRUCCIONES,
+        responseMimeType: "application/json",
+        responseJsonSchema: ESQUEMA_JSON,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+      },
+    });
+  } catch (e) {
+    if (e instanceof ApiError) {
+      // Google responde 400 (motivo API_KEY_INVALID) cuando la clave no sirve.
+      if (e.status === 401 || e.status === 403 || e.message.includes("API_KEY_INVALID")) throw new ErrorOcr("La clave de la IA no es válida. Avisa al administrador.");
+      if (e.status === 429) throw new ErrorOcr("Se acabó el cupo gratis de la IA por ahora. Intenta en un rato.");
+      if (e.status === 400) throw new ErrorOcr("La IA no pudo abrir este archivo.");
+      throw new ErrorOcr("La IA no respondió. Intenta de nuevo.");
+    }
+    throw e;
+  }
+
+  const texto = respuesta.text;
+  if (!texto) throw new ErrorOcr("La IA no pudo leer este archivo.");
+  let json: unknown;
+  try {
+    json = JSON.parse(texto);
+  } catch {
+    throw new ErrorOcr("La IA no devolvió datos legibles.");
+  }
+  const leido = RespuestaModeloOcr.safeParse(json);
+  if (!leido.success) throw new ErrorOcr("La IA no devolvió datos legibles.");
+  return normalizarExtraccion(leido.data);
+}
+
+async function leerConClaude(datos: Buffer, mime: string): Promise<ExtraccionComprobante> {
   const base64 = datos.toString("base64");
   const archivo: Anthropic.Beta.BetaContentBlockParam =
     mime === "application/pdf"
@@ -57,7 +110,7 @@ export async function leerComprobante(datos: Buffer, mime: string): Promise<Extr
       messages: [
         {
           role: "user",
-          content: [archivo, { type: "text", text: `Fecha de hoy: ${fechaHoyLima()}. Extrae los datos.` }],
+          content: [archivo, { type: "text", text: pedido() }],
         },
       ],
     });

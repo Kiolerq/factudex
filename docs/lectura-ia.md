@@ -17,16 +17,29 @@ guarda nada solo.
   HEIC no se lee (se adjunta igual).
 
 ## Configuración
+La app usa **Gemini** (Google) si encuentra `GEMINI_API_KEY`; si no, **Claude** con
+`ANTHROPIC_API_KEY`. Sin ninguna de las dos funciona igual, solo sin lectura automática.
+
+### Gemini (plan gratis)
+1. Entra a **https://aistudio.google.com/apikey** con una cuenta de Google → *Create API key*.
+2. Vercel → Settings → Environment Variables → `GEMINI_API_KEY` → **Redeploy**.
+3. Opcional: `OCR_MODELO` para usar otro modelo (por defecto `gemini-3.8-flash`).
+
+El plan gratis tiene un límite de lecturas por minuto y por día; si se pasa, la app avisa
+"Se acabó el cupo gratis". **Ojo:** en el plan gratis Google puede usar lo que se le envía
+(facturas, RUC, montos) para mejorar sus productos. Activando la facturación en Google AI Studio
+deja de hacerlo (y se cobra por uso).
+
+### Claude
 1. Crea una API key en **https://platform.claude.com** → *API Keys* (requiere cargar saldo).
 2. Vercel → Settings → Environment Variables → `ANTHROPIC_API_KEY` → **Redeploy**.
-3. Opcional: `OCR_MODELO` para usar otro modelo (por defecto `claude-opus-5-5`).
-
-Sin `ANTHROPIC_API_KEY` la app funciona igual, solo sin lectura automática.
+3. Opcional: `OCR_MODELO` (por defecto `claude-opus-5-5`; `claude-haiku-5-5` cuesta ~40 veces menos).
 
 Costo aproximado con `claude-opus-5-5` y esfuerzo `low`: unos 2–4 centavos de dólar por
-comprobante. Cada lectura queda en la tabla `extracciones_ocr` (modelo, respuesta o error).
-La petición usa `fallbacks: "default"`: si el modelo declina leer algo, la API reintenta con el
-modelo de respaldo recomendado.
+comprobante. La petición usa `fallbacks: "default"`: si el modelo declina leer algo, la API
+reintenta con el modelo de respaldo recomendado.
+
+Cada lectura queda en la tabla `extracciones_ocr` (modelo, respuesta o error).
 
 ## Compartir desde el celular (Android)
 1. Abre la app en Chrome → menú ⋮ → **Instalar app** / *Agregar a pantalla principal*.

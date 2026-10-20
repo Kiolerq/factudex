@@ -30,7 +30,7 @@ Sigue `docs/configurar-supabase.md`. En resumen:
    | `SUPABASE_SERVICE_ROLE_KEY` | service_role key |
    | `GOOGLE_CLIENT_ID` | del paso 4 (se puede agregar después + Redeploy) |
    | `GOOGLE_CLIENT_SECRET` | del paso 4 |
-   | `ANTHROPIC_API_KEY` | lectura con IA (docs/lectura-ia.md); opcional |
+   | `GEMINI_API_KEY` | lectura con IA, plan gratis de Google (docs/lectura-ia.md); opcional |
 
 3. **Deploy**. Anota la dirección final (ej. `https://factudex.vercel.app` o
    `https://factudex-xxxx.vercel.app`; se cambia en **Settings → Domains**).
