@@ -10,6 +10,7 @@
     "sql:instalacion": "bash scripts/sql-instalacion.sh"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.136.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.1",
     "exceljs": "^4.4.0",

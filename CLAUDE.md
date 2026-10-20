@@ -38,7 +38,8 @@ La referencia visual aprobada son los HTML de `diseno/`. Copia de ahí espaciado
 - Movimientos no se borran: se anulan con motivo. Si la liquidación ya se cerró, no se editan ni se les quitan adjuntos.
 - Cambios de estado de liquidación solo por RPC (`cerrar_liquidacion`, `revisar_liquidacion`) o al insertar la recarga.
 - Recargas son **manuales**; no hay integración bancaria.
-- IA/OCR (fase 2): solo **pre-llena**; el usuario confirma siempre. Nunca guardar automático. Contrato en `src/lib/ocr/esquema.ts`. La API key vive solo en el servidor.
+- IA/OCR: solo **pre-llena** campos vacíos; el usuario confirma siempre. Nunca guardar automático. Contrato en `src/lib/ocr/esquema.ts`, llamada a Claude en `src/lib/ocr/leer.ts` (`ANTHROPIC_API_KEY` solo en el servidor), ruta `POST /api/ocr`. Ver `docs/lectura-ia.md`.
+- Compartir (Android): `public/sw.js` recibe el POST de `/compartir` (Web Share Target), guarda los archivos en la caché `fx-compartido` y abre `/registro?compartido=1`.
 
 ## Arquitectura
 - Datos: `src/lib/datos/repositorio.ts` define la interfaz; `supabase.ts` es la real y `demo.ts` la de ejemplo (se usa sola si faltan las variables de Supabase). Toda pantalla nueva agrega sus métodos a **ambas**.

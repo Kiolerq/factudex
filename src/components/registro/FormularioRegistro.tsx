@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { registrarMovimiento } from "@/app/acciones";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { buscarProveedores, crearProveedor, registrarMovimiento } from "@/app/acciones";
 import { BadgeEstado } from "@/components/ui/BadgeEstado";
 import { EsquemaNuevoMovimiento, TAMANO_MAXIMO, erroresPorCampo, fechaHoyLima, type EntradaMovimiento } from "@/lib/datos/esquemas";
 import {
@@ -23,10 +23,14 @@ import {
 } from "@/lib/datos/tipos";
 import { formatoSoles, leerMonto } from "@/lib/formato";
 import { comprimirImagen } from "@/lib/imagen";
+import { esLegible, pedirLectura } from "@/lib/ocr/cliente";
+import type { ExtraccionComprobante } from "@/lib/ocr/esquema";
+import { leerCompartidos } from "@/lib/compartir";
 import { subirAdjunto, type Almacen } from "@/lib/subida";
 import { nuevoUuid } from "@/lib/uuid";
 import { BuscadorProveedor } from "./BuscadorProveedor";
 import { CampoAdjunto } from "./CampoAdjunto";
+import { AvisoLectura, type Lectura } from "./AvisoLectura";
 
 interface Props {
   caja: CajaSaldo;
@@ -35,12 +39,14 @@ interface Props {
   centrosCosto: Opcion[];
   solicitantes: string[];
   almacen: Almacen;
+  ocr: boolean; // lectura con IA activada (hay API key en el servidor)
+  compartido: boolean; // llegaron archivos desde "Compartir" del celular
 }
 
 type Archivos = Record<"documento" | "pago", File | null>;
 
 
-export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCosto, solicitantes, almacen }: Props) {
+export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCosto, solicitantes, almacen, ocr, compartido }: Props) {
   const centroGeneral = centrosCosto.find((c) => c.codigo === "GEN" || c.nombre === "General")?.id ?? "";
 
   const [movimientoId, setMovimientoId] = useState(() => nuevoUuid());
@@ -64,6 +70,12 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
   const [paso, setPaso] = useState("");
   const camaraRapida = useRef<HTMLInputElement>(null);
   const inicio = useRef<HTMLDivElement>(null);
+  const [lectura, setLectura] = useState<Lectura | null>(null);
+  // Movimiento en curso: si el usuario reinicia el formulario, se ignoran lecturas que lleguen tarde.
+  const idActual = useRef(movimientoId);
+  idActual.current = movimientoId;
+  // Quién puso la fecha: la IA no pisa la que eligió el usuario, y la del documento manda sobre la del pago.
+  const origenFecha = useRef<"usuario" | "documento" | "pago" | null>(null);
 
   const monto = leerMonto(montoTexto);
   const esEfectivo = medioPago === "efectivo";
@@ -80,20 +92,162 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
       return resto;
     });
 
-  async function elegirArchivo(tipo: keyof Archivos, f: File) {
+  /** Valida y comprime; devuelve null (y muestra el error) si no sirve. */
+  async function prepararArchivo(tipo: keyof Archivos, f: File): Promise<File | null> {
     if (!(MIME_PERMITIDOS as readonly string[]).includes(f.type)) {
       setErrores((e) => ({ ...e, [tipo]: "Formato no permitido. Usa JPG, PNG o PDF." }));
-      return;
+      return null;
     }
     const final = await comprimirImagen(f);
     if (final.size > TAMANO_MAXIMO) {
       setErrores((e) => ({ ...e, [tipo]: "El archivo pesa más de 10 MB." }));
-      return;
+      return null;
     }
     quitarError(tipo);
-    setArchivos((a) => ({ ...a, [tipo]: final }));
+    return final;
+  }
+
+  function colocar(tipo: keyof Archivos, archivo: File) {
+    setArchivos((a) => ({ ...a, [tipo]: archivo }));
     if (tipo === "documento") setSinDocumento(false);
   }
+
+  async function elegirArchivo(tipo: keyof Archivos, f: File) {
+    const final = await prepararArchivo(tipo, f);
+    if (!final) return;
+    colocar(tipo, final);
+    if (ocr && esLegible(final)) void leer(tipo, final);
+  }
+
+  /** Lee el archivo con IA y pre-llena lo que esté vacío. El usuario revisa y guarda. */
+  async function leer(tipo: keyof Archivos, archivo: File) {
+    const id = movimientoId;
+    setLectura({ estado: "leyendo" });
+    const r = await pedirLectura(archivo, tipo, id);
+    if (idActual.current !== id) return;
+    if (!r.ok) {
+      setLectura({ estado: "error", mensaje: r.error });
+      return;
+    }
+    await aplicarLectura(tipo, archivo, r.datos);
+  }
+
+  async function aplicarLectura(tipo: keyof Archivos, archivo: File, d: ExtraccionComprobante) {
+    if (!d.es_comprobante) {
+      setLectura({ estado: "listo", datos: d, campos: [] });
+      return;
+    }
+    const campos: string[] = [];
+    const esPago = d.es_captura_yape;
+
+    // Una captura de Yape/Plin puesta como documento va al espacio de la constancia de pago.
+    let movido = false;
+    if (tipo === "documento" && esPago) {
+      setArchivos((a) => (a.pago || a.documento !== archivo ? a : { documento: null, pago: archivo }));
+      movido = true;
+    }
+
+    if (d.monto !== null) {
+      setMontoTexto((p) => (p.trim() ? p : d.monto!.toFixed(2)));
+      campos.push("monto");
+    }
+    const deDocumento = !esPago;
+    if (d.fecha && d.fecha <= fechaHoyLima()) {
+      const puede =
+        origenFecha.current === null || (deDocumento && origenFecha.current === "pago");
+      if (puede) {
+        setFecha(d.fecha);
+        origenFecha.current = deDocumento ? "documento" : "pago";
+        campos.push("fecha");
+      }
+    }
+    if (d.concepto) {
+      setDetalle((p) => p || d.concepto!);
+      campos.push("detalle");
+    }
+    if (deDocumento && d.tipo_documento) {
+      setTipoDocumento((p) => p ?? d.tipo_documento);
+      campos.push("tipo de documento");
+    }
+    if (deDocumento && d.serie_numero) {
+      setSerieNumero((p) => p || d.serie_numero!);
+      campos.push("N° de documento");
+    }
+    const medio = d.medio_pago ?? (esPago ? "yape" : null);
+    if (medio && medio !== "efectivo") {
+      setMedioPago((p) => p ?? medio);
+      campos.push("medio de pago");
+    }
+    if (d.numero_operacion) {
+      setOperacionPago((p) => p || d.numero_operacion!);
+      campos.push("N° de operación");
+    }
+
+    // Proveedor: solo del documento (en una constancia de pago el nombre es de quien recibe).
+    let proveedorNuevo: { numDoc: string; razonSocial: string } | undefined;
+    if (deDocumento && d.proveedor_num_doc) {
+      const hallado = (await buscarProveedores(d.proveedor_num_doc)).find((p) => p.numDoc === d.proveedor_num_doc);
+      if (idActual.current !== movimientoId) return;
+      if (hallado) {
+        setProveedor((p) => p ?? hallado);
+        quitarError("proveedorId");
+        campos.push("proveedor");
+      } else if (d.proveedor_razon_social) {
+        proveedorNuevo = { numDoc: d.proveedor_num_doc, razonSocial: d.proveedor_razon_social };
+      }
+    }
+
+    for (const c of ["monto", "fecha", "detalle", "tipoDocumento"]) quitarError(c);
+    setLectura({ estado: "listo", datos: d, campos, proveedorNuevo, movido });
+  }
+
+  async function crearProveedorLeido() {
+    const n = lectura?.estado === "listo" ? lectura.proveedorNuevo : undefined;
+    if (!n) return;
+    const r = await crearProveedor({ tipoDoc: n.numDoc.length === 11 ? "RUC" : "DNI", numDoc: n.numDoc, razonSocial: n.razonSocial });
+    if (r.ok) {
+      setProveedor(r.proveedor);
+      quitarError("proveedorId");
+      setLectura((l) => (l?.estado === "listo" ? { ...l, proveedorNuevo: undefined, campos: [...l.campos, "proveedor"] } : l));
+    } else {
+      setLectura((l) => (l?.estado === "listo" ? { ...l, errorProveedor: Object.values(r.errores)[0] } : l));
+    }
+  }
+
+  // Archivos que llegaron con "Compartir" (Android): la IA decide si son comprobante o constancia de pago.
+  useEffect(() => {
+    if (!compartido) return;
+    let cancelado = false;
+    (async () => {
+      const recibidos = await leerCompartidos();
+      history.replaceState(null, "", "/registro");
+      const ocupados = { documento: false, pago: false };
+      for (const f of recibidos.slice(0, 2)) {
+        if (cancelado) return;
+        const final = await prepararArchivo("documento", f);
+        if (!final) continue;
+        let datos: ExtraccionComprobante | null = null;
+        if (ocr && esLegible(final)) {
+          setLectura({ estado: "leyendo" });
+          const r = await pedirLectura(final, "documento", idActual.current);
+          if (r.ok) datos = r.datos;
+          else setLectura({ estado: "error", mensaje: r.error });
+        }
+        if (cancelado) return;
+        let tipo: keyof Archivos = datos?.es_captura_yape ? "pago" : "documento";
+        if (ocupados[tipo]) tipo = tipo === "pago" ? "documento" : "pago";
+        if (ocupados[tipo]) break;
+        ocupados[tipo] = true;
+        colocar(tipo, final);
+        if (datos) await aplicarLectura(tipo, final, datos);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+    // Solo al abrir la página con archivos compartidos.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function reiniciar(conservarCabecera: boolean) {
     setMovimientoId(nuevoUuid());
@@ -113,6 +267,8 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
     setSinDocumento(false);
     setArchivos({ documento: null, pago: null });
     setErrores({});
+    setLectura(null);
+    origenFecha.current = null;
   }
 
   function guardar(e: React.FormEvent) {
@@ -207,6 +363,15 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
           </div>
         )}
 
+        {lectura && (
+          <AvisoLectura
+            lectura={lectura}
+            hayProveedor={!!proveedor}
+            onCrearProveedor={crearProveedorLeido}
+            onCerrar={() => setLectura(null)}
+          />
+        )}
+
         {/* Móvil: acción principal = foto del documento */}
         <input
           ref={camaraRapida}
@@ -230,7 +395,7 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
           {archivos.documento ? "Cambiar foto del comprobante" : "Tomar foto del comprobante"}
         </button>
         <p className="-mt-1.5 text-center text-[11px] text-white/35 md:hidden">
-          o sube un archivo en la sección de adjuntos
+          {ocr ? "La IA lee la foto y llena los datos por ti" : "o sube un archivo en la sección de adjuntos"}
         </p>
 
         <div className="fx-card flex flex-col gap-3.5 rounded-[14px] p-4 md:gap-4 md:rounded-2xl md:px-7 md:py-[26px]">
@@ -277,6 +442,7 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
                   aria-invalid={!!errores.fecha}
                   onChange={(e) => {
                     setFecha(e.target.value);
+                    origenFecha.current = "usuario";
                     quitarError("fecha");
                   }}
                 />

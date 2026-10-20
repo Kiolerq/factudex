@@ -26,17 +26,17 @@ Objetivo: una app usable con datos reales de una o dos cajas, instalada en el ce
 4. [ ] **Pendientes** (`/pendientes`): lista con días de antigüedad (informativo, sin plazo) y qué falta (documento, pago o ambos).
 5. [ ] **Liquidaciones** (`/liquidaciones`): folio, fechas, total liquidable; incompletos en rojo con aviso "pasarán a la siguiente liquidación"; botón "Cerrar liquidación"; aviso cuando el saldo baja del umbral.
 6. [ ] **Recargas** (`/recargas`): bandeja del aprobador — aprobar/observar liquidación y registrar la recarga manual con monto libre (sugerido: total liquidado).
-7. [ ] **Compartir** (`/compartir`): recibe el POST del Web Share Target (Android), pregunta "Registro nuevo / Uno existente" y adjunta la imagen.
+7. [x] **Compartir** (`/compartir`): el service worker recibe el POST del Web Share Target (Android) y abre un registro nuevo con la imagen (la IA decide si es comprobante o constancia de pago). Falta: "adjuntar a uno existente".
 8. [ ] Admin mínimo: usuarios y accesos por caja (puede empezar desde el panel de Supabase).
 
 **Criterio de salida**: gerencia ve en vivo el saldo de cada caja y qué falta sustentar, y otra persona puede liquidar una caja sin ayuda de la titular.
 
 ## Fase 2 — Lectura automática con IA
-- [ ] Route Handler `POST /api/ocr` (solo servidor, API key en variable de entorno) que envía la imagen a un modelo de IA con visión y valida la respuesta contra `src/lib/ocr/esquema.ts`.
-- [ ] Guardar cada lectura en `extracciones_ocr`.
-- [ ] Pre-llenar el formulario de Registro, resaltando campos con baja confianza. **El usuario siempre confirma; nunca se guarda automático.**
-- [ ] Si el RUC/DNI leído no existe en el maestro, ofrecer crear el proveedor.
-- [ ] Integrarlo con el flujo de `/compartir` (captura de Yape/BCP → pre-llenado).
+- [x] Route Handler `POST /api/ocr` (solo servidor, API key en variable de entorno) que envía la imagen o PDF a Claude y valida la respuesta contra `src/lib/ocr/esquema.ts`.
+- [x] Guardar cada lectura en `extracciones_ocr`.
+- [x] Pre-llenar el formulario de Registro (solo campos vacíos), con aviso si la lectura es dudosa. **El usuario siempre confirma; nunca se guarda automático.**
+- [x] Si el RUC/DNI leído no existe en el maestro, ofrecer crear el proveedor.
+- [x] Integrarlo con el flujo de `/compartir` (captura de Yape/BCP → pre-llenado).
 - [ ] Medir precisión (campos corregidos por el usuario vs. leídos).
 
 ## Fase 3 — Producción

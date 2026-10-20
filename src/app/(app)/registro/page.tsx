@@ -1,11 +1,13 @@
 import { FormularioRegistro } from "@/components/registro/FormularioRegistro";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
 import { almacenActivo } from "@/lib/drive/estado";
+import { ocrConfigurado } from "@/lib/ocr/leer";
 import { leerCajaActiva } from "@/lib/seleccion";
 
 export const metadata = { title: "Registro · Factudex" };
 
-export default async function PaginaRegistro() {
+export default async function PaginaRegistro({ searchParams }: PageProps<"/registro">) {
+  const { compartido } = await searchParams;
   const repo = await obtenerRepositorio();
   const [empresas, cajas] = await Promise.all([repo.listarEmpresas(), repo.listarCajas()]);
   const caja = await leerCajaActiva(cajas);
@@ -19,7 +21,13 @@ export default async function PaginaRegistro() {
   ]);
 
   return (
-    <FormularioRegistro
+    <>
+      {compartido === "sin-sw" && (
+        <p role="status" className="fx-card mb-4 px-4 py-3 text-[12.5px] text-white/70">
+          La app terminó de instalarse. Vuelve a compartir la imagen para adjuntarla.
+        </p>
+      )}
+      <FormularioRegistro
       // Al cambiar de caja el formulario se reinicia (centros de costo y solicitantes dependen de la empresa).
       key={caja.id}
       caja={caja}
@@ -28,6 +36,9 @@ export default async function PaginaRegistro() {
       centrosCosto={centrosCosto}
       solicitantes={solicitantes}
       almacen={almacen}
-    />
+      ocr={ocrConfigurado()}
+      compartido={compartido === "1"}
+      />
+    </>
   );
 }
