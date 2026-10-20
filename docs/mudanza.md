@@ -30,6 +30,7 @@ Sigue `docs/configurar-supabase.md`. En resumen:
    | `SUPABASE_SERVICE_ROLE_KEY` | service_role key |
    | `GOOGLE_CLIENT_ID` | del paso 4 (se puede agregar después + Redeploy) |
    | `GOOGLE_CLIENT_SECRET` | del paso 4 |
+   | `ANTHROPIC_API_KEY` | lectura con IA (docs/lectura-ia.md); opcional |
 
 3. **Deploy**. Anota la dirección final (ej. `https://factudex.vercel.app` o
    `https://factudex-xxxx.vercel.app`; se cambia en **Settings → Domains**).
@@ -49,6 +50,11 @@ Detalle en `docs/google-drive.md`. Con la cuenta de Google dueña de la carpeta 
 4. **Clientes → Crear cliente** → *Aplicación web* → URI de redirección autorizada:
    `<dirección>/api/google/callback`. Copia el ID y el secreto a Vercel y haz **Redeploy**.
 5. En la app: **Mi cuenta** → pega el enlace de la carpeta → **Conectar Google Drive**.
+
+## 5. Claude Code en el repositorio nuevo
+Para que Claude siga trabajando: instala la app de GitHub de Claude en la cuenta nueva
+(**https://github.com/apps/claude** → *Configure* → elige el repositorio `factudex`) y abre una
+sesión nueva de Claude Code con ese repositorio.
 
 La app arma la dirección de retorno con la dirección de producción de Vercel
 (`VERCEL_PROJECT_PRODUCTION_URL`); si usas un dominio propio, define `NEXT_PUBLIC_SITE_URL`.
