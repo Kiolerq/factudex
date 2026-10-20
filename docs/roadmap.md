@@ -14,7 +14,7 @@ Objetivo: una app usable con datos reales de una o dos cajas, instalada en el ce
 - [x] Proyecto Supabase (free, São Paulo) + migración y seed aplicados; probado de punta a punta (login, registro con foto, saldo, alta de proveedor).
 - [x] Acceso con correo y contraseña (cuentas creadas por el administrador) y página Mi cuenta.
 - [x] Guardar las fotos de comprobantes en Google Drive (ver docs/google-drive.md); falta conectar la cuenta en producción.
-- [ ] Deploy en Vercel conectado al repo (preview por PR).
+- [ ] Deploy en Vercel conectado al repo (preview por PR). Proyecto `juaneco-s-org/factudex`, región `gru1`; si no despliega, ver "Si Vercel no despliega" en docs/mudanza.md.
 - [x] Modo demo con datos de ejemplo cuando no hay Supabase configurado.
 - [ ] Cargar las listas reales de centros de costo y placas por empresa, y las cajas reales (número y área).
 - [x] `src/proxy.ts` para refrescar la sesión y redirigir a `/login`.
