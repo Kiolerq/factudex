@@ -58,3 +58,9 @@ sesión nueva de Claude Code con ese repositorio.
 
 La app arma la dirección de retorno con la dirección de producción de Vercel
 (`VERCEL_PROJECT_PRODUCTION_URL`); si usas un dominio propio, define `NEXT_PUBLIC_SITE_URL`.
+
+## Si Vercel no despliega
+Si en GitHub el commit sale con *"Git author … must have access to the project on Vercel"* o
+*"Deployment was blocked"*, la cuenta de GitHub que hizo el commit o el merge no está ligada al
+equipo de Vercel. Conéctala en Vercel → **Account Settings → Authentication → GitHub** (o junta
+los PR con la cuenta dueña del proyecto) y vuelve a publicar con un push o **Create Deployment**.
