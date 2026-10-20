@@ -14,6 +14,8 @@ export async function pedirLectura(archivo: File, tipo: "documento" | "pago", mo
   cuerpo.set("movimientoId", movimientoId);
   try {
     const r = await fetch("/api/ocr", { method: "POST", body: cuerpo });
+    // Sin sesión, el proxy redirige a /login (HTML, no JSON).
+    if (r.redirected || r.status === 401) return { ok: false, error: "Tu sesión expiró. Vuelve a ingresar." };
     return (await r.json()) as RespuestaOcr;
   } catch {
     return { ok: false, error: "Sin conexión con la IA." };
