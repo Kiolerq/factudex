@@ -48,7 +48,11 @@ const pedido = () => `Fecha de hoy: ${fechaHoyLima()}. Extrae los datos.`;
 const { $schema: _, ...ESQUEMA_JSON } = z.toJSONSchema(RespuestaModeloOcr);
 
 async function leerConGemini(datos: Buffer, mime: string): Promise<ExtraccionComprobante> {
-  const cliente = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  // Gemini responde 503 seguido cuando está saturado: hasta 3 intentos (la ruta tiene 60 s).
+  const cliente = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+    httpOptions: { retryOptions: { attempts: 3, initialDelay: 1, maxDelay: 4, httpStatusCodes: [500, 502, 503, 504] } },
+  });
   let respuesta;
   try {
     respuesta = await cliente.models.generateContent({
@@ -69,6 +73,7 @@ async function leerConGemini(datos: Buffer, mime: string): Promise<ExtraccionCom
       if (e.status === 401 || e.status === 403 || e.message.includes("API_KEY_INVALID")) throw new ErrorOcr("La clave de la IA no es válida. Avisa al administrador.");
       if (e.status === 429) throw new ErrorOcr("Se acabó el cupo gratis de la IA por ahora. Intenta en un rato.");
       if (e.status === 400) throw new ErrorOcr("La IA no pudo abrir este archivo.");
+      if (e.status === 503) throw new ErrorOcr("La IA de Google está saturada. Intenta en un momento.");
       throw new ErrorOcr("La IA no respondió. Intenta de nuevo.");
     }
     throw e;
