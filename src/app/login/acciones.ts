@@ -20,6 +20,12 @@ export async function iniciarSesion(_: EstadoLogin, formData: FormData): Promise
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(datos.data);
-  if (error) return { error: "Correo o contraseña incorrectos.", email };
+  if (error) {
+    if (error.code === "invalid_credentials") return { error: "Correo o contraseña incorrectos.", email };
+    if (error.code === "email_not_confirmed") return { error: "Tu correo aún no está confirmado. Avisa al administrador.", email };
+    // Cualquier otro error es de conexión o configuración con Supabase, no de la persona.
+    console.error("Login:", error.status, error.code, error.message);
+    return { error: "No se pudo conectar con la base de datos. Avisa al administrador.", email };
+  }
   redirect("/registro");
 }
