@@ -1,7 +1,6 @@
 # Configurar Supabase (paso a paso)
 
-> **Estado:** el proyecto `factudex` (ref `twbwgoyfbhvjwxuuhiwo`, región São Paulo) ya está creado
-> con el esquema y los datos de ejemplo. Esta guía queda para rehacerlo o crear otro ambiente.
+> Para mudar todo (GitHub, Supabase, Vercel y Google) a cuentas nuevas, sigue `docs/mudanza.md`.
 >
 > El acceso es con correo y contraseña, así que no depende del envío de correos de Supabase
 > (que en el plan gratis solo llega a los miembros del equipo de la organización).
@@ -15,9 +14,10 @@ Todo en el plan gratuito. Tiempo estimado: 15 minutos.
 
 ## 2. Cargar el esquema y los datos iniciales
 1. En el proyecto: **SQL Editor → New query**.
-2. Pega todo el contenido de `supabase/migrations/20260925000000_esquema_inicial.sql` → **Run**.
-3. Nueva consulta: pega `supabase/seed.sql` → **Run**.
-   (Crea las empresas, las cajas de ejemplo, categorías, centros de costo y placas de ejemplo.)
+2. Pega todo el contenido de `supabase/instalacion_completa.sql` → **Run** (una sola vez).
+   Es todas las migraciones + el seed en un archivo: empresas, cajas de ejemplo, categorías,
+   centros de costo (con placas), solicitantes y proveedores de ejemplo.
+   Se regenera con `npm run sql:instalacion` cuando cambia una migración o el seed.
 
 ## 3. Configurar el acceso
 1. **Authentication → Sign In / Providers → Email**: activado. Desactiva *Allow new users to sign up*
@@ -29,10 +29,8 @@ Todo en el plan gratuito. Tiempo estimado: 15 minutos.
 ## 4. Crear el primer usuario (administrador)
 1. **Authentication → Users → Add user → Create new user**: correo + contraseña temporal, marca *Auto Confirm User*.
    La persona la cambia luego en **Mi cuenta**.
-2. **SQL Editor**:
-   ```sql
-   update perfiles set rol = 'admin', nombre = 'Tu Nombre' where email = 'tu@correo.com';
-   ```
+2. **SQL Editor**: pega `supabase/primer_admin.sql`, cambia el correo y el nombre de arriba → **Run**.
+   Lo hace administrador y da a cada caja un saldo de ejemplo de S/ 2,000 (cámbialo o pon 0).
 
 Para otros usuarios: créalos igual y dales acceso a sus cajas:
 ```sql
@@ -48,8 +46,14 @@ En **Project Settings → API** copia:
 - *Project URL* → variable `NEXT_PUBLIC_SUPABASE_URL`
 - *anon public key* → variable `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
-Ponlas en Vercel (**Settings → Environment Variables**) y vuelve a publicar, o en `.env.local`
-para correrla en tu computadora. Con esas dos variables la app deja el modo demo.
+- *service_role key* → variable `SUPABASE_SERVICE_ROLE_KEY` (solo la usa el servidor, para Drive)
 
-> La *service_role key* **nunca** va en la app ni en Vercel como `NEXT_PUBLIC_`: salta todas las
-> reglas de seguridad.
+Ponlas en Vercel (**Settings → Environment Variables**) y vuelve a publicar, o en `.env.local`
+para correrla en tu computadora. Con las dos primeras la app deja el modo demo.
+
+> La *service_role key* **nunca** lleva el prefijo `NEXT_PUBLIC_` ni va al navegador: salta todas
+> las reglas de seguridad.
+
+## Pausa del plan gratis
+Supabase pausa el proyecto gratis tras ~1 semana sin uso. Se reactiva en el panel con
+**Restore project** (no se pierde nada). Basta con que alguien entre a la app cada semana.

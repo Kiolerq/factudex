@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sql:instalacion": "bash scripts/sql-instalacion.sh"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
