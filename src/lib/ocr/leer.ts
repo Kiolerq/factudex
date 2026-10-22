@@ -9,7 +9,9 @@ import { normalizarExtraccion, RespuestaModeloOcr, type ExtraccionComprobante } 
 // Lectura de comprobantes con IA (visión). Usa Gemini si hay GEMINI_API_KEY; si no, Claude con
 // ANTHROPIC_API_KEY. Las claves viven solo en el servidor.
 const PROVEEDOR_OCR: "gemini" | "claude" = process.env.GEMINI_API_KEY ? "gemini" : "claude";
-export const MODELO_OCR = process.env.OCR_MODELO || (PROVEEDOR_OCR === "gemini" ? "gemini-3.8-flash" : "claude-opus-5-5");
+export const MODELO_OCR = process.env.OCR_MODELO || (PROVEEDOR_OCR === "gemini" ? "gemini-3.6-flash" : "claude-opus-5-5");
+/** Si el modelo de Gemini está saturado o sin cupo, se prueba el siguiente (cada uno tiene su cupo gratis). */
+const RESPALDO_GEMINI = ["gemini-3.6-flash", "gemini-3.8-flash"];
 
 export function ocrConfigurado(): boolean {
   return !!(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY);
@@ -48,27 +50,33 @@ const pedido = () => `Fecha de hoy: ${fechaHoyLima()}. Extrae los datos.`;
 const { $schema: _, ...ESQUEMA_JSON } = z.toJSONSchema(RespuestaModeloOcr);
 
 async function leerConGemini(datos: Buffer, mime: string): Promise<ExtraccionComprobante> {
-  // Gemini responde 503 seguido cuando está saturado: hasta 3 intentos (la ruta tiene 60 s).
+  // Gemini responde 503 seguido cuando está saturado: 2 intentos por modelo y luego el de respaldo
+  // (la ruta tiene 60 s).
   const cliente = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY,
-    httpOptions: { retryOptions: { attempts: 3, initialDelay: 1, maxDelay: 4, httpStatusCodes: [500, 502, 503, 504] } },
+    httpOptions: { retryOptions: { attempts: 2, initialDelay: 1, maxDelay: 2, httpStatusCodes: [500, 502, 503, 504] } },
   });
+  const modelos = [MODELO_OCR, ...RESPALDO_GEMINI.filter((m) => m !== MODELO_OCR)];
   let respuesta;
-  try {
-    respuesta = await cliente.models.generateContent({
-      model: MODELO_OCR,
-      contents: [
-        { role: "user", parts: [{ inlineData: { mimeType: mime, data: datos.toString("base64") } }, { text: pedido() }] },
-      ],
-      config: {
-        systemInstruction: INSTRUCCIONES,
-        responseMimeType: "application/json",
-        responseJsonSchema: ESQUEMA_JSON,
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-      },
-    });
-  } catch (e) {
-    if (e instanceof ApiError) {
+  for (const [i, modelo] of modelos.entries()) {
+    try {
+      respuesta = await cliente.models.generateContent({
+        model: modelo,
+        contents: [
+          { role: "user", parts: [{ inlineData: { mimeType: mime, data: datos.toString("base64") } }, { text: pedido() }] },
+        ],
+        config: {
+          systemInstruction: INSTRUCCIONES,
+          responseMimeType: "application/json",
+          responseJsonSchema: ESQUEMA_JSON,
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        },
+      });
+      break;
+    } catch (e) {
+      if (!(e instanceof ApiError)) throw e;
+      const saturado = e.status === 429 || e.status >= 500;
+      if (saturado && i < modelos.length - 1) continue;
       // Google responde 400 (motivo API_KEY_INVALID) cuando la clave no sirve.
       if (e.status === 401 || e.status === 403 || e.message.includes("API_KEY_INVALID")) throw new ErrorOcr("La clave de la IA no es válida. Avisa al administrador.");
       if (e.status === 429) throw new ErrorOcr("Se acabó el cupo gratis de la IA por ahora. Intenta en un rato.");
@@ -76,8 +84,8 @@ async function leerConGemini(datos: Buffer, mime: string): Promise<ExtraccionCom
       if (e.status === 503) throw new ErrorOcr("La IA de Google está saturada. Intenta en un momento.");
       throw new ErrorOcr("La IA no respondió. Intenta de nuevo.");
     }
-    throw e;
   }
+  if (!respuesta) throw new ErrorOcr("La IA no respondió. Intenta de nuevo.");
 
   const texto = respuesta.text;
   if (!texto) throw new ErrorOcr("La IA no pudo leer este archivo.");

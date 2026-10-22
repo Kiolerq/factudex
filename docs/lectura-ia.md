@@ -23,7 +23,8 @@ La app usa **Gemini** (Google) si encuentra `GEMINI_API_KEY`; si no, **Claude** 
 ### Gemini (plan gratis)
 1. Entra a **https://aistudio.google.com/apikey** con una cuenta de Google → *Create API key*.
 2. Vercel → Settings → Environment Variables → `GEMINI_API_KEY` → **Redeploy**.
-3. Opcional: `OCR_MODELO` para usar otro modelo (por defecto `gemini-3.8-flash`).
+3. Opcional: `OCR_MODELO` para usar otro modelo (por defecto `gemini-3.6-flash`; si está saturado
+   o sin cupo, prueba solo con `gemini-3.8-flash`).
 
 El plan gratis tiene un límite de lecturas por minuto y por día; si se pasa, la app avisa
 "Se acabó el cupo gratis". **Ojo:** en el plan gratis Google puede usar lo que se le envía
