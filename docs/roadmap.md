@@ -26,7 +26,7 @@ Objetivo: una app usable con datos reales de una o dos cajas, instalada en el ce
 4. [x] **Pendientes** (`/pendientes`): lista con días de antigüedad (informativo, sin plazo) y qué falta (documento, pago o ambos).
 5. [x] **Liquidaciones** (`/liquidaciones`): folio, fechas, saldo anterior / ingresos / egresos / por reembolsar; incompletos en rojo con aviso "pasarán a la siguiente liquidación"; botón "Cerrar liquidación" (y "Volver a enviar" si fue observada); aviso cuando el saldo baja del umbral; detalle (`/liquidaciones/[id]`) y descarga en Excel.
 6. [x] **Recargas** (`/recargas`): bandeja del aprobador — aprobar/observar liquidación y registrar la recarga manual con monto libre (sugerido: total liquidado).
-7. [x] **Compartir** (`/compartir`): el service worker recibe el POST del Web Share Target (Android) y abre un registro nuevo con la imagen (la IA decide si es comprobante o constancia de pago). Falta: "adjuntar a uno existente".
+7. [x] **Compartir** (`/compartir`): el service worker recibe el POST del Web Share Target (Android) y abre un registro nuevo con la imagen y pregunta qué es (tipo de documento o constancia de Yape/Plin/transferencia, con la sugerencia de la IA) y si va a un gasto nuevo o a un pendiente al que le falta ese archivo (el más probable primero).
 8. [ ] Admin mínimo: usuarios y accesos por caja (puede empezar desde el panel de Supabase).
 
 **Criterio de salida**: gerencia ve en vivo el saldo de cada caja y qué falta sustentar, y otra persona puede liquidar una caja sin ayuda de la titular.

@@ -84,6 +84,31 @@ export const EsquemaCompletarMovimiento = z.object({
 });
 export type EntradaCompletar = z.input<typeof EsquemaCompletarMovimiento>;
 
+/** Archivo compartido desde otra app que se junta a un gasto pendiente. */
+export const EsquemaAdjuntarCompartido = z
+  .object({
+    id: z.uuid(),
+    tipo: z.enum(["documento", "pago"]),
+    subtipo: z.string(), // tipo de documento o medio de pago elegido
+    adjunto: EsquemaAdjunto,
+    leido: z
+      .object({
+        serieNumero: z.string().max(40).nullable(),
+        numDoc: z.string().max(20).nullable(),
+        operacion: z.string().max(40).nullable(),
+      })
+      .nullable(),
+  })
+  .refine(
+    (a) =>
+      a.adjunto.tipo === a.tipo &&
+      (a.tipo === "documento"
+        ? (TIPOS_DOCUMENTO as readonly string[]).includes(a.subtipo)
+        : (MEDIOS_PAGO as readonly string[]).includes(a.subtipo) && a.subtipo !== "efectivo"),
+    "Tipo de archivo inválido",
+  );
+export type EntradaAdjuntarCompartido = z.input<typeof EsquemaAdjuntarCompartido>;
+
 export const EsquemaAnular = z.object({
   id: z.uuid(),
   motivo: z.string().trim().min(3, "Escribe el motivo de la anulación").max(300),

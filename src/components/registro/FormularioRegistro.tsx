@@ -24,6 +24,7 @@ import {
 import { formatoSoles, leerMonto } from "@/lib/formato";
 import { comprimirImagen } from "@/lib/imagen";
 import { motivoNoLegible, pedirLectura } from "@/lib/ocr/cliente";
+import { SelectorCompartido, type Eleccion } from "./SelectorCompartido";
 import type { ExtraccionComprobante } from "@/lib/ocr/esquema";
 import { leerCompartidos } from "@/lib/compartir";
 import { subirAdjunto, type Almacen } from "@/lib/subida";
@@ -71,6 +72,7 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
   const camaraRapida = useRef<HTMLInputElement>(null);
   const inicio = useRef<HTMLDivElement>(null);
   const [lectura, setLectura] = useState<Lectura | null>(null);
+  const [compartidos, setCompartidos] = useState<File[]>([]);
   // Movimiento en curso: si el usuario reinicia el formulario, se ignoran lecturas que lleguen tarde.
   const idActual = useRef(movimientoId);
   idActual.current = movimientoId;
@@ -217,7 +219,16 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
     }
   }
 
-  // Archivos que llegaron con "Compartir" (Android): la IA decide si son comprobante o constancia de pago.
+  /** Archivo compartido elegido como gasto nuevo: va a su espacio con lo que eligió la persona. */
+  async function usarCompartidoEnNuevo(archivo: File, eleccion: Eleccion, datos: ExtraccionComprobante | null) {
+    colocar(eleccion.tipo, archivo);
+    if (eleccion.tipo === "documento") setTipoDocumento((p) => p ?? eleccion.subtipo);
+    else setMedioPago((p) => p ?? eleccion.subtipo);
+    // La elección de la persona manda sobre lo que creyó la IA (documento o constancia de pago).
+    if (datos) await aplicarLectura(eleccion.tipo, archivo, { ...datos, es_captura_yape: eleccion.tipo === "pago" });
+  }
+
+  // Archivos que llegaron con "Compartir" (Android).
   useEffect(() => {
     // Se revisa siempre (no solo con ?compartido=1): si la app pidió iniciar sesión al abrirse
     // desde "Compartir", el aviso se pierde en el login pero los archivos siguen en la caché.
@@ -230,28 +241,13 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
           setErrores((e) => ({ ...e, _: "No llegó el archivo compartido. Vuelve a compartirlo desde la otra app." }));
         return;
       }
-      const ocupados = { documento: false, pago: false };
+      const listos: File[] = [];
       for (const f of recibidos.slice(0, 2)) {
-        if (cancelado) return;
         const final = await prepararArchivo("documento", f);
-        if (!final) continue;
-        let datos: ExtraccionComprobante | null = null;
-        const motivo = ocr ? motivoNoLegible(final) : null;
-        if (motivo) setLectura({ estado: "error", mensaje: motivo });
-        else if (ocr) {
-          setLectura({ estado: "leyendo" });
-          const r = await pedirLectura(final, "documento", idActual.current);
-          if (r.ok) datos = r.datos;
-          else setLectura({ estado: "error", mensaje: r.error });
-        }
-        if (cancelado) return;
-        let tipo: keyof Archivos = datos?.es_captura_yape ? "pago" : "documento";
-        if (ocupados[tipo]) tipo = tipo === "pago" ? "documento" : "pago";
-        if (ocupados[tipo]) break;
-        ocupados[tipo] = true;
-        colocar(tipo, final);
-        if (datos) await aplicarLectura(tipo, final, datos);
+        if (final) listos.push(final);
       }
+      // Pregunta qué es cada archivo y si va a un gasto nuevo o a un pendiente (SelectorCompartido).
+      if (!cancelado && listos.length) setCompartidos(listos);
     })();
     return () => {
       cancelado = true;
@@ -356,6 +352,16 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
 
   return (
     <form onSubmit={guardar} noValidate className="grid items-start gap-5 md:grid-cols-[1.5fr_1fr]">
+      {compartidos.length > 0 && (
+        <SelectorCompartido
+          archivos={compartidos}
+          ocr={ocr}
+          almacen={almacen}
+          movimientoId={movimientoId}
+          onNuevo={usarCompartidoEnNuevo}
+          onTerminar={() => setCompartidos([])}
+        />
+      )}
       <div ref={inicio} className="flex scroll-mt-4 flex-col gap-3.5 md:gap-0">
         {guardado && (
           <div role="status" className="fx-card mb-4 flex flex-wrap items-center justify-between gap-3 border-fx-completo/40! px-5 py-4">

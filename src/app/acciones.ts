@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  EsquemaAdjuntarCompartido,
   EsquemaAnular,
   EsquemaCompletarMovimiento,
   EsquemaNuevaRecarga,
@@ -11,13 +12,22 @@ import {
   EsquemaNuevoProveedor,
   EsquemaRevision,
   erroresPorCampo,
+  type EntradaAdjuntarCompartido,
   type EntradaCompletar,
   type EntradaMovimiento,
   type EntradaRecarga,
 } from "@/lib/datos/esquemas";
 import { ErrorDeNegocio, modoDemo, obtenerRepositorio } from "@/lib/datos/repositorio";
-import type { AdjuntoSubido, EstadoMovimiento, NuevoProveedor, Proveedor } from "@/lib/datos/tipos";
-import { COOKIE_CAJA } from "@/lib/seleccion";
+import type {
+  AdjuntoSubido,
+  EstadoMovimiento,
+  MedioPago,
+  MovimientoResumen,
+  NuevoProveedor,
+  Proveedor,
+  TipoDocumento,
+} from "@/lib/datos/tipos";
+import { COOKIE_CAJA, leerCajaActiva } from "@/lib/seleccion";
 import { createClient } from "@/lib/supabase/server";
 import { asegurarCarpeta, driveConfigurado, iniciarSubida, metadatos } from "@/lib/drive/google";
 import { headers } from "next/headers";
@@ -147,6 +157,70 @@ export async function completarMovimiento(
     return { ok: true, estado };
   } catch (e) {
     if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
+    throw e;
+  }
+}
+
+/** Pendientes de las cajas de la empresa activa, para juntarles un archivo compartido. */
+export async function pendientesParaAdjuntar(): Promise<{
+  movimientos: MovimientoResumen[];
+  cajas: { id: string; nombre: string }[];
+}> {
+  const repo = await repoAutenticado();
+  const cajas = await repo.listarCajas();
+  const activa = await leerCajaActiva(cajas);
+  const deEmpresa = cajas.filter((c) => c.empresaId === activa?.empresaId);
+  const { movimientos } = await repo.listarMovimientos({
+    cajaIds: deEmpresa.map((c) => c.id),
+    estado: "pendiente",
+    texto: "",
+    limite: 300,
+  });
+  return {
+    movimientos,
+    cajas: deEmpresa.map((c) => ({ id: c.id, nombre: `Caja ${String(c.numero).padStart(2, "0")} · ${c.nombre}` })),
+  };
+}
+
+/**
+ * Junta a un gasto pendiente el archivo compartido (ya subido por el navegador). Lo leído por la
+ * IA solo llena lo que estaba vacío: tipo y N° de documento, proveedor, medio y N° de operación.
+ */
+export async function adjuntarCompartido(
+  entrada: EntradaAdjuntarCompartido,
+): Promise<{ ok: true; estado: EstadoMovimiento } | { ok: false; error: string }> {
+  const datos = EsquemaAdjuntarCompartido.safeParse(entrada);
+  if (!datos.success) return { ok: false, error: "Datos inválidos" };
+  const { id, tipo, subtipo, adjunto, leido } = datos.data;
+  const repo = await repoAutenticado();
+  const m = await repo.obtenerMovimiento(id); // con RLS: si no lo ve, no existe
+  if (!m || m.anulado) return { ok: false, error: "El gasto no existe o está anulado" };
+
+  const errorArchivos = await verificarAdjuntos(m.cajaId, m.id, [adjunto]);
+  if (errorArchivos) return { ok: false, error: errorArchivos };
+
+  let proveedorId = m.proveedorId;
+  if (!proveedorId && tipo === "documento" && leido?.numDoc) {
+    proveedorId = (await repo.buscarProveedores(leido.numDoc)).find((p) => p.numDoc === leido.numDoc)?.id ?? null;
+  }
+  // El medio de pago solo cambia mientras la liquidación siga abierta u observada.
+  const medioEditable = m.liquidacion.estado === "abierta" || m.liquidacion.estado === "observada";
+  const medioPago = m.medioPago ?? (tipo === "pago" && medioEditable ? (subtipo as MedioPago) : null);
+
+  try {
+    const estado = await repo.completarMovimiento({
+      id,
+      proveedorId,
+      tipoDocumento: m.tipoDocumento ?? (tipo === "documento" ? (subtipo as TipoDocumento) : null),
+      serieNumero: m.serieNumero ?? (tipo === "documento" ? (leido?.serieNumero ?? null) : null),
+      medioPago,
+      operacionPago: m.operacionPago ?? (tipo === "pago" && medioPago !== "efectivo" ? (leido?.operacion ?? null) : null),
+      adjuntos: [adjunto],
+    });
+    revalidatePath("/", "layout");
+    return { ok: true, estado };
+  } catch (e) {
+    if (e instanceof ErrorDeNegocio) return { ok: false, error: e.message };
     throw e;
   }
 }

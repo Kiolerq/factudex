@@ -45,11 +45,21 @@ Cada lectura queda en la tabla `extracciones_ocr` (modelo, respuesta o error).
 ## Compartir desde el celular (Android)
 1. Abre la app en Chrome → menú ⋮ → **Instalar app** / *Agregar a pantalla principal*.
 2. Abre Factudex instalada una vez (para que se active el service worker).
-3. Desde Yape, WhatsApp, Galería o el banco: **Compartir → Factudex**. Se abre un registro
-   nuevo con la imagen adjunta y los datos leídos.
+3. Desde Yape, WhatsApp, Galería o el banco: **Compartir → Factudex**. Se abre una ventana que
+   pregunta, por cada archivo:
+   - **¿Qué es?** Documento (factura, boleta, RxH, planilla, comprobante de egreso) o constancia
+     de pago (Yape, Plin, transferencia). Viene marcado lo que leyó la IA.
+   - **¿Para qué gasto?** Uno **nuevo** (abre el registro con el archivo en su lugar y los datos
+     leídos) o un **pendiente** al que le falta justo eso (de las cajas de la empresa activa; el
+     que coincide en monto, proveedor o fecha va primero). Al juntarlo, lo leído solo llena lo
+     que estaba vacío (tipo y N° de documento, proveedor, medio y N° de operación).
+
+En Xiaomi/Redmi, Chrome necesita el permiso *Otros permisos → Accesos directos de la pantalla de
+inicio* para instalar la app; sin él queda como acceso directo y no aparece en Compartir.
 
 En iPhone, Safari no permite que las apps web reciban "Compartir": usa el botón
 "Tomar foto del comprobante" o elige el archivo desde el formulario.
 
 Código: `src/lib/ocr/` (contrato, llamada, cliente), `src/app/api/ocr/route.ts`,
-`src/components/registro/AvisoLectura.tsx`, `public/sw.js`, `src/lib/compartir.ts`.
+`src/components/registro/AvisoLectura.tsx`, `src/components/registro/SelectorCompartido.tsx`,
+`public/sw.js`, `src/lib/compartir.ts`.
