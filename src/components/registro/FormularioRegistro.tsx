@@ -34,11 +34,11 @@ import { CampoAdjunto } from "./CampoAdjunto";
 import { AvisoLectura, type Lectura } from "./AvisoLectura";
 
 interface Props {
-  caja: CajaSaldo;
-  empresaNombre: string;
-  categorias: Opcion[];
-  centrosCosto: Opcion[];
-  solicitantes: string[];
+  /** Cajas donde la persona puede registrar; elige de cuál sale el dinero. */
+  cajas: CajaSaldo[];
+  cajaInicialId: string;
+  /** Listas de cada empresa (dependen de la caja elegida). */
+  listas: ListasEmpresa[];
   almacen: Almacen;
   ocr: boolean; // lectura con IA activada (hay API key en el servidor)
   compartido: boolean; // llegaron archivos desde "Compartir" del celular
@@ -46,9 +46,23 @@ interface Props {
 
 type Archivos = Record<"documento" | "pago", File | null>;
 
+export interface ListasEmpresa {
+  empresaId: string;
+  nombre: string;
+  categorias: Opcion[];
+  centrosCosto: Opcion[];
+  solicitantes: string[];
+}
 
-export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCosto, solicitantes, almacen, ocr, compartido }: Props) {
-  const centroGeneral = centrosCosto.find((c) => c.codigo === "GEN" || c.nombre === "General")?.id ?? "";
+const generalDe = (centros: Opcion[]) => centros.find((c) => c.codigo === "GEN" || c.nombre === "General")?.id ?? "";
+
+
+export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr, compartido }: Props) {
+  const [cajaId, setCajaId] = useState(cajaInicialId);
+  const caja = cajas.find((c) => c.id === cajaId) ?? cajas[0]!;
+  const lista = listas.find((l) => l.empresaId === caja.empresaId)!;
+  const { categorias, centrosCosto, solicitantes, nombre: empresaNombre } = lista;
+  const centroGeneral = generalDe(centrosCosto);
 
   const [movimientoId, setMovimientoId] = useState(() => nuevoUuid());
   const [fecha, setFecha] = useState(fechaHoyLima);
@@ -219,6 +233,19 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
     }
   }
 
+  /** Cambia la caja de la que sale el dinero. Las listas dependen de la empresa de la caja. */
+  function elegirCaja(id: string) {
+    const nueva = cajas.find((c) => c.id === id);
+    if (!nueva || nueva.id === caja.id) return;
+    if (nueva.empresaId !== caja.empresaId) {
+      const otra = listas.find((l) => l.empresaId === nueva.empresaId)!;
+      setCentroCostoId(generalDe(otra.centrosCosto));
+      setCategoriaId((c) => (otra.categorias.some((x) => x.id === c) ? c : ""));
+    }
+    setCajaId(id);
+    quitarError("cajaId");
+  }
+
   /** Archivo compartido elegido como gasto nuevo: va a su espacio con lo que eligió la persona. */
   async function usarCompartidoEnNuevo(archivo: File, eleccion: Eleccion, datos: ExtraccionComprobante | null) {
     colocar(eleccion.tipo, archivo);
@@ -351,7 +378,12 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
       .join(" · ") || "—";
 
   return (
-    <form onSubmit={guardar} noValidate className="grid items-start gap-5 md:grid-cols-[1.5fr_1fr]">
+    <form
+      onSubmit={guardar}
+      noValidate
+      data-empresa={caja.empresaCodigo}
+      className="grid items-start gap-5 md:grid-cols-[1.5fr_1fr]"
+    >
       {compartidos.length > 0 && (
         <SelectorCompartido
           archivos={compartidos}
@@ -422,6 +454,10 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
               {empresaNombre} › {nombreCaja(caja)} — los campos con * son obligatorios.
             </p>
           </div>
+
+          {cajas.length > 1 && (
+            <SelectorCajaRegistro cajas={cajas} listas={listas} cajaId={caja.id} onElegir={elegirCaja} />
+          )}
 
           <div className="flex flex-col gap-3.5 md:gap-4">
             {/* Monto: primero en móvil, después del detalle en escritorio */}
@@ -694,7 +730,9 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
         <div className="fx-card px-[22px] py-5">
           <div className="mb-3 text-xs uppercase tracking-[1px] text-white/40">Vista previa</div>
           <dl className="flex flex-col gap-2.5 text-[13px]">
-            <Fila etiqueta="Caja">{nombreCaja(caja)}</Fila>
+            <Fila etiqueta="Caja">
+              {empresaNombre} · {nombreCaja(caja)}
+            </Fila>
             <Fila etiqueta="Proveedor">{proveedor?.razonSocial ?? (sinDocumento ? "Por definir" : "—")}</Fila>
             <Fila etiqueta="Categoría">{nombreCategoria ?? "—"}</Fila>
             <Fila etiqueta="Monto">
@@ -783,5 +821,57 @@ function Fila({ etiqueta, children }: { etiqueta: string; children: React.ReactN
       <dt className="shrink-0 text-white/45">{etiqueta}</dt>
       <dd className="truncate text-right">{children}</dd>
     </div>
+  );
+}
+
+/** "¿De qué caja sale el dinero?": empresa y caja, con el saldo de cada una. */
+function SelectorCajaRegistro({
+  cajas,
+  listas,
+  cajaId,
+  onElegir,
+}: {
+  cajas: CajaSaldo[];
+  listas: ListasEmpresa[];
+  cajaId: string;
+  onElegir: (id: string) => void;
+}) {
+  return (
+    <fieldset className="flex flex-col gap-2.5">
+      <legend className="fx-label">¿De qué caja sale el dinero? *</legend>
+      {listas.map((l) => {
+        const deEmpresa = cajas.filter((c) => c.empresaId === l.empresaId);
+        if (!deEmpresa.length) return null;
+        return (
+          <div key={l.empresaId} className="flex flex-col gap-1.5">
+            {listas.length > 1 && <div className="text-[11px] uppercase tracking-[0.6px] text-white/40">{l.nombre}</div>}
+            <div className="flex flex-wrap gap-2">
+              {deEmpresa.map((c) => {
+                const activa = c.id === cajaId;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    aria-pressed={activa}
+                    data-empresa={c.empresaCodigo}
+                    onClick={() => onElegir(c.id)}
+                    className={`fx-btn flex flex-col items-start rounded-xl border px-3.5 py-2 text-left ${
+                      activa ? "border-fx-primary bg-fx-primary-soft text-white" : "border-white/12 bg-white/4 text-white/60 hover:text-white"
+                    }`}
+                  >
+                    <span className="text-[12px] font-semibold leading-tight">
+                      {String(c.numero).padStart(2, "0")} · {c.nombre}
+                    </span>
+                    <span className={`font-display text-[13px] font-bold leading-tight ${c.bajoUmbral ? "text-fx-pendiente" : ""}`}>
+                      {formatoSoles(c.saldo)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </fieldset>
   );
 }

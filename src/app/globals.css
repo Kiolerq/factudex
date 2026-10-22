@@ -32,6 +32,17 @@
   --fx-primary-dark: #1e5a91; /* degradado del botón de cámara */
 }
 
+/* Explícito para que un bloque de San Lorenzo dentro de una pantalla de SIPE (ej. el registro
+   cuando se elige otra caja) recupere sus colores. */
+[data-empresa="SL"] {
+  --fx-primary: #2e75b6;
+  --fx-accent: #d3453a;
+  --fx-primary-soft: rgba(46, 117, 182, 0.16);
+  --fx-primary-line: rgba(46, 117, 182, 0.4);
+  --fx-primary-light: #79b3e6;
+  --fx-primary-dark: #1e5a91;
+}
+
 [data-empresa="SIPE"] {
   --fx-primary: #1fa2c9;
   --fx-accent: #2fae60;
