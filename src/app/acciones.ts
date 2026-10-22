@@ -4,13 +4,19 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  EsquemaAnular,
+  EsquemaCompletarMovimiento,
+  EsquemaNuevaRecarga,
   EsquemaNuevoMovimiento,
   EsquemaNuevoProveedor,
+  EsquemaRevision,
   erroresPorCampo,
+  type EntradaCompletar,
   type EntradaMovimiento,
+  type EntradaRecarga,
 } from "@/lib/datos/esquemas";
 import { ErrorDeNegocio, modoDemo, obtenerRepositorio } from "@/lib/datos/repositorio";
-import type { EstadoMovimiento, NuevoProveedor, Proveedor } from "@/lib/datos/tipos";
+import type { AdjuntoSubido, EstadoMovimiento, NuevoProveedor, Proveedor } from "@/lib/datos/tipos";
 import { COOKIE_CAJA } from "@/lib/seleccion";
 import { createClient } from "@/lib/supabase/server";
 import { asegurarCarpeta, driveConfigurado, iniciarSubida, metadatos } from "@/lib/drive/google";
@@ -62,6 +68,29 @@ export async function crearProveedor(entrada: NuevoProveedor): Promise<Resultado
   }
 }
 
+/**
+ * Los archivos solo pueden ser de este movimiento: en Storage, su carpeta; en Drive, un archivo
+ * creado por la app con las marcas (appProperties) de este movimiento y caja. Devuelve el error o null.
+ */
+async function verificarAdjuntos(cajaId: string, movimientoId: string, adjuntos: AdjuntoSubido[]) {
+  if (modoDemo()) return null;
+  const prefijo = `${cajaId}/${movimientoId}/`;
+  for (const a of adjuntos) {
+    if (a.storagePath.startsWith("drive:")) {
+      const meta = await metadatos(a.storagePath.slice(6)).catch(() => null);
+      const p = meta?.appProperties;
+      if (!meta || p?.movimientoId !== movimientoId || p?.cajaId !== cajaId || p?.tipo !== a.tipo) {
+        return "No se pudo verificar el archivo en Google Drive";
+      }
+      a.tamanoBytes = Number(meta.size ?? a.tamanoBytes);
+      a.nombreArchivo = meta.name;
+    } else if (!a.storagePath.startsWith(prefijo)) {
+      return "Ruta de archivo inválida";
+    }
+  }
+  return null;
+}
+
 export type ResultadoMovimiento =
   | { ok: true; id: string; estado: EstadoMovimiento }
   | { ok: false; errores: Record<string, string> };
@@ -71,24 +100,8 @@ export async function registrarMovimiento(entrada: EntradaMovimiento): Promise<R
   if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
   const { sinDocumento: _, ...movimiento } = datos.data;
 
-  // Los archivos solo pueden ser de este movimiento: en Storage, su carpeta; en Drive, un
-  // archivo creado por la app con las marcas (appProperties) de este movimiento y caja.
-  if (!modoDemo()) {
-    const prefijo = `${movimiento.cajaId}/${movimiento.id}/`;
-    for (const a of movimiento.adjuntos) {
-      if (a.storagePath.startsWith("drive:")) {
-        const meta = await metadatos(a.storagePath.slice(6)).catch(() => null);
-        const p = meta?.appProperties;
-        if (!meta || p?.movimientoId !== movimiento.id || p?.cajaId !== movimiento.cajaId || p?.tipo !== a.tipo) {
-          return { ok: false, errores: { _: "No se pudo verificar el archivo en Google Drive" } };
-        }
-        a.tamanoBytes = Number(meta.size ?? a.tamanoBytes);
-        a.nombreArchivo = meta.name;
-      } else if (!a.storagePath.startsWith(prefijo)) {
-        return { ok: false, errores: { _: "Ruta de archivo inválida" } };
-      }
-    }
-  }
+  const errorArchivos = await verificarAdjuntos(movimiento.cajaId, movimiento.id, movimiento.adjuntos);
+  if (errorArchivos) return { ok: false, errores: { _: errorArchivos } };
 
   const repo = await repoAutenticado();
   try {
@@ -99,6 +112,74 @@ export async function registrarMovimiento(entrada: EntradaMovimiento): Promise<R
     if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
     throw e;
   }
+}
+
+export type Resultado = { ok: true } | { ok: false; errores: Record<string, string> };
+
+/** Ejecuta una operación del repositorio: los errores de negocio se muestran al usuario. */
+async function ejecutar(operacion: () => Promise<unknown>): Promise<Resultado> {
+  try {
+    await operacion();
+    revalidatePath("/", "layout");
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
+    throw e;
+  }
+}
+
+/** Completa un pendiente: datos del documento y los archivos que faltaban (ya subidos por el navegador). */
+export async function completarMovimiento(
+  entrada: EntradaCompletar,
+): Promise<{ ok: true; estado: EstadoMovimiento } | { ok: false; errores: Record<string, string> }> {
+  const datos = EsquemaCompletarMovimiento.safeParse(entrada);
+  if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
+  const repo = await repoAutenticado();
+  const actual = await repo.obtenerMovimiento(datos.data.id); // con RLS: si no lo ve, no existe
+  if (!actual) return { ok: false, errores: { _: "El movimiento no existe" } };
+  if (actual.anulado) return { ok: false, errores: { _: "El movimiento está anulado" } };
+
+  const errorArchivos = await verificarAdjuntos(actual.cajaId, actual.id, datos.data.adjuntos);
+  if (errorArchivos) return { ok: false, errores: { _: errorArchivos } };
+  try {
+    const estado = await repo.completarMovimiento(datos.data);
+    revalidatePath("/", "layout");
+    return { ok: true, estado };
+  } catch (e) {
+    if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
+    throw e;
+  }
+}
+
+export async function anularMovimiento(entrada: { id: string; motivo: string }): Promise<Resultado> {
+  const datos = EsquemaAnular.safeParse(entrada);
+  if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
+  const repo = await repoAutenticado();
+  return ejecutar(() => repo.anularMovimiento(datos.data.id, datos.data.motivo));
+}
+
+export async function cerrarLiquidacion(id: string): Promise<Resultado> {
+  if (!z.uuid().safeParse(id).success) return { ok: false, errores: { _: "Liquidación inválida" } };
+  const repo = await repoAutenticado();
+  return ejecutar(() => repo.cerrarLiquidacion(id));
+}
+
+export async function revisarLiquidacion(entrada: {
+  id: string;
+  aprobar: boolean;
+  observaciones: string | null;
+}): Promise<Resultado> {
+  const datos = EsquemaRevision.safeParse(entrada);
+  if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
+  const repo = await repoAutenticado();
+  return ejecutar(() => repo.revisarLiquidacion(datos.data.id, datos.data.aprobar, datos.data.observaciones));
+}
+
+export async function registrarRecarga(entrada: EntradaRecarga): Promise<Resultado> {
+  const datos = EsquemaNuevaRecarga.safeParse(entrada);
+  if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
+  const repo = await repoAutenticado();
+  return ejecutar(() => repo.registrarRecarga(datos.data));
 }
 
 const EsquemaSubidaDrive = z.object({

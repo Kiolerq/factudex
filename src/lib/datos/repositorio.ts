@@ -1,11 +1,20 @@
 import type {
   CajaSaldo,
+  CompletarMovimiento,
+  DetalleLiquidacion,
+  DetalleMovimiento,
   Empresa,
   EstadoMovimiento,
+  FiltroMovimientos,
+  LiquidacionResumen,
+  NuevaRecarga,
   NuevoMovimiento,
   NuevoProveedor,
   Opcion,
+  PaginaMovimientos,
+  PermisosCaja,
   Proveedor,
+  Recarga,
   Usuario,
 } from "./tipos";
 
@@ -25,6 +34,20 @@ export interface Repositorio {
   buscarProveedores(texto: string): Promise<Proveedor[]>;
   crearProveedor(p: NuevoProveedor): Promise<Proveedor>;
   registrarMovimiento(m: NuevoMovimiento): Promise<{ id: string; estado: EstadoMovimiento }>;
+
+  permisosCaja(cajaId: string): Promise<PermisosCaja>;
+  listarMovimientos(f: FiltroMovimientos): Promise<PaginaMovimientos>;
+  obtenerMovimiento(id: string): Promise<DetalleMovimiento | null>;
+  completarMovimiento(c: CompletarMovimiento): Promise<EstadoMovimiento>;
+  anularMovimiento(id: string, motivo: string): Promise<void>;
+
+  listarLiquidaciones(cajaIds: string[]): Promise<LiquidacionResumen[]>;
+  obtenerLiquidacion(id: string): Promise<DetalleLiquidacion | null>;
+  cerrarLiquidacion(id: string): Promise<void>;
+  revisarLiquidacion(id: string, aprobar: boolean, observaciones: string | null): Promise<void>;
+
+  listarRecargas(cajaIds: string[]): Promise<Recarga[]>;
+  registrarRecarga(r: NuevaRecarga): Promise<void>;
 }
 
 export class ErrorDeNegocio extends Error {}

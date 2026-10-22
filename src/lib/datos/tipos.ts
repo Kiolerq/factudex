@@ -57,6 +57,7 @@ export interface Empresa {
   sigla: string;
   nombreCorto: string;
   razonSocial: string;
+  ciudad: string; // pie de la liquidación: "TRUJILLO 24.09.2026"
 }
 
 export interface CajaSaldo {
@@ -115,6 +116,155 @@ export interface NuevoProveedor {
   tipoDoc: TipoDocIdentidad;
   numDoc: string;
   razonSocial: string;
+}
+
+// --- Historial, pendientes, liquidaciones y recargas ---
+
+/** Qué puede hacer el usuario en una caja (accesos_caja; admin puede todo). */
+export interface PermisosCaja {
+  registrar: boolean; // registrar gastos, adjuntar, anular, cerrar liquidación
+  aprobar: boolean; // aprobar/observar liquidaciones y registrar recargas
+}
+
+export type FiltroEstado = "todos" | "pendiente" | "completo" | "anulado";
+
+export interface FiltroMovimientos {
+  cajaIds: string[];
+  estado: FiltroEstado;
+  texto: string; // proveedor, detalle, N° de documento o solicitante
+  limite: number;
+}
+
+export interface MovimientoResumen {
+  id: string;
+  cajaId: string;
+  liquidacionId: string;
+  fecha: string;
+  detalle: string;
+  monto: number;
+  solicitante: string | null;
+  proveedor: string | null; // razón social; null = "Por definir"
+  proveedorDoc: string | null; // RUC / DNI
+  categoria: string | null;
+  centroCosto: string | null;
+  tipoDocumento: TipoDocumento | null;
+  serieNumero: string | null;
+  medioPago: MedioPago | null;
+  operacionPago: string | null;
+  estado: EstadoMovimiento;
+  anulado: boolean;
+  faltaDocumento: boolean;
+  faltaPago: boolean; // en efectivo nunca falta
+}
+
+export interface PaginaMovimientos {
+  movimientos: MovimientoResumen[];
+  total: number; // con el filtro aplicado, sin el límite
+}
+
+export interface AdjuntoGuardado {
+  id: string;
+  tipo: TipoAdjunto;
+  mimeType: string;
+  nombreArchivo: string | null;
+  url: string | null; // /api/archivos/<id>; null en modo demo (no se guarda el archivo)
+}
+
+export type EstadoLiquidacion = "abierta" | "en_revision" | "observada" | "aprobada" | "repuesta";
+
+export const ETIQUETA_LIQUIDACION: Record<EstadoLiquidacion, string> = {
+  abierta: "Abierta",
+  en_revision: "En revisión",
+  observada: "Observada",
+  aprobada: "Aprobada",
+  repuesta: "Repuesta",
+};
+
+export interface DetalleMovimiento extends MovimientoResumen {
+  proveedorId: string | null;
+  motivoAnulacion: string | null;
+  liquidacion: { id: string; folio: string; estado: EstadoLiquidacion };
+  adjuntos: AdjuntoGuardado[];
+}
+
+/** Completa un movimiento pendiente: datos del documento y archivos que faltaban. */
+export interface CompletarMovimiento {
+  id: string;
+  proveedorId: string | null;
+  tipoDocumento: TipoDocumento | null;
+  serieNumero: string | null;
+  medioPago: MedioPago | null;
+  operacionPago: string | null;
+  adjuntos: AdjuntoSubido[];
+}
+
+export interface LiquidacionResumen {
+  id: string;
+  cajaId: string;
+  folio: string;
+  correlativo: number;
+  estado: EstadoLiquidacion;
+  fechaInicio: string;
+  fechaCierre: string | null;
+  saldoInicial: number;
+  ingresos: number; // depósitos del periodo
+  egresos: number; // solo movimientos completos (lo que se liquida)
+  porReembolsar: number; // saldo inicial + ingresos − egresos
+  numMovimientos: number;
+  numIncompletos: number; // en la abierta: no entrarán al cierre
+  montoIncompletos: number;
+  observaciones: string | null;
+}
+
+export type TipoRecarga = "apertura" | "reposicion" | "extraordinaria" | "ajuste";
+export type FormaIngreso = "banco" | "efectivo" | "otros";
+
+export const ETIQUETA_TIPO_RECARGA: Record<TipoRecarga, string> = {
+  apertura: "Apertura",
+  reposicion: "Reposición",
+  extraordinaria: "Extraordinaria",
+  ajuste: "Ajuste",
+};
+
+export const ETIQUETA_FORMA_INGRESO: Record<FormaIngreso, string> = {
+  banco: "Banco",
+  efectivo: "Efectivo",
+  otros: "Otros",
+};
+
+export interface Recarga {
+  id: string;
+  cajaId: string;
+  tipo: TipoRecarga;
+  monto: number;
+  fecha: string;
+  descripcion: string | null;
+  forma: FormaIngreso;
+  banco: string | null;
+  operacion: string | null;
+  recibo: string | null;
+  nota: string | null;
+  folioRepuesto: string | null; // liquidación que repone (solo en reposición)
+}
+
+export interface NuevaRecarga {
+  cajaId: string;
+  tipo: TipoRecarga;
+  liquidacionRepuestaId: string | null;
+  monto: number;
+  fecha: string;
+  descripcion: string | null;
+  forma: FormaIngreso;
+  banco: string | null;
+  operacion: string | null;
+  recibo: string | null;
+  nota: string | null;
+}
+
+export interface DetalleLiquidacion extends LiquidacionResumen {
+  folioAnterior: string | null;
+  movimientos: MovimientoResumen[]; // en la abierta incluye los pendientes (no entrarán al cierre)
+  recargas: Recarga[]; // ingresos del periodo
 }
 
 /** Misma regla que fx_estado_movimiento() en la BD; en el cliente solo se usa para la vista previa. */

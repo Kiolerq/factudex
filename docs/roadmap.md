@@ -22,10 +22,10 @@ Objetivo: una app usable con datos reales de una o dos cajas, instalada en el ce
 **Pantallas** (en este orden; referencia visual en `diseno/`)
 1. [x] **Shell / HUD**: logo, switch San Lorenzo / SIPE, selector de caja, saldo de cada caja, navegación (pestañas en escritorio, barra inferior en móvil).
 2. [x] **Registro** (`/registro`): formulario completo en escritorio con panel de vista previa; en móvil botón grande "Tomar foto del comprobante" y barra fija Cancelar/Guardar. Autocompletado de proveedores, alta rápida de proveedor, centro de costo desplegable ("General" por defecto; incluye placas), solicitante con sugerencias, medio de pago (Efectivo / Yape / Transferencia), dos espacios de adjunto (documento y constancia de pago; el de pago se oculta si es efectivo) y "Aún no tengo el documento".
-3. [ ] **Historial** (`/historial`): tabla (escritorio) / tarjetas (móvil), búsqueda, filtros Todos / Pendientes / Completos + empresa/caja. Pendientes en ámbar. Adjuntar comprobante desde el detalle.
-4. [ ] **Pendientes** (`/pendientes`): lista con días de antigüedad (informativo, sin plazo) y qué falta (documento, pago o ambos).
-5. [ ] **Liquidaciones** (`/liquidaciones`): folio, fechas, total liquidable; incompletos en rojo con aviso "pasarán a la siguiente liquidación"; botón "Cerrar liquidación"; aviso cuando el saldo baja del umbral.
-6. [ ] **Recargas** (`/recargas`): bandeja del aprobador — aprobar/observar liquidación y registrar la recarga manual con monto libre (sugerido: total liquidado).
+3. [x] **Historial** (`/historial`): tabla (escritorio) / tarjetas (móvil), búsqueda, filtros Todos / Pendientes / Completos / Anulados + caja. Pendientes en ámbar. Detalle (`/movimientos/[id]`) con adjuntos, "Completar sustento" (adjuntar documento o constancia que falta) y anulación con motivo.
+4. [x] **Pendientes** (`/pendientes`): lista con días de antigüedad (informativo, sin plazo) y qué falta (documento, pago o ambos).
+5. [x] **Liquidaciones** (`/liquidaciones`): folio, fechas, saldo anterior / ingresos / egresos / por reembolsar; incompletos en rojo con aviso "pasarán a la siguiente liquidación"; botón "Cerrar liquidación" (y "Volver a enviar" si fue observada); aviso cuando el saldo baja del umbral; detalle (`/liquidaciones/[id]`) y descarga en Excel.
+6. [x] **Recargas** (`/recargas`): bandeja del aprobador — aprobar/observar liquidación y registrar la recarga manual con monto libre (sugerido: total liquidado).
 7. [x] **Compartir** (`/compartir`): el service worker recibe el POST del Web Share Target (Android) y abre un registro nuevo con la imagen (la IA decide si es comprobante o constancia de pago). Falta: "adjuntar a uno existente".
 8. [ ] Admin mínimo: usuarios y accesos por caja (puede empezar desde el panel de Supabase).
 
@@ -41,7 +41,7 @@ Objetivo: una app usable con datos reales de una o dos cajas, instalada en el ce
 
 ## Fase 3 — Producción
 - [ ] Alta de todas las cajas reales y sus límites; usuarios y roles definitivos.
-- [ ] Exportar liquidación a PDF/Excel (formato que usa contabilidad).
+- [x] Exportar liquidación a Excel (formato que usa contabilidad): `/api/liquidaciones/<id>/excel`. Falta PDF.
 - [ ] Notificaciones (push PWA o correo): saldo bajo umbral, pendientes críticos, liquidación por aprobar.
 - [ ] Modo sin conexión para registrar en campo y sincronizar después.
 - [ ] Bitácora de auditoría (quién cambió qué).

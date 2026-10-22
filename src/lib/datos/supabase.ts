@@ -1,12 +1,161 @@
 import { createClient } from "@/lib/supabase/server";
 import type { TablesInsert } from "@/types/database";
 import { ErrorDeNegocio, type Repositorio } from "./repositorio";
-import type { CajaSaldo, CodigoEmpresa, Empresa, Opcion, Proveedor } from "./tipos";
+import type {
+  AdjuntoGuardado,
+  CajaSaldo,
+  CodigoEmpresa,
+  Empresa,
+  EstadoLiquidacion,
+  LiquidacionResumen,
+  MedioPago,
+  MovimientoResumen,
+  Opcion,
+  Proveedor,
+  Recarga,
+  TipoAdjunto,
+} from "./tipos";
 
 // Implementación real. Todas las consultas pasan por RLS con la sesión del usuario.
 
 function fallo(error: { message: string } | null, contexto: string): asserts error is null {
   if (error) throw new Error(`${contexto}: ${error.message}`);
+}
+
+/** Los `raise exception` de triggers y RPC (P0001) son reglas de negocio: se muestran tal cual. */
+function falloNegocio(error: { code?: string; message: string } | null, contexto: string): asserts error is null {
+  if (error?.code === "P0001") throw new ErrorDeNegocio(error.message);
+  fallo(error, contexto);
+}
+
+// Columnas de un movimiento para listas (historial, pendientes, liquidación).
+const COLUMNAS_MOVIMIENTO =
+  "id, caja_id, liquidacion_id, fecha, detalle, monto, solicitante, tipo_documento, serie_numero, medio_pago, " +
+  "operacion_pago, estado, anulado, proveedores(razon_social, num_doc), categorias(nombre), centros_costo(nombre), adjuntos(tipo)";
+
+interface FilaMovimiento {
+  id: string;
+  caja_id: string;
+  liquidacion_id: string;
+  fecha: string;
+  detalle: string;
+  monto: number;
+  solicitante: string | null;
+  tipo_documento: MovimientoResumen["tipoDocumento"];
+  serie_numero: string | null;
+  medio_pago: MedioPago | null;
+  operacion_pago: string | null;
+  estado: MovimientoResumen["estado"];
+  anulado: boolean;
+  proveedores: { razon_social: string; num_doc: string } | null;
+  categorias: { nombre: string } | null;
+  centros_costo: { nombre: string } | null;
+  adjuntos: { tipo: TipoAdjunto }[];
+}
+
+function aMovimiento(m: FilaMovimiento): MovimientoResumen {
+  const tiene = (t: TipoAdjunto) => m.adjuntos.some((a) => a.tipo === t);
+  return {
+    id: m.id,
+    cajaId: m.caja_id,
+    liquidacionId: m.liquidacion_id,
+    fecha: m.fecha,
+    detalle: m.detalle,
+    monto: Number(m.monto),
+    solicitante: m.solicitante,
+    proveedor: m.proveedores?.razon_social ?? null,
+    proveedorDoc: m.proveedores?.num_doc ?? null,
+    categoria: m.categorias?.nombre ?? null,
+    centroCosto: m.centros_costo?.nombre ?? null,
+    tipoDocumento: m.tipo_documento,
+    serieNumero: m.serie_numero,
+    medioPago: m.medio_pago,
+    operacionPago: m.operacion_pago,
+    estado: m.estado,
+    anulado: m.anulado,
+    faltaDocumento: !tiene("documento"),
+    faltaPago: m.medio_pago !== "efectivo" && !tiene("pago"),
+  };
+}
+
+interface FilaLiquidacion {
+  id: string | null;
+  caja_id: string | null;
+  folio: string | null;
+  correlativo: number | null;
+  estado: EstadoLiquidacion | null;
+  fecha_inicio: string | null;
+  fecha_cierre: string | null;
+  saldo_inicial: number | null;
+  total_ingresos: number | null;
+  total_gastado: number | null;
+  saldo_final: number | null;
+  ingresos_actual: number | null;
+  total_actual: number | null;
+  total_liquidable: number | null;
+  saldo_final_actual: number | null;
+  num_movimientos: number | null;
+  num_incompletos: number | null;
+  observaciones: string | null;
+}
+
+function aLiquidacion(l: FilaLiquidacion): LiquidacionResumen {
+  // Abierta u observada: totales en vivo. Cerrada: el snapshot que guardó cerrar_liquidacion().
+  const vivo = l.estado === "abierta" || l.estado === "observada";
+  const n = (x: number | null) => Number(x ?? 0);
+  return {
+    id: l.id!,
+    cajaId: l.caja_id!,
+    folio: l.folio!,
+    correlativo: l.correlativo!,
+    estado: l.estado!,
+    fechaInicio: l.fecha_inicio!,
+    fechaCierre: l.fecha_cierre,
+    saldoInicial: n(l.saldo_inicial),
+    ingresos: vivo || l.total_ingresos === null ? n(l.ingresos_actual) : n(l.total_ingresos),
+    egresos: vivo || l.total_gastado === null ? n(l.total_liquidable) : n(l.total_gastado),
+    porReembolsar: vivo || l.saldo_final === null ? n(l.saldo_final_actual) : n(l.saldo_final),
+    numMovimientos: n(l.num_movimientos),
+    numIncompletos: n(l.num_incompletos),
+    montoIncompletos: Math.round((n(l.total_actual) - n(l.total_liquidable)) * 100) / 100,
+    observaciones: l.observaciones,
+  };
+}
+
+interface FilaRecarga {
+  id: string;
+  caja_id: string;
+  tipo: Recarga["tipo"];
+  monto: number;
+  fecha: string;
+  descripcion: string | null;
+  forma: Recarga["forma"];
+  banco: string | null;
+  operacion: string | null;
+  recibo: string | null;
+  nota: string | null;
+  repuesta: { folio: string } | null;
+}
+
+const COLUMNAS_RECARGA =
+  "id, caja_id, tipo, monto, fecha, descripcion, forma, banco, operacion, recibo, nota, " +
+  "repuesta:liquidaciones!recargas_liquidacion_repuesta_id_fkey(folio)";
+
+function aRecarga(r: FilaRecarga): Recarga {
+  return {
+    id: r.id,
+    cajaId: r.caja_id,
+    tipo: r.tipo,
+    monto: Number(r.monto),
+    fecha: r.fecha,
+    descripcion: r.descripcion,
+    forma: r.forma,
+    banco: r.banco,
+    operacion: r.operacion,
+    recibo: r.recibo,
+    nota: r.nota,
+    folioRepuesto: r.repuesta?.folio ?? null,
+  };
 }
 
 export async function crearRepositorioSupabase(): Promise<Repositorio> {
@@ -31,7 +180,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
     async listarEmpresas(): Promise<Empresa[]> {
       const { data, error } = await sb
         .from("empresas")
-        .select("id, codigo, sigla, nombre_corto, razon_social")
+        .select("id, codigo, sigla, nombre_corto, razon_social, ciudad")
         .eq("activa", true)
         .order("codigo", { ascending: false }); // SL antes que SIPE
       fallo(error, "Empresas");
@@ -41,6 +190,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         sigla: e.sigla,
         nombreCorto: e.nombre_corto,
         razonSocial: e.razon_social,
+        ciudad: e.ciudad,
       }));
     },
 
@@ -168,6 +318,218 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         .single();
       fallo(errEstado, "Leer estado");
       return { id: m.id, estado: data.estado };
+    },
+
+    async permisosCaja(cajaId) {
+      const [registrar, aprobar] = await Promise.all([
+        sb.rpc("tiene_acceso_caja", { p_caja: cajaId, p_min: "registrador" }),
+        sb.rpc("tiene_acceso_caja", { p_caja: cajaId, p_min: "aprobador" }),
+      ]);
+      return { registrar: !!registrar.data, aprobar: !!aprobar.data };
+    },
+
+    async listarMovimientos(f) {
+      if (!f.cajaIds.length) return { movimientos: [], total: 0 };
+      let q = sb
+        .from("movimientos")
+        .select(COLUMNAS_MOVIMIENTO, { count: "exact" })
+        .in("caja_id", f.cajaIds)
+        .eq("anulado", f.estado === "anulado");
+      if (f.estado === "pendiente" || f.estado === "completo") q = q.eq("estado", f.estado);
+
+      // Quita caracteres con significado en la sintaxis de filtros de PostgREST.
+      const texto = f.texto.replace(/[%,().*\\]/g, " ").trim();
+      if (texto) {
+        const { data: provs } = await sb
+          .from("proveedores")
+          .select("id")
+          .or(`razon_social.ilike.%${texto}%,nombre_comercial.ilike.%${texto}%,num_doc.ilike.${texto}%`)
+          .limit(50);
+        const filtros = [`detalle.ilike.%${texto}%`, `serie_numero.ilike.%${texto}%`, `solicitante.ilike.%${texto}%`];
+        if (provs?.length) filtros.push(`proveedor_id.in.(${provs.map((p) => p.id).join(",")})`);
+        q = q.or(filtros.join(","));
+      }
+
+      const { data, error, count } = await q
+        .order("fecha", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(f.limite)
+        .overrideTypes<FilaMovimiento[], { merge: false }>();
+      fallo(error, "Movimientos");
+      return { movimientos: data.map(aMovimiento), total: count ?? data.length };
+    },
+
+    async obtenerMovimiento(id) {
+      const { data, error } = await sb
+        .from("movimientos")
+        .select(
+          `${COLUMNAS_MOVIMIENTO}, proveedor_id, motivo_anulacion, liquidaciones(id, folio, estado), ` +
+            "archivos:adjuntos(id, tipo, mime_type, nombre_archivo, created_at)",
+        )
+        .eq("id", id)
+        .maybeSingle()
+        .overrideTypes<
+          FilaMovimiento & {
+            proveedor_id: string | null;
+            motivo_anulacion: string | null;
+            liquidaciones: { id: string; folio: string; estado: EstadoLiquidacion };
+            archivos: { id: string; tipo: TipoAdjunto; mime_type: string; nombre_archivo: string | null; created_at: string }[];
+          },
+          { merge: false }
+        >();
+      fallo(error, "Movimiento");
+      if (!data) return null;
+      const adjuntos: AdjuntoGuardado[] = [...data.archivos]
+        .sort((a, b) => a.created_at.localeCompare(b.created_at))
+        .map((a) => ({ id: a.id, tipo: a.tipo, mimeType: a.mime_type, nombreArchivo: a.nombre_archivo, url: `/api/archivos/${a.id}` }));
+      return {
+        ...aMovimiento(data),
+        proveedorId: data.proveedor_id,
+        motivoAnulacion: data.motivo_anulacion,
+        liquidacion: data.liquidaciones,
+        adjuntos,
+      };
+    },
+
+    async completarMovimiento(c) {
+      const { data: filas, error } = await sb
+        .from("movimientos")
+        .update({
+          proveedor_id: c.proveedorId,
+          tipo_documento: c.tipoDocumento,
+          serie_numero: c.serieNumero,
+          medio_pago: c.medioPago,
+          operacion_pago: c.operacionPago,
+        })
+        .eq("id", c.id)
+        .select("id");
+      falloNegocio(error, "Completar movimiento");
+      if (!filas.length) throw new ErrorDeNegocio("No tienes permiso para modificar este movimiento");
+
+      if (c.adjuntos.length) {
+        const { error: errAdj } = await sb.from("adjuntos").insert(
+          c.adjuntos.map((a) => ({
+            movimiento_id: c.id,
+            tipo: a.tipo,
+            storage_path: a.storagePath,
+            mime_type: a.mimeType,
+            tamano_bytes: a.tamanoBytes,
+            almacen: a.storagePath.startsWith("drive:") ? "drive" : "supabase",
+            nombre_archivo: a.nombreArchivo ?? null,
+          })),
+        );
+        falloNegocio(errAdj, "Registrar adjuntos");
+      }
+
+      const { data, error: errEstado } = await sb.from("movimientos").select("estado").eq("id", c.id).single();
+      fallo(errEstado, "Leer estado");
+      return data.estado;
+    },
+
+    async anularMovimiento(id, motivo) {
+      const { data, error } = await sb
+        .from("movimientos")
+        .update({ anulado: true, motivo_anulacion: motivo })
+        .eq("id", id)
+        .eq("anulado", false)
+        .select("id");
+      falloNegocio(error, "Anular movimiento");
+      if (!data.length) throw new ErrorDeNegocio("No se pudo anular: ya está anulado o no tienes permiso");
+    },
+
+    async listarLiquidaciones(cajaIds) {
+      if (!cajaIds.length) return [];
+      const { data, error } = await sb
+        .from("v_liquidaciones")
+        .select("*")
+        .in("caja_id", cajaIds)
+        .order("correlativo", { ascending: false });
+      fallo(error, "Liquidaciones");
+      return data.map(aLiquidacion);
+    },
+
+    async obtenerLiquidacion(id) {
+      const { data: l, error } = await sb.from("v_liquidaciones").select("*").eq("id", id).maybeSingle();
+      fallo(error, "Liquidación");
+      if (!l) return null;
+      const liq = aLiquidacion(l);
+      const [movs, recs, anterior] = await Promise.all([
+        sb
+          .from("movimientos")
+          .select(COLUMNAS_MOVIMIENTO)
+          .eq("liquidacion_id", id)
+          .eq("anulado", false)
+          .order("fecha")
+          .order("created_at")
+          .overrideTypes<FilaMovimiento[], { merge: false }>(),
+        sb
+          .from("recargas")
+          .select(COLUMNAS_RECARGA)
+          .eq("liquidacion_ingreso_id", id)
+          .order("fecha")
+          .overrideTypes<FilaRecarga[], { merge: false }>(),
+        sb
+          .from("liquidaciones")
+          .select("folio")
+          .eq("caja_id", liq.cajaId)
+          .eq("correlativo", liq.correlativo - 1)
+          .maybeSingle(),
+      ]);
+      fallo(movs.error, "Movimientos de la liquidación");
+      fallo(recs.error, "Ingresos de la liquidación");
+      return {
+        ...liq,
+        folioAnterior: anterior.data?.folio ?? null,
+        movimientos: movs.data.map(aMovimiento),
+        recargas: recs.data.map(aRecarga),
+      };
+    },
+
+    async cerrarLiquidacion(id) {
+      const { error } = await sb.rpc("cerrar_liquidacion", { p_liquidacion: id });
+      falloNegocio(error, "Cerrar liquidación");
+    },
+
+    async revisarLiquidacion(id, aprobar, observaciones) {
+      const { error } = await sb.rpc("revisar_liquidacion", {
+        p_liquidacion: id,
+        p_aprobar: aprobar,
+        p_observaciones: observaciones ?? undefined,
+      });
+      falloNegocio(error, "Revisar liquidación");
+    },
+
+    async listarRecargas(cajaIds) {
+      if (!cajaIds.length) return [];
+      const { data, error } = await sb
+        .from("recargas")
+        .select(COLUMNAS_RECARGA)
+        .in("caja_id", cajaIds)
+        .order("fecha", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(100)
+        .overrideTypes<FilaRecarga[], { merge: false }>();
+      fallo(error, "Recargas");
+      return data.map(aRecarga);
+    },
+
+    async registrarRecarga(r) {
+      const { error } = await sb.from("recargas").insert({
+        caja_id: r.cajaId,
+        tipo: r.tipo,
+        liquidacion_repuesta_id: r.liquidacionRepuestaId,
+        monto: r.monto,
+        fecha: r.fecha,
+        descripcion: r.descripcion,
+        forma: r.forma,
+        banco: r.banco,
+        operacion: r.operacion,
+        recibo: r.recibo,
+        nota: r.nota,
+      } as TablesInsert<"recargas">);
+      if (error?.code === "42501") throw new ErrorDeNegocio("Solo un aprobador de la caja puede registrar recargas");
+      if (error?.code === "23505") throw new ErrorDeNegocio("Esa liquidación ya tiene su reposición registrada");
+      falloNegocio(error, "Registrar recarga");
     },
   };
 }
