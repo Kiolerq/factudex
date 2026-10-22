@@ -219,11 +219,17 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
 
   // Archivos que llegaron con "Compartir" (Android): la IA decide si son comprobante o constancia de pago.
   useEffect(() => {
-    if (!compartido) return;
+    // Se revisa siempre (no solo con ?compartido=1): si la app pidió iniciar sesión al abrirse
+    // desde "Compartir", el aviso se pierde en el login pero los archivos siguen en la caché.
     let cancelado = false;
     (async () => {
       const recibidos = await leerCompartidos();
-      history.replaceState(null, "", "/registro");
+      if (compartido) history.replaceState(null, "", "/registro");
+      if (!recibidos.length) {
+        if (compartido && !cancelado)
+          setErrores((e) => ({ ...e, _: "No llegó el archivo compartido. Vuelve a compartirlo desde la otra app." }));
+        return;
+      }
       const ocupados = { documento: false, pago: false };
       for (const f of recibidos.slice(0, 2)) {
         if (cancelado) return;
@@ -250,7 +256,7 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
     return () => {
       cancelado = true;
     };
-    // Solo al abrir la página con archivos compartidos.
+    // Solo al abrir la página.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

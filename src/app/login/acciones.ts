@@ -27,5 +27,11 @@ export async function iniciarSesion(_: EstadoLogin, formData: FormData): Promise
     console.error("Login:", error.status, error.code, error.message);
     return { error: `No se pudo conectar con la base de datos (${error.status ?? "sin respuesta"} · ${error.code ?? error.name}). Avisa al administrador.`, email };
   }
-  redirect("/registro");
+  redirect(destinoSeguro(formData.get("siguiente")));
+}
+
+/** Solo rutas internas de la app (evita redirigir a otro sitio con ?siguiente=https://…). */
+function destinoSeguro(valor: FormDataEntryValue | null): string {
+  const destino = typeof valor === "string" ? valor : "";
+  return /^\/(?!\/)[^\\]*$/.test(destino) && !destino.startsWith("/login") ? destino : "/registro";
 }

@@ -3,12 +3,13 @@
 import { useActionState } from "react";
 import { iniciarSesion, type EstadoLogin } from "./acciones";
 
-export function FormularioLogin({ errorEnlace }: { errorEnlace: boolean }) {
+export function FormularioLogin({ errorEnlace, siguiente }: { errorEnlace: boolean; siguiente: string }) {
   const [estado, accion, entrando] = useActionState<EstadoLogin, FormData>(iniciarSesion, {});
   const error = estado.error ?? (errorEnlace ? "El enlace venció o ya se usó." : undefined);
 
   return (
     <form action={accion} className="flex flex-col gap-3">
+      <input type="hidden" name="siguiente" value={siguiente} />
       <div>
         <label htmlFor="email" className="fx-label">
           Correo

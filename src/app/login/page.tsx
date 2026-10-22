@@ -8,7 +8,7 @@ export const metadata = { title: "Ingresar · Factudex" };
 
 export default async function PaginaLogin({ searchParams }: PageProps<"/login">) {
   if (modoDemo()) redirect("/registro");
-  const { error } = await searchParams;
+  const { error, siguiente } = await searchParams;
 
   return (
     <main className="flex flex-1 items-center justify-center p-5">
@@ -20,7 +20,7 @@ export default async function PaginaLogin({ searchParams }: PageProps<"/login">)
             <p className="text-xs text-white/45">Control de cajas chicas</p>
           </div>
         </div>
-        <FormularioLogin errorEnlace={error === "enlace"} />
+        <FormularioLogin errorEnlace={error === "enlace"} siguiente={typeof siguiente === "string" ? siguiente : ""} />
         <nav className="flex justify-center gap-4 text-[11px] text-white/40">
           <Link href="/privacidad" className="hover:text-white">Privacidad</Link>
           <Link href="/terminos" className="hover:text-white">Condiciones</Link>

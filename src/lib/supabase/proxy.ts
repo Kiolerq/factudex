@@ -32,6 +32,9 @@ export async function actualizarSesion(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
+    // Tras ingresar vuelve a donde iba (ej. /registro?compartido=1 al abrir desde "Compartir").
+    const destino = request.nextUrl.pathname + request.nextUrl.search;
+    if (request.method === "GET" && destino !== "/") url.searchParams.set("siguiente", destino);
     return NextResponse.redirect(url);
   }
   return respuesta;
