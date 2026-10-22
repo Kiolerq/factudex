@@ -1,3 +1,4 @@
+import { InstalarApp } from "@/components/InstalarApp";
 import { FormularioRegistro } from "@/components/registro/FormularioRegistro";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
 import { almacenActivo } from "@/lib/drive/estado";
@@ -22,6 +23,9 @@ export default async function PaginaRegistro({ searchParams }: PageProps<"/regis
 
   return (
     <>
+      <div className="mb-4 empty:hidden md:hidden">
+        <InstalarApp compacto />
+      </div>
       {compartido === "sin-sw" && (
         <p role="status" className="fx-card mb-4 px-4 py-3 text-[12.5px] text-white/70">
           La app terminó de instalarse. Vuelve a compartir la imagen para adjuntarla.

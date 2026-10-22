@@ -1,3 +1,4 @@
+import { InstalarApp } from "@/components/InstalarApp";
 import { cerrarSesion } from "@/app/acciones";
 import { modoDemo, obtenerRepositorio } from "@/lib/datos/repositorio";
 import { estadoDrive } from "@/lib/drive/estado";
@@ -39,6 +40,7 @@ export default async function PaginaCuenta({ searchParams }: PageProps<"/cuenta"
       </section>
 
       <div className="flex flex-col gap-5">
+        <InstalarApp />
         {drive && (
           <section className="fx-card flex flex-col gap-3 p-5 md:p-7">
             <div className="text-xs uppercase tracking-[1px] text-white/40">Google Drive</div>
