@@ -247,7 +247,13 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
   }
 
   /** Archivo compartido elegido como gasto nuevo: va a su espacio con lo que eligió la persona. */
-  async function usarCompartidoEnNuevo(archivo: File, eleccion: Eleccion, datos: ExtraccionComprobante | null) {
+  async function usarCompartidoEnNuevo(
+    archivo: File,
+    eleccion: Eleccion,
+    datos: ExtraccionComprobante | null,
+    cajaElegida: string,
+  ) {
+    elegirCaja(cajaElegida);
     colocar(eleccion.tipo, archivo);
     if (eleccion.tipo === "documento") setTipoDocumento((p) => p ?? eleccion.subtipo);
     else setMedioPago((p) => p ?? eleccion.subtipo);
@@ -387,6 +393,9 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
       {compartidos.length > 0 && (
         <SelectorCompartido
           archivos={compartidos}
+          cajas={cajas}
+          empresas={listas}
+          cajaInicialId={caja.id}
           ocr={ocr}
           almacen={almacen}
           movimientoId={movimientoId}

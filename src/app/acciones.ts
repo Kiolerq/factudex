@@ -32,7 +32,7 @@ import type {
   Proveedor,
   TipoDocumento,
 } from "@/lib/datos/tipos";
-import { COOKIE_CAJA, leerCajaActiva } from "@/lib/seleccion";
+import { COOKIE_CAJA } from "@/lib/seleccion";
 import { createClient } from "@/lib/supabase/server";
 import { asegurarCarpeta, driveConfigurado, iniciarSubida, metadatos } from "@/lib/drive/google";
 import { headers } from "next/headers";
@@ -166,25 +166,13 @@ export async function completarMovimiento(
   }
 }
 
-/** Pendientes de las cajas de la empresa activa, para juntarles un archivo compartido. */
-export async function pendientesParaAdjuntar(): Promise<{
-  movimientos: MovimientoResumen[];
-  cajas: { id: string; nombre: string }[];
-}> {
+/** Pendientes de estas cajas (las del registro), para juntarles un archivo compartido. */
+export async function pendientesParaAdjuntar(cajaIds: string[]): Promise<MovimientoResumen[]> {
+  const ids = z.array(z.uuid()).max(100).safeParse(cajaIds);
+  if (!ids.success) return [];
   const repo = await repoAutenticado();
-  const cajas = await repo.listarCajas();
-  const activa = await leerCajaActiva(cajas);
-  const deEmpresa = cajas.filter((c) => c.empresaId === activa?.empresaId);
-  const { movimientos } = await repo.listarMovimientos({
-    cajaIds: deEmpresa.map((c) => c.id),
-    estado: "pendiente",
-    texto: "",
-    limite: 300,
-  });
-  return {
-    movimientos,
-    cajas: deEmpresa.map((c) => ({ id: c.id, nombre: `Caja ${String(c.numero).padStart(2, "0")} · ${c.nombre}` })),
-  };
+  const { movimientos } = await repo.listarMovimientos({ cajaIds: ids.data, estado: "pendiente", texto: "", limite: 300 });
+  return movimientos;
 }
 
 /**

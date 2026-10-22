@@ -11,6 +11,7 @@ import {
   ETIQUETA_DOCUMENTO,
   ETIQUETA_MEDIO_PAGO,
   TIPOS_DOCUMENTO,
+  type CajaSaldo,
   type EstadoMovimiento,
   type MedioPago,
   type MovimientoResumen,
@@ -25,11 +26,15 @@ export type Eleccion =
 
 interface Props {
   archivos: File[];
+  /** Cajas donde puede registrar, con el nombre de su empresa; elige de cuál sale el dinero. */
+  cajas: CajaSaldo[];
+  empresas: { empresaId: string; nombre: string }[];
+  cajaInicialId: string;
   ocr: boolean;
   almacen: Almacen;
   movimientoId: string; // el del registro nuevo (para anotar la lectura)
   /** Nuevo gasto: el registro pone el archivo en su lugar y aplica lo leído. */
-  onNuevo: (archivo: File, eleccion: Eleccion, datos: ExtraccionComprobante | null) => void;
+  onNuevo: (archivo: File, eleccion: Eleccion, datos: ExtraccionComprobante | null, cajaId: string) => void;
   onTerminar: () => void;
 }
 
@@ -61,13 +66,23 @@ function coincidencias(m: MovimientoResumen, d: ExtraccionComprobante | null): s
  * Ventana que aparece al abrir Factudex desde "Compartir": por cada archivo pregunta qué es
  * (documento o constancia de pago) y para qué gasto (uno nuevo o un pendiente al que le falta).
  */
-export function SelectorCompartido({ archivos, ocr, almacen, movimientoId, onNuevo, onTerminar }: Props) {
+export function SelectorCompartido({
+  archivos,
+  cajas,
+  empresas,
+  cajaInicialId,
+  ocr,
+  almacen,
+  movimientoId,
+  onNuevo,
+  onTerminar,
+}: Props) {
   const router = useRouter();
   const [indice, setIndice] = useState(0);
   const [lecturas, setLecturas] = useState<Lectura[]>(() => archivos.map(() => ({ estado: "leyendo" }) as Lectura));
   const [elecciones, setElecciones] = useState<(Eleccion | null)[]>(() => archivos.map(() => null));
   const [pendientes, setPendientes] = useState<MovimientoResumen[] | null>(null);
-  const [cajas, setCajas] = useState<{ id: string; nombre: string }[]>([]);
+  const [cajaId, setCajaId] = useState(cajaInicialId);
   const [confirmar, setConfirmar] = useState<MovimientoResumen | null>(null);
   const [resultado, setResultado] = useState<{ m: MovimientoResumen; estado: EstadoMovimiento } | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -94,23 +109,25 @@ export function SelectorCompartido({ archivos, ocr, almacen, movimientoId, onNue
       const s = sugerencia(lectura.estado === "listo" ? lectura.datos : null);
       if (s) setElecciones((es) => es.map((e, j) => (j === i && !e ? s : e)));
     });
-    pendientesParaAdjuntar()
-      .then((r) => {
-        setPendientes(r.movimientos);
-        setCajas(r.cajas);
-      })
+    pendientesParaAdjuntar(cajas.map((c) => c.id))
+      .then(setPendientes)
       .catch(() => setPendientes([]));
     // Solo al abrir.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Pendientes a los que les falta justo lo que se comparte (por caja, para el contador de cada una).
+  const lesFalta = useMemo(
+    () => (pendientes ?? []).filter((m) => eleccion && (eleccion.tipo === "documento" ? m.faltaDocumento : m.faltaPago)),
+    [pendientes, eleccion],
+  );
   const candidatos = useMemo(() => {
     if (!eleccion || !pendientes) return [];
-    return pendientes
-      .filter((m) => (eleccion.tipo === "documento" ? m.faltaDocumento : m.faltaPago))
+    return lesFalta
+      .filter((m) => m.cajaId === cajaId)
       .map((m) => ({ m, motivos: coincidencias(m, datos) }))
       .sort((a, b) => b.motivos.length - a.motivos.length || b.m.fecha.localeCompare(a.m.fecha));
-  }, [eleccion, pendientes, datos]);
+  }, [eleccion, pendientes, lesFalta, cajaId, datos]);
 
   const elegir = (e: Eleccion) => {
     setElecciones((es) => es.map((x, j) => (j === indice ? e : x)));
@@ -128,7 +145,7 @@ export function SelectorCompartido({ archivos, ocr, almacen, movimientoId, onNue
 
   const nuevo = () => {
     if (!eleccion) return;
-    onNuevo(archivo, eleccion, datos);
+    onNuevo(archivo, eleccion, datos, cajaId);
     siguiente();
   };
 
@@ -181,7 +198,9 @@ export function SelectorCompartido({ archivos, ocr, almacen, movimientoId, onNue
       ? ETIQUETA_DOCUMENTO[eleccion.subtipo]
       : `Constancia de ${ETIQUETA_MEDIO_PAGO[eleccion.subtipo]}`
     : "";
-  const nombreCaja = (id: string) => (cajas.length > 1 ? cajas.find((c) => c.id === id)?.nombre : undefined);
+  const caja = cajas.find((c) => c.id === cajaId) ?? cajas[0]!;
+  const nombreEmpresa = empresas.find((e) => e.empresaId === caja.empresaId)?.nombre ?? "";
+  const nombreCaja = `${nombreEmpresa} · Caja ${String(caja.numero).padStart(2, "0")} · ${caja.nombre}`;
 
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="titulo-compartido" className="fixed inset-0 z-50 flex items-end justify-center bg-black/65 md:items-center md:p-6">
@@ -257,7 +276,7 @@ export function SelectorCompartido({ archivos, ocr, almacen, movimientoId, onNue
               <strong>
                 {confirmar.detalle} · {formatoSoles(confirmar.monto)}
               </strong>
-              {nombreCaja(confirmar.cajaId) && ` (${nombreCaja(confirmar.cajaId)})`}.
+              {cajas.length > 1 && ` (${nombreCaja})`}.
               {datos && datos.monto !== null && Math.abs(datos.monto - confirmar.monto) >= 0.01 && (
                 <span className="mt-1.5 block text-fx-pendiente">
                   Ojo: la IA leyó {formatoSoles(datos.monto)} y el gasto es de {formatoSoles(confirmar.monto)}.
@@ -299,6 +318,29 @@ export function SelectorCompartido({ archivos, ocr, almacen, movimientoId, onNue
               </Grupo>
             </div>
 
+            {eleccion && cajas.length > 1 && (
+              <div className="flex flex-col gap-2.5">
+                <div className="text-[13px] font-semibold">¿De qué caja sale el dinero?</div>
+                {empresas.map((e) => {
+                  const deEmpresa = cajas.filter((c) => c.empresaId === e.empresaId);
+                  if (!deEmpresa.length) return null;
+                  return (
+                    <Grupo key={e.empresaId} titulo={e.nombre}>
+                      {deEmpresa.map((c) => {
+                        const n = lesFalta.filter((m) => m.cajaId === c.id).length;
+                        return (
+                          <Chip key={c.id} activo={c.id === cajaId} onClick={() => setCajaId(c.id)}>
+                            {String(c.numero).padStart(2, "0")} · {c.nombre}
+                            {n > 0 && <span className="text-fx-pendiente"> · {n}</span>}
+                          </Chip>
+                        );
+                      })}
+                    </Grupo>
+                  );
+                })}
+              </div>
+            )}
+
             {eleccion && (
               <div className="flex flex-col gap-2.5">
                 <div className="text-[13px] font-semibold">¿Para qué gasto?</div>
@@ -309,7 +351,8 @@ export function SelectorCompartido({ archivos, ocr, almacen, movimientoId, onNue
                 >
                   ＋ Nuevo gasto
                   <span className="block text-[11.5px] font-normal text-white/50">
-                    Se abre el registro con el archivo como {eleccion.tipo === "documento" ? "documento" : "constancia de pago"}
+                    Se abre el registro en {nombreCaja} con el archivo como{" "}
+                    {eleccion.tipo === "documento" ? "documento" : "constancia de pago"}
                     {lectura.estado === "listo" && datos?.es_comprobante ? " y los datos que leyó la IA" : ""}.
                   </span>
                 </button>
@@ -317,7 +360,8 @@ export function SelectorCompartido({ archivos, ocr, almacen, movimientoId, onNue
                   <p className="text-[12.5px] text-white/45">Buscando pendientes…</p>
                 ) : candidatos.length === 0 ? (
                   <p className="text-[12.5px] text-white/45">
-                    No hay gastos pendientes a los que les falte {eleccion.tipo === "documento" ? "el documento" : "la constancia de pago"}.
+                    En esta caja no hay gastos pendientes a los que les falte{" "}
+                    {eleccion.tipo === "documento" ? "el documento" : "la constancia de pago"}.
                   </p>
                 ) : (
                   <>
@@ -335,7 +379,8 @@ export function SelectorCompartido({ archivos, ocr, almacen, movimientoId, onNue
                           <span className="block truncate text-[13px] font-semibold">{m.detalle}</span>
                           <span className="block truncate text-[11.5px] text-white/45">
                             {m.proveedor ?? "Por definir"} · {formatoFecha(m.fecha, true)}
-                            {nombreCaja(m.cajaId) && ` · ${nombreCaja(m.cajaId)}`} · {textoFalta(m)}
+                            {" · "}
+                            {textoFalta(m)}
                           </span>
                           {motivos.length > 0 && <span className="block text-[11px] font-semibold text-fx-completo">✓ {motivos.join(" · ")}</span>}
                         </span>

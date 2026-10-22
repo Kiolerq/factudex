@@ -49,9 +49,11 @@ Cada lectura queda en la tabla `extracciones_ocr` (modelo, respuesta o error).
    pregunta, por cada archivo:
    - **¿Qué es?** Documento (factura, boleta, RxH, planilla, comprobante de egreso) o constancia
      de pago (Yape, Plin, transferencia). Viene marcado lo que leyó la IA.
-   - **¿Para qué gasto?** Uno **nuevo** (abre el registro con el archivo en su lugar y los datos
-     leídos) o un **pendiente** al que le falta justo eso (de las cajas de la empresa activa; el
-     que coincide en monto, proveedor o fecha va primero). Al juntarlo, lo leído solo llena lo
+   - **¿De qué caja sale el dinero?** Empresa y caja (si la persona registra en varias); cada
+     caja muestra cuántos pendientes le faltan justo ese archivo.
+   - **¿Para qué gasto?** Uno **nuevo** (abre el registro en esa caja con el archivo en su lugar
+     y los datos leídos) o un **pendiente** de esa caja al que le falta justo eso (el que
+     coincide en monto, proveedor o fecha va primero). Al juntarlo, lo leído solo llena lo
      que estaba vacío (tipo y N° de documento, proveedor, medio y N° de operación).
 
 En Xiaomi/Redmi, Chrome necesita el permiso *Otros permisos → Accesos directos de la pantalla de
