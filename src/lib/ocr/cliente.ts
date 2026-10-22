@@ -1,9 +1,13 @@
 import type { RespuestaOcr } from "@/app/api/ocr/route";
 import { MIME_LEGIBLES, TAMANO_MAXIMO_OCR } from "./esquema";
 
-/** ¿La IA puede leer este archivo? (HEIC o archivos muy pesados no). */
-export function esLegible(archivo: File): boolean {
-  return (MIME_LEGIBLES as readonly string[]).includes(archivo.type) && archivo.size <= TAMANO_MAXIMO_OCR;
+/** Por qué la IA no puede leer este archivo (HEIC o muy pesado), o null si sí puede. */
+export function motivoNoLegible(archivo: File): string | null {
+  if (!(MIME_LEGIBLES as readonly string[]).includes(archivo.type))
+    return "La IA lee JPG, PNG, WEBP o PDF; este archivo se adjuntó pero llena los datos a mano.";
+  if (archivo.size > TAMANO_MAXIMO_OCR)
+    return "El archivo pesa más de 4 MB para leerlo con IA; se adjuntó pero llena los datos a mano.";
+  return null;
 }
 
 /** Envía el archivo (ya comprimido) a /api/ocr y devuelve los datos leídos. */

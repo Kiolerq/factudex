@@ -23,7 +23,7 @@ import {
 } from "@/lib/datos/tipos";
 import { formatoSoles, leerMonto } from "@/lib/formato";
 import { comprimirImagen } from "@/lib/imagen";
-import { esLegible, pedirLectura } from "@/lib/ocr/cliente";
+import { motivoNoLegible, pedirLectura } from "@/lib/ocr/cliente";
 import type { ExtraccionComprobante } from "@/lib/ocr/esquema";
 import { leerCompartidos } from "@/lib/compartir";
 import { subirAdjunto, type Almacen } from "@/lib/subida";
@@ -116,7 +116,10 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
     const final = await prepararArchivo(tipo, f);
     if (!final) return;
     colocar(tipo, final);
-    if (ocr && esLegible(final)) void leer(tipo, final);
+    if (!ocr) return;
+    const motivo = motivoNoLegible(final);
+    if (motivo) setLectura({ estado: "error", mensaje: motivo });
+    else void leer(tipo, final);
   }
 
   /** Lee el archivo con IA y pre-llena lo que esté vacío. El usuario revisa y guarda. */
@@ -227,7 +230,9 @@ export function FormularioRegistro({ caja, empresaNombre, categorias, centrosCos
         const final = await prepararArchivo("documento", f);
         if (!final) continue;
         let datos: ExtraccionComprobante | null = null;
-        if (ocr && esLegible(final)) {
+        const motivo = ocr ? motivoNoLegible(final) : null;
+        if (motivo) setLectura({ estado: "error", mensaje: motivo });
+        else if (ocr) {
           setLectura({ estado: "leyendo" });
           const r = await pedirLectura(final, "documento", idActual.current);
           if (r.ok) datos = r.datos;
