@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { buscarProveedores, crearProveedor, registrarMovimiento } from "@/app/acciones";
+import { crearCentroCosto, crearProveedor, registrarMovimiento } from "@/app/acciones";
 import { BadgeEstado } from "@/components/ui/BadgeEstado";
 import { EsquemaNuevoMovimiento, TAMANO_MAXIMO, erroresPorCampo, fechaHoyLima, type EntradaMovimiento } from "@/lib/datos/esquemas";
 import {
@@ -24,8 +24,9 @@ import {
 import { formatoSoles, leerMonto } from "@/lib/formato";
 import { comprimirImagen } from "@/lib/imagen";
 import { motivoNoLegible, pedirLectura } from "@/lib/ocr/cliente";
+import { CampoCentroCosto } from "./CampoCentroCosto";
 import { SelectorCompartido, type Eleccion } from "./SelectorCompartido";
-import type { ExtraccionComprobante } from "@/lib/ocr/esquema";
+import type { ExtraccionComprobante, SugerenciasLectura } from "@/lib/ocr/esquema";
 import { leerCompartidos } from "@/lib/compartir";
 import { subirAdjunto, type Almacen } from "@/lib/subida";
 import { nuevoUuid } from "@/lib/uuid";
@@ -61,7 +62,13 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
   const [cajaId, setCajaId] = useState(cajaInicialId);
   const caja = cajas.find((c) => c.id === cajaId) ?? cajas[0]!;
   const lista = listas.find((l) => l.empresaId === caja.empresaId)!;
-  const { categorias, centrosCosto, solicitantes, nombre: empresaNombre } = lista;
+  // Centros agregados en esta sesión desde el campo (ya están en la BD; aquí para no recargar).
+  const [centrosNuevos, setCentrosNuevos] = useState<(Opcion & { empresaId: string })[]>([]);
+  const { categorias, solicitantes, nombre: empresaNombre } = lista;
+  const centrosCosto = [
+    ...lista.centrosCosto,
+    ...centrosNuevos.filter((c) => c.empresaId === caja.empresaId && !lista.centrosCosto.some((x) => x.id === c.id)),
+  ];
   const centroGeneral = generalDe(centrosCosto);
 
   const [movimientoId, setMovimientoId] = useState(() => nuevoUuid());
@@ -87,9 +94,13 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
   const inicio = useRef<HTMLDivElement>(null);
   const [lectura, setLectura] = useState<Lectura | null>(null);
   const [compartidos, setCompartidos] = useState<File[]>([]);
+  // Montos leídos del documento y de la constancia de pago, para avisar si no coinciden.
+  const montosLeidos = useRef<{ documento?: number; pago?: number }>({});
   // Movimiento en curso: si el usuario reinicia el formulario, se ignoran lecturas que lleguen tarde.
   const idActual = useRef(movimientoId);
-  idActual.current = movimientoId;
+  useEffect(() => {
+    idActual.current = movimientoId;
+  }, [movimientoId]);
   // Quién puso la fecha: la IA no pisa la que eligió el usuario, y la del documento manda sobre la del pago.
   const origenFecha = useRef<"usuario" | "documento" | "pago" | null>(null);
 
@@ -142,16 +153,21 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
   async function leer(tipo: keyof Archivos, archivo: File) {
     const id = movimientoId;
     setLectura({ estado: "leyendo" });
-    const r = await pedirLectura(archivo, tipo, id);
+    const r = await pedirLectura(archivo, tipo, id, caja.id);
     if (idActual.current !== id) return;
     if (!r.ok) {
       setLectura({ estado: "error", mensaje: r.error });
       return;
     }
-    await aplicarLectura(tipo, archivo, r.datos);
+    await aplicarLectura(tipo, archivo, r.datos, r.sugerencias);
   }
 
-  async function aplicarLectura(tipo: keyof Archivos, archivo: File, d: ExtraccionComprobante) {
+  async function aplicarLectura(
+    tipo: keyof Archivos,
+    archivo: File,
+    d: ExtraccionComprobante,
+    sug: SugerenciasLectura | null = null,
+  ) {
     if (!d.es_comprobante) {
       setLectura({ estado: "listo", datos: d, campos: [] });
       return;
@@ -166,9 +182,10 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
       movido = true;
     }
 
+    // "Llenó: …" solo nombra lo que de verdad estaba vacío (nunca se pisa lo que ya hay).
     if (d.monto !== null) {
       setMontoTexto((p) => (p.trim() ? p : d.monto!.toFixed(2)));
-      campos.push("monto");
+      if (!montoTexto.trim()) campos.push("monto");
     }
     const deDocumento = !esPago;
     if (d.fecha && d.fecha <= fechaHoyLima()) {
@@ -182,42 +199,79 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
     }
     if (d.concepto) {
       setDetalle((p) => p || d.concepto!);
-      campos.push("detalle");
+      if (!detalle) campos.push("detalle");
     }
     if (deDocumento && d.tipo_documento) {
       setTipoDocumento((p) => p ?? d.tipo_documento);
-      campos.push("tipo de documento");
+      if (!tipoDocumento) campos.push("tipo de documento");
     }
     if (deDocumento && d.serie_numero) {
       setSerieNumero((p) => p || d.serie_numero!);
-      campos.push("N° de documento");
+      if (!serieNumero) campos.push("N° de documento");
     }
     const medio = d.medio_pago ?? (esPago ? "yape" : null);
     if (medio && medio !== "efectivo") {
       setMedioPago((p) => p ?? medio);
-      campos.push("medio de pago");
+      if (!medioPago) campos.push("medio de pago");
     }
     if (d.numero_operacion) {
       setOperacionPago((p) => p || d.numero_operacion!);
-      campos.push("N° de operación");
+      if (!operacionPago) campos.push("N° de operación");
     }
 
-    // Proveedor: solo del documento (en una constancia de pago el nombre es de quien recibe).
+    // Proveedor: por RUC del documento, o por nombre parecido (en un Yape, quien recibe el dinero).
     let proveedorNuevo: { numDoc: string; razonSocial: string } | undefined;
-    if (deDocumento && d.proveedor_num_doc) {
-      const hallado = (await buscarProveedores(d.proveedor_num_doc)).find((p) => p.numDoc === d.proveedor_num_doc);
-      if (idActual.current !== movimientoId) return;
-      if (hallado) {
-        setProveedor((p) => p ?? hallado);
-        quitarError("proveedorId");
-        campos.push("proveedor");
-      } else if (d.proveedor_razon_social) {
-        proveedorNuevo = { numDoc: d.proveedor_num_doc, razonSocial: d.proveedor_razon_social };
-      }
+    if (sug?.proveedor) {
+      setProveedor((p) => p ?? sug.proveedor);
+      quitarError("proveedorId");
+      if (!proveedor) campos.push(sug.proveedorPorNombre ? "proveedor (por parecido de nombre: revísalo)" : "proveedor");
+    } else if (deDocumento && d.proveedor_num_doc && d.proveedor_razon_social) {
+      proveedorNuevo = { numDoc: d.proveedor_num_doc, razonSocial: d.proveedor_razon_social };
     }
+
+    // Categoría y centro de costo: solo si siguen sin elegir y son de la empresa de la caja actual.
+    if (sug?.categoriaId && categorias.some((c) => c.id === sug.categoriaId)) {
+      setCategoriaId((c) => c || sug.categoriaId!);
+      quitarError("categoriaId");
+      if (!categoriaId) campos.push("categoría");
+    }
+    let centroNuevo: string | undefined;
+    if (sug?.centroCostoId && centrosCosto.some((c) => c.id === sug.centroCostoId)) {
+      setCentroCostoId((c) => (!c || c === centroGeneral ? sug.centroCostoId! : c));
+      if (!centroCostoId || centroCostoId === centroGeneral) campos.push("centro de costo");
+    } else if (sug?.centroCostoNuevo) {
+      centroNuevo = sug.centroCostoNuevo;
+    }
+
+    // Si ya hay otra lectura (documento vs. constancia de pago) con otro monto, se avisa.
+    montosLeidos.current[esPago ? "pago" : "documento"] = d.monto ?? undefined;
+    const { documento: mDoc, pago: mPago } = montosLeidos.current;
+    const diferenciaMonto = mDoc !== undefined && mPago !== undefined && Math.abs(mDoc - mPago) >= 0.01 ? { documento: mDoc, pago: mPago } : undefined;
 
     for (const c of ["monto", "fecha", "detalle", "tipoDocumento"]) quitarError(c);
-    setLectura({ estado: "listo", datos: d, campos, proveedorNuevo, movido });
+    setLectura({
+      estado: "listo",
+      datos: d,
+      campos,
+      proveedorNuevo,
+      movido,
+      centroNuevo,
+      duplicado: sug?.duplicado ?? undefined,
+      diferenciaMonto,
+    });
+  }
+
+  async function crearCentroLeido() {
+    const nombre = lectura?.estado === "listo" ? lectura.centroNuevo : undefined;
+    if (!nombre) return;
+    const r = await crearCentroCosto({ empresaId: caja.empresaId, nombre });
+    if (r.ok) {
+      setCentrosNuevos((n) => [...n, { ...r.centro, empresaId: caja.empresaId }]);
+      setCentroCostoId(r.centro.id);
+      setLectura((l) => (l?.estado === "listo" ? { ...l, centroNuevo: undefined, campos: [...l.campos, "centro de costo"] } : l));
+    } else {
+      setLectura((l) => (l?.estado === "listo" ? { ...l, errorCentro: r.error } : l));
+    }
   }
 
   async function crearProveedorLeido() {
@@ -251,6 +305,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
     archivo: File,
     eleccion: Eleccion,
     datos: ExtraccionComprobante | null,
+    sugerencias: SugerenciasLectura | null,
     cajaElegida: string,
   ) {
     elegirCaja(cajaElegida);
@@ -258,7 +313,8 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
     if (eleccion.tipo === "documento") setTipoDocumento((p) => p ?? eleccion.subtipo);
     else setMedioPago((p) => p ?? eleccion.subtipo);
     // La elección de la persona manda sobre lo que creyó la IA (documento o constancia de pago).
-    if (datos) await aplicarLectura(eleccion.tipo, archivo, { ...datos, es_captura_yape: eleccion.tipo === "pago" });
+    // Las sugerencias de categoría y centro solo valen si sigue en la misma empresa (se verifica al aplicar).
+    if (datos) await aplicarLectura(eleccion.tipo, archivo, { ...datos, es_captura_yape: eleccion.tipo === "pago" }, sugerencias);
   }
 
   // Archivos que llegaron con "Compartir" (Android).
@@ -309,6 +365,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
     setErrores({});
     setLectura(null);
     origenFecha.current = null;
+    montosLeidos.current = {};
   }
 
   function guardar(e: React.FormEvent) {
@@ -426,6 +483,8 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
             lectura={lectura}
             hayProveedor={!!proveedor}
             onCrearProveedor={crearProveedorLeido}
+            hayCentro={!!centroCostoId && centroCostoId !== centroGeneral}
+            onCrearCentro={crearCentroLeido}
             onCerrar={() => setLectura(null)}
           />
         )}
@@ -570,19 +629,13 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
                 </select>
                 {errores.categoriaId && <p className="mt-1.5 text-xs text-fx-error">{errores.categoriaId}</p>}
               </div>
-              <div>
-                <label htmlFor="centro" className="fx-label">
-                  Centro de costo
-                </label>
-                <select id="centro" className="fx-input" value={centroCostoId} onChange={(e) => setCentroCostoId(e.target.value)}>
-                  <option value="">Sin centro de costo</option>
-                  {centrosCosto.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <CampoCentroCosto
+                empresaId={caja.empresaId}
+                centros={centrosCosto}
+                valor={centroCostoId}
+                onCambiar={setCentroCostoId}
+                onCreado={(c) => setCentrosNuevos((n) => [...n, { ...c, empresaId: caja.empresaId }])}
+              />
             </div>
 
             <div className="order-4">

@@ -29,6 +29,7 @@ import type {
   MedioPago,
   MovimientoResumen,
   NuevoProveedor,
+  Opcion,
   Proveedor,
   TipoDocumento,
 } from "@/lib/datos/tipos";
@@ -104,6 +105,33 @@ async function verificarAdjuntos(cajaId: string, movimientoId: string, adjuntos:
     }
   }
   return null;
+}
+
+/** Centro de costo escrito en el registro que no estaba en la lista: se agrega a la de la empresa. */
+export async function crearCentroCosto(entrada: {
+  empresaId: string;
+  nombre: string;
+}): Promise<{ ok: true; centro: Opcion } | { ok: false; error: string }> {
+  const datos = z
+    .object({
+      empresaId: z.uuid(),
+      nombre: z
+        .string()
+        .trim()
+        .transform((s) => s.replace(/\s+/g, " "))
+        .pipe(z.string().min(2, "Escribe al menos 2 caracteres").max(60, "Máximo 60 caracteres")),
+    })
+    .safeParse(entrada);
+  if (!datos.success) return { ok: false, error: datos.error.issues[0]!.message };
+  const repo = await repoAutenticado();
+  try {
+    const centro = await repo.crearCentroCosto(datos.data.empresaId, datos.data.nombre);
+    revalidatePath("/registro");
+    return { ok: true, centro };
+  } catch (e) {
+    if (e instanceof ErrorDeNegocio) return { ok: false, error: e.message };
+    throw e;
+  }
 }
 
 export type ResultadoMovimiento =

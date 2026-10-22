@@ -37,6 +37,7 @@ Objetivo: una app usable con datos reales de una o dos cajas, instalada en el ce
 - [x] Pre-llenar el formulario de Registro (solo campos vacíos), con aviso si la lectura es dudosa. **El usuario siempre confirma; nunca se guarda automático.**
 - [x] Si el RUC/DNI leído no existe en el maestro, ofrecer crear el proveedor.
 - [x] Integrarlo con el flujo de `/compartir` (captura de Yape/BCP → pre-llenado).
+- [x] Sugerencias con datos de la app: proveedor por parecido de nombre, categoría, centro de costo / placa (con alta en la lista), duplicados y montos que no coinciden.
 - [ ] Medir precisión (campos corregidos por el usuario vs. leídos).
 
 ## Fase 3 — Producción

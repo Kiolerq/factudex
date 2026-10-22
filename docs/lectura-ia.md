@@ -9,6 +9,13 @@ guarda nada solo.
   RUC/DNI y razón social del emisor, tipo y N° de documento, concepto.
 - **Constancia de pago** (Yape, Plin, transferencia): monto, fecha, medio de pago, N° de
   operación. Si se puso en el espacio del documento, la mueve a "Constancia de pago".
+- Además, con los datos de la app:
+  - **Proveedor** por RUC/DNI, o por **parecido de nombre** cuando no hay RUC (en un Yape sale
+    "Johan Y. Mesa R." → *Johan Yarlin Mesa Rios*); se marca "revísalo".
+  - **Categoría** y **centro de costo** elegidos de las listas de la empresa de la caja; si lee
+    una placa que no está en la lista, ofrece **"Agregar y usar"**.
+  - **Duplicado**: si ya hay un gasto con el mismo RUC y N° de documento, lo avisa con enlace.
+  - Si el documento y la constancia de pago dicen **montos distintos**, lo avisa.
 - Solo llena campos **vacíos**: no pisa lo que el usuario escribió. La fecha del documento
   manda sobre la del pago.
 - Si el RUC leído no está en proveedores, ofrece **"Agregar y usar"**.

@@ -25,6 +25,7 @@ Puede llegarte:
 - Un comprobante: factura, boleta de venta, recibo por honorarios (rxh), planilla de movilidad, comprobante de egreso, ticket u otro.
 - Una constancia de pago: captura de Yape o Plin, voucher o constancia de transferencia bancaria. En ese caso es_captura_yape = true.
 - Algo que no es ninguna de las dos cosas: es_comprobante = false y el resto en null.
+es_comprobante = true tanto para un comprobante como para una constancia de pago (Yape, Plin, transferencia); solo es false si no es ninguna de las dos.
 
 Reglas:
 - Nunca inventes. Si un dato no se ve o no se lee con claridad, devuelve null.
@@ -37,19 +38,36 @@ Reglas:
 - concepto: qué se compró o pagó, breve y claro (máx. 80 caracteres), ej. "Peaje 3 ejes", "Combustible diésel 10 gal".
 - medio_pago: "yape", "plin", "transferencia", "efectivo" u "otro" solo si se ve en la imagen; si no, null.
 - numero_operacion: el N° de operación de Yape/Plin/transferencia, si aparece.
+- categoria: el nombre EXACTO de una de las categorías de la lista que se te da, según lo que se compró o pagó (ej. un peaje → "Peajes", combustible → "Combustible"). Si no se te da lista o ninguna encaja, null.
+- centro_costo: solo si el comprobante menciona una placa de vehículo (ej. T1Y-461, CAE899) o un área/destino del gasto. Si coincide con uno de la lista de centros de costo que se te da, devuelve su nombre EXACTO; si es una placa que no está en la lista, devuélvela tal como aparece. Si no menciona nada, null (no adivines).
 - confianza: de 0 a 1, qué tan seguro estás de los datos principales (monto, fecha, proveedor). Baja si la imagen está borrosa, cortada o es manuscrita.`;
 
-/** Lee una imagen o PDF y devuelve los datos para pre-llenar. Lanza ErrorOcr con un mensaje para el usuario. */
-export async function leerComprobante(datos: Buffer, mime: string): Promise<ExtraccionComprobante> {
-  return PROVEEDOR_OCR === "gemini" ? leerConGemini(datos, mime) : leerConClaude(datos, mime);
+/** Listas de la empresa para que la IA elija categoría y centro de costo (texto exacto). */
+export interface ContextoLectura {
+  categorias: string[];
+  centrosCosto: string[];
 }
 
-const pedido = () => `Fecha de hoy: ${fechaHoyLima()}. Extrae los datos.`;
+/** Lee una imagen o PDF y devuelve los datos para pre-llenar. Lanza ErrorOcr con un mensaje para el usuario. */
+export async function leerComprobante(datos: Buffer, mime: string, contexto?: ContextoLectura): Promise<ExtraccionComprobante> {
+  return PROVEEDOR_OCR === "gemini" ? leerConGemini(datos, mime, contexto) : leerConClaude(datos, mime, contexto);
+}
+
+// Las listas van en el mensaje (no en las instrucciones fijas) para no romper el caché del prompt.
+const pedido = (contexto?: ContextoLectura) =>
+  [
+    `Fecha de hoy: ${fechaHoyLima()}.`,
+    contexto?.categorias.length ? `Categorías: ${contexto.categorias.join(" | ")}` : "",
+    contexto?.centrosCosto.length ? `Centros de costo: ${contexto.centrosCosto.join(" | ")}` : "",
+    "Extrae los datos.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
 // El esquema se arma una vez; Gemini no necesita la clave "$schema".
 const { $schema: _, ...ESQUEMA_JSON } = z.toJSONSchema(RespuestaModeloOcr);
 
-async function leerConGemini(datos: Buffer, mime: string): Promise<ExtraccionComprobante> {
+async function leerConGemini(datos: Buffer, mime: string, contexto?: ContextoLectura): Promise<ExtraccionComprobante> {
   // Gemini responde 503 seguido cuando está saturado: 2 intentos por modelo y luego el de respaldo
   // (la ruta tiene 60 s).
   const cliente = new GoogleGenAI({
@@ -63,7 +81,7 @@ async function leerConGemini(datos: Buffer, mime: string): Promise<ExtraccionCom
       respuesta = await cliente.models.generateContent({
         model: modelo,
         contents: [
-          { role: "user", parts: [{ inlineData: { mimeType: mime, data: datos.toString("base64") } }, { text: pedido() }] },
+          { role: "user", parts: [{ inlineData: { mimeType: mime, data: datos.toString("base64") } }, { text: pedido(contexto) }] },
         ],
         config: {
           systemInstruction: INSTRUCCIONES,
@@ -100,7 +118,7 @@ async function leerConGemini(datos: Buffer, mime: string): Promise<ExtraccionCom
   return normalizarExtraccion(leido.data);
 }
 
-async function leerConClaude(datos: Buffer, mime: string): Promise<ExtraccionComprobante> {
+async function leerConClaude(datos: Buffer, mime: string, contexto?: ContextoLectura): Promise<ExtraccionComprobante> {
   const base64 = datos.toString("base64");
   const archivo: Anthropic.Beta.BetaContentBlockParam =
     mime === "application/pdf"
@@ -123,7 +141,7 @@ async function leerConClaude(datos: Buffer, mime: string): Promise<ExtraccionCom
       messages: [
         {
           role: "user",
-          content: [archivo, { type: "text", text: pedido() }],
+          content: [archivo, { type: "text", text: pedido(contexto) }],
         },
       ],
     });

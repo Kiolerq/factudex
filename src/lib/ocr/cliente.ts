@@ -11,11 +11,17 @@ export function motivoNoLegible(archivo: File): string | null {
 }
 
 /** Envía el archivo (ya comprimido) a /api/ocr y devuelve los datos leídos. */
-export async function pedirLectura(archivo: File, tipo: "documento" | "pago", movimientoId: string): Promise<RespuestaOcr> {
+export async function pedirLectura(
+  archivo: File,
+  tipo: "documento" | "pago",
+  movimientoId: string,
+  cajaId: string | null = null, // para que sugiera categoría y centro de costo de su empresa
+): Promise<RespuestaOcr> {
   const cuerpo = new FormData();
   cuerpo.set("archivo", archivo);
   cuerpo.set("tipo", tipo);
   cuerpo.set("movimientoId", movimientoId);
+  if (cajaId) cuerpo.set("cajaId", cajaId);
   try {
     const r = await fetch("/api/ocr", { method: "POST", body: cuerpo });
     // Sin sesión, el proxy redirige a /login (HTML, no JSON).

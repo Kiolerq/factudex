@@ -36,6 +36,8 @@ export interface Repositorio {
   listarSolicitantes(empresaId: string): Promise<string[]>;
   buscarProveedores(texto: string): Promise<Proveedor[]>;
   crearProveedor(p: NuevoProveedor): Promise<Proveedor>;
+  /** Agrega un centro de costo a la lista de la empresa (o devuelve el que ya existe igual). */
+  crearCentroCosto(empresaId: string, nombre: string): Promise<Opcion>;
   registrarMovimiento(m: NuevoMovimiento): Promise<{ id: string; estado: EstadoMovimiento }>;
 
   permisosCaja(cajaId: string): Promise<PermisosCaja>;

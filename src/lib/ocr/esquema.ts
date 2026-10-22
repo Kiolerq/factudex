@@ -20,6 +20,8 @@ export const RespuestaModeloOcr = z.object({
   concepto: z.string().nullable(),
   medio_pago: z.enum(MEDIOS_PAGO).nullable(),
   numero_operacion: z.string().nullable(),
+  categoria: z.string().nullable(), // de la lista de categorías que se le pasa
+  centro_costo: z.string().nullable(), // de la lista de centros, o la placa/área tal como aparece
   confianza: z.number(),
 });
 
@@ -35,6 +37,8 @@ export const ExtraccionComprobante = z.object({
   concepto: z.string().max(300).nullable(),
   medio_pago: z.enum(MEDIOS_PAGO).nullable(),
   numero_operacion: z.string().max(40).nullable(),
+  categoria: z.string().max(80).nullable(),
+  centro_costo: z.string().max(60).nullable(),
   confianza: z.number().min(0).max(1), // autoevaluación del modelo, para avisar si hay que revisar
 });
 
@@ -50,7 +54,8 @@ export function normalizarExtraccion(r: z.infer<typeof RespuestaModeloOcr>): Ext
   const doc = r.proveedor_num_doc?.replace(/\D/g, "") ?? "";
   const monto = r.monto !== null ? Math.round(r.monto * 100) / 100 : null;
   return {
-    es_comprobante: r.es_comprobante,
+    // Una constancia de pago también cuenta (algunos modelos la marcan como "no comprobante").
+    es_comprobante: r.es_comprobante || r.es_captura_yape,
     es_captura_yape: r.es_captura_yape,
     tipo_documento: r.tipo_documento,
     serie_numero: limpio(r.serie_numero, 40)?.toUpperCase() ?? null,
@@ -61,8 +66,23 @@ export function normalizarExtraccion(r: z.infer<typeof RespuestaModeloOcr>): Ext
     concepto: limpio(r.concepto, 300),
     medio_pago: r.medio_pago,
     numero_operacion: limpio(r.numero_operacion, 40),
+    categoria: limpio(r.categoria, 80),
+    centro_costo: limpio(r.centro_costo, 60),
     confianza: Math.min(1, Math.max(0, r.confianza)),
   };
+}
+
+/**
+ * Lo que el servidor deduce de la lectura con los datos de la app (proveedores, listas de la
+ * empresa, movimientos). Todo es sugerencia: el formulario solo llena campos vacíos.
+ */
+export interface SugerenciasLectura {
+  proveedor: { id: string; tipoDoc: "RUC" | "DNI" | "CE" | "OTRO"; numDoc: string; razonSocial: string; nombreComercial: string | null } | null;
+  proveedorPorNombre: boolean; // encontrado por parecido de nombre (sin RUC): revisar
+  categoriaId: string | null;
+  centroCostoId: string | null;
+  centroCostoNuevo: string | null; // placa/área leída que no está en la lista: se ofrece agregarla
+  duplicado: { id: string; detalle: string; fecha: string; monto: number } | null; // mismo RUC y N° ya registrado
 }
 
 /** Formatos que el modelo puede leer (HEIC no). */

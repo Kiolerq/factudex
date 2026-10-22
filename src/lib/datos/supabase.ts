@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { TablesInsert, TablesUpdate } from "@/types/database";
 import { ErrorDeNegocio, type Repositorio } from "./repositorio";
 import { MODULOS, type DatosUsuario, type Modulo, type RolCaja, type UsuarioAdmin } from "./tipos";
+import { claveCentro } from "./tipos";
 import type {
   AdjuntoGuardado,
   CajaSaldo,
@@ -313,6 +314,35 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       if (error?.code === "23505") throw new ErrorDeNegocio(`Ya existe un proveedor con ${p.tipoDoc} ${p.numDoc}`);
       fallo(error, "Crear proveedor");
       return aProveedor(data);
+    },
+
+    async crearCentroCosto(empresaId, nombre) {
+      // Si ya existe igual (aunque escrito distinto: T1Y-461 = t1y 461), se usa ese.
+      const { data: existentes, error: errLista } = await sb
+        .from("centros_costo")
+        .select("id, codigo, nombre, activo")
+        .eq("empresa_id", empresaId);
+      fallo(errLista, "Centros de costo");
+      const igual = existentes.find((c) => claveCentro(c.nombre) === claveCentro(nombre) || claveCentro(c.codigo) === claveCentro(nombre));
+      if (igual && !igual.activo)
+        throw new ErrorDeNegocio(`"${igual.nombre}" existe pero está desactivado: pide al administrador que lo reactive`);
+      if (igual) return { id: igual.id, codigo: igual.codigo, nombre: igual.nombre };
+      const codigo = nombre
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 30);
+      const { data, error } = await sb
+        .from("centros_costo")
+        .insert({ empresa_id: empresaId, codigo, nombre, orden: 200 })
+        .select("id, codigo, nombre")
+        .single();
+      if (error?.code === "23505") throw new ErrorDeNegocio(`Ya existe un centro de costo con el código ${codigo}`);
+      if (error?.code === "42501") throw new ErrorDeNegocio("No tienes permiso para agregar centros de costo en esta empresa");
+      fallo(error, "Crear centro de costo");
+      return data;
     },
 
     async registrarMovimiento(m) {

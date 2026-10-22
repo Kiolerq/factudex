@@ -17,6 +17,7 @@ import {
   type Recarga,
   type UsuarioAdmin,
   MODULOS,
+  claveCentro,
 } from "./tipos";
 
 // Modo demo: réplica en memoria de supabase/seed.sql + algunos movimientos para que los
@@ -426,6 +427,16 @@ export const repositorioDemo: Repositorio = {
     const nuevo: Proveedor = { id: randomUUID(), ...p, nombreComercial: null };
     db.proveedores.push(nuevo);
     return nuevo;
+  },
+
+  async crearCentroCosto(empresaId, nombre) {
+    const igual = db.centrosCosto.find(
+      (c) => c.empresaId === empresaId && (claveCentro(c.nombre) === claveCentro(nombre) || claveCentro(c.codigo ?? "") === claveCentro(nombre)),
+    );
+    if (igual) return sinOrigen(igual);
+    const nuevo = { id: randomUUID(), empresaId, codigo: claveCentro(nombre).slice(0, 30), nombre };
+    db.centrosCosto.push(nuevo);
+    return sinOrigen(nuevo);
   },
 
   async registrarMovimiento(m) {

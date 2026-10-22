@@ -318,6 +318,15 @@ export interface DetalleLiquidacion extends LiquidacionResumen {
   recargas: Recarga[]; // ingresos del periodo
 }
 
+/** Clave para comparar centros de costo sin importar mayúsculas, tildes, espacios ni guiones (T1Y-461 = t1y 461). */
+export function claveCentro(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
 /** Misma regla que fx_estado_movimiento() en la BD; en el cliente solo se usa para la vista previa. */
 export function estadoEsperado(
   tieneDocumento: boolean,

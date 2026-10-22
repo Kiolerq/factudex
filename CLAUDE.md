@@ -29,7 +29,7 @@ La referencia visual aprobada son los HTML de `diseno/`. Copia de ahí espaciado
 - El saldo **se calcula** (`v_saldo_cajas`), nunca se guarda ni se calcula en el cliente.
 - Pendiente/Completo lo decide la BD (`fx_estado_movimiento`): completo = adjunto `documento` (factura, boleta, planilla de movilidad, comprobante de egreso…) **y** adjunto `pago` (captura Yape, voucher…). Si `medio_pago = 'efectivo'`, basta el documento.
 - Solo se liquidan movimientos completos. Los pendientes no tienen plazo: al cerrar, `cerrar_liquidacion` los pasa a la siguiente liquidación.
-- Centro de costo (`centros_costo`): lista fija por empresa, siempre desplegable, nunca texto libre. Incluye **placas** o cualquier destino del gasto (no hay campo placa aparte). Opcional; preselecciona "General".
+- Centro de costo (`centros_costo`): lista por empresa. Incluye **placas** o cualquier destino del gasto (no hay campo placa aparte). Opcional; preselecciona "General". En el registro se escribe y se filtra (`CampoCentroCosto`); si no existe, "＋ Agregar" lo suma a la lista de la empresa (registradores de esa empresa pueden; migración `20261023000000`). Nunca texto suelto en el movimiento: siempre `centro_costo_id`. Se compara sin mayúsculas, tildes ni guiones (`claveCentro`).
 - Solicitantes (`solicitantes`): lista por empresa que solo sugiere nombres; el movimiento guarda el texto.
 - Datos maestros llegan en `docs/plantillas/datos_maestros_factudex.xlsx` (centros de costo, solicitantes, proveedores).
 - Folio de liquidación: `NNLQXX-AREA-0001` (ej. `SLLQ01-MT-0001`), lo genera la BD con `empresas.sigla`, `cajas.numero` y `cajas.area`.
@@ -38,7 +38,7 @@ La referencia visual aprobada son los HTML de `diseno/`. Copia de ahí espaciado
 - Movimientos no se borran: se anulan con motivo. Si la liquidación ya se cerró, no se editan ni se les quitan adjuntos.
 - Cambios de estado de liquidación solo por RPC (`cerrar_liquidacion`, `revisar_liquidacion`) o al insertar la recarga.
 - Recargas son **manuales**; no hay integración bancaria.
-- IA/OCR: solo **pre-llena** campos vacíos; el usuario confirma siempre. Nunca guardar automático. Contrato en `src/lib/ocr/esquema.ts`, llamada en `src/lib/ocr/leer.ts`: Gemini si hay `GEMINI_API_KEY`, si no Claude con `ANTHROPIC_API_KEY` (claves solo en el servidor), ruta `POST /api/ocr`. Ver `docs/lectura-ia.md`.
+- IA/OCR: solo **pre-llena** campos vacíos; el usuario confirma siempre. Además de leer, el servidor sugiere (`src/lib/ocr/sugerencias.ts`): proveedor por RUC o por parecido de nombre (Yape), categoría y centro de costo de las listas de la empresa (o la placa leída para agregarla), comprobante ya registrado (mismo RUC y N°) y aviso si el monto del documento y del pago no coinciden. Nunca guardar automático. Contrato en `src/lib/ocr/esquema.ts`, llamada en `src/lib/ocr/leer.ts`: Gemini si hay `GEMINI_API_KEY`, si no Claude con `ANTHROPIC_API_KEY` (claves solo en el servidor), ruta `POST /api/ocr`. Ver `docs/lectura-ia.md`.
 - Compartir (Android): `public/sw.js` recibe el POST de `/compartir` (Web Share Target), guarda los archivos en la caché `fx-compartido` y abre `/registro?compartido=1`.
 
 ## Arquitectura

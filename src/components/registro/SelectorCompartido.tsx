@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { adjuntarCompartido, pendientesParaAdjuntar } from "@/app/acciones";
 import { textoFalta } from "@/components/movimientos/textos";
-import type { ExtraccionComprobante } from "@/lib/ocr/esquema";
+import type { ExtraccionComprobante, SugerenciasLectura } from "@/lib/ocr/esquema";
 import { motivoNoLegible, pedirLectura } from "@/lib/ocr/cliente";
 import {
   ETIQUETA_DOCUMENTO,
@@ -34,13 +34,21 @@ interface Props {
   almacen: Almacen;
   movimientoId: string; // el del registro nuevo (para anotar la lectura)
   /** Nuevo gasto: el registro pone el archivo en su lugar y aplica lo leído. */
-  onNuevo: (archivo: File, eleccion: Eleccion, datos: ExtraccionComprobante | null, cajaId: string) => void;
+  onNuevo: (
+    archivo: File,
+    eleccion: Eleccion,
+    datos: ExtraccionComprobante | null,
+    sugerencias: SugerenciasLectura | null,
+    cajaId: string,
+  ) => void;
   onTerminar: () => void;
 }
 
 const MEDIOS: Exclude<MedioPago, "efectivo">[] = ["yape", "plin", "transferencia", "otro"];
 
-type Lectura = { estado: "leyendo" } | { estado: "listo"; datos: ExtraccionComprobante | null; error?: string };
+type Lectura =
+  | { estado: "leyendo" }
+  | { estado: "listo"; datos: ExtraccionComprobante | null; sugerencias?: SugerenciasLectura; error?: string };
 
 /** Lo que la IA cree que es el archivo; null si no lo sabe. */
 function sugerencia(d: ExtraccionComprobante | null): Eleccion | null {
@@ -102,8 +110,10 @@ export function SelectorCompartido({
   useEffect(() => {
     archivos.forEach(async (f, i) => {
       const motivo = ocr ? motivoNoLegible(f) : "La lectura con IA no está activada.";
-      const r = motivo ? null : await pedirLectura(f, "documento", movimientoId);
-      const lectura: Lectura = r?.ok ? { estado: "listo", datos: r.datos } : { estado: "listo", datos: null, error: r ? r.error : motivo! };
+      const r = motivo ? null : await pedirLectura(f, "documento", movimientoId, cajaInicialId);
+      const lectura: Lectura = r?.ok
+        ? { estado: "listo", datos: r.datos, sugerencias: r.sugerencias }
+        : { estado: "listo", datos: null, error: r ? r.error : motivo! };
       setLecturas((ls) => ls.map((l, j) => (j === i ? lectura : l)));
       // Preselecciona lo que cree la IA, si la persona aún no eligió.
       const s = sugerencia(lectura.estado === "listo" ? lectura.datos : null);
@@ -145,7 +155,7 @@ export function SelectorCompartido({
 
   const nuevo = () => {
     if (!eleccion) return;
-    onNuevo(archivo, eleccion, datos, cajaId);
+    onNuevo(archivo, eleccion, datos, lectura.estado === "listo" ? (lectura.sugerencias ?? null) : null, cajaId);
     siguiente();
   };
 

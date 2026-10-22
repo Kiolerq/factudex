@@ -897,6 +897,25 @@ alter table perfiles
 
 comment on column perfiles.modulos is 'Módulos de la app que ve el usuario; null = todos';
 
+-- ===== supabase/migrations/20261023000000_centros_costo_desde_registro.sql =====
+
+-- =============================================================================
+-- Centro de costo escrito en el registro
+--  · Si lo que se escribe no está en la lista, se agrega a la lista de esa empresa (la ven todos).
+--    Sigue siendo una lista por empresa: no hay texto libre suelto en los movimientos.
+--  · Lo puede agregar quien es registrador (o aprobador) en alguna caja de esa empresa; editar o
+--    desactivar centros sigue siendo solo del admin (centros_costo_admin).
+-- =============================================================================
+create policy centros_costo_insert_registro on centros_costo for insert to authenticated
+  with check (
+    activo
+    and exists (
+      select 1 from cajas c
+       where c.empresa_id = centros_costo.empresa_id
+         and tiene_acceso_caja(c.id, 'registrador')
+    )
+  );
+
 -- ===== supabase/seed.sql =====
 
 -- Datos iniciales para la demo (fase 1).
@@ -971,5 +990,6 @@ insert into supabase_migrations.schema_migrations (version, name) values
   ('20260926000000', 'centro_costo_unico_y_solicitantes'),
   ('20260927000000', 'google_drive'),
   ('20260928000000', 'drive_carpeta_elegida'),
-  ('20261022000000', 'modulos_por_usuario')
+  ('20261022000000', 'modulos_por_usuario'),
+  ('20261023000000', 'centros_costo_desde_registro')
 on conflict do nothing;
