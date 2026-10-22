@@ -2,13 +2,14 @@ import Link from "next/link";
 import { BadgeLiquidacion } from "@/components/liquidaciones/BadgeLiquidacion";
 import { RevisarLiquidacion } from "@/components/liquidaciones/RevisarLiquidacion";
 import { FormularioRecarga } from "@/components/recargas/FormularioRecarga";
-import { contextoPagina } from "@/lib/contexto";
+import { contextoPagina, exigirModulo } from "@/lib/contexto";
 import { ETIQUETA_FORMA_INGRESO, ETIQUETA_TIPO_RECARGA, nombreCaja } from "@/lib/datos/tipos";
 import { formatoFecha, formatoSoles } from "@/lib/formato";
 
 export const metadata = { title: "Recargas · Factudex" };
 
 export default async function PaginaRecargas() {
+  await exigirModulo("recargas");
   const { repo, caja, empresa, cajasEmpresa } = await contextoPagina();
   if (!caja || !empresa) return null;
 

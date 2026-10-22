@@ -605,6 +605,7 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          modulos: string[] | null
           nombre: string
           rol: Database["public"]["Enums"]["rol_usuario"]
         }
@@ -613,6 +614,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id: string
+          modulos?: string[] | null
           nombre: string
           rol?: Database["public"]["Enums"]["rol_usuario"]
         }
@@ -621,6 +623,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          modulos?: string[] | null
           nombre?: string
           rol?: Database["public"]["Enums"]["rol_usuario"]
         }

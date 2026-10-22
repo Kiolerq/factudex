@@ -86,7 +86,7 @@ export function Hud({ empresas, cajas, cajaActiva, usuario, demo }: Props) {
         </div>
       )}
 
-      <Navegacion pendientes={pendientesEmpresa} />
+      <Navegacion pendientes={pendientesEmpresa} modulos={usuario.modulos} esAdmin={usuario.esAdmin} />
     </header>
   );
 }

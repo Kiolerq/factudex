@@ -32,7 +32,8 @@ Todo en el plan gratuito. Tiempo estimado: 15 minutos.
 2. **SQL Editor**: pega `supabase/primer_admin.sql`, cambia el correo y el nombre de arriba → **Run**.
    Lo hace administrador y da a cada caja un saldo de ejemplo de S/ 2,000 (cámbialo o pon 0).
 
-Para otros usuarios: créalos igual y dales acceso a sus cajas:
+Para otros usuarios lo más simple es la app: **Usuarios** (solo lo ve el administrador) → *Nuevo
+usuario* → correo, contraseña temporal, módulos y permisos por caja. También se puede a mano:
 ```sql
 -- rol: 'registrador' (registra gastos), 'aprobador' (aprueba y registra recargas), 'lector' (solo ve)
 insert into accesos_caja (usuario_id, caja_id, rol)

@@ -1,4 +1,7 @@
 import type {
+  CambiosUsuario,
+  NuevoUsuario,
+  UsuarioAdmin,
   CajaSaldo,
   CompletarMovimiento,
   DetalleLiquidacion,
@@ -48,6 +51,12 @@ export interface Repositorio {
 
   listarRecargas(cajaIds: string[]): Promise<Recarga[]>;
   registrarRecarga(r: NuevaRecarga): Promise<void>;
+
+  // Administración de usuarios: solo admin (quien llama ya fue verificado como admin).
+  listarUsuarios(): Promise<UsuarioAdmin[]>;
+  crearUsuario(u: NuevoUsuario): Promise<string>;
+  actualizarUsuario(u: CambiosUsuario): Promise<void>;
+  cambiarContrasena(id: string, password: string): Promise<void>;
 }
 
 export class ErrorDeNegocio extends Error {}

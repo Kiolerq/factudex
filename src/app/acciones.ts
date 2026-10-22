@@ -6,13 +6,18 @@ import { redirect } from "next/navigation";
 import {
   EsquemaAdjuntarCompartido,
   EsquemaAnular,
+  EsquemaCambiosUsuario,
   EsquemaCompletarMovimiento,
+  EsquemaContrasena,
+  EsquemaNuevoUsuario,
   EsquemaNuevaRecarga,
   EsquemaNuevoMovimiento,
   EsquemaNuevoProveedor,
   EsquemaRevision,
   erroresPorCampo,
   type EntradaAdjuntarCompartido,
+  type EntradaCambiosUsuario,
+  type EntradaNuevoUsuario,
   type EntradaCompletar,
   type EntradaMovimiento,
   type EntradaRecarga,
@@ -254,6 +259,49 @@ export async function registrarRecarga(entrada: EntradaRecarga): Promise<Resulta
   if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
   const repo = await repoAutenticado();
   return ejecutar(() => repo.registrarRecarga(datos.data));
+}
+
+// --- Administración de usuarios (solo admin) ---
+
+async function repoAdmin() {
+  const repo = await obtenerRepositorio();
+  const yo = await repo.usuarioActual();
+  if (!yo?.esAdmin || !yo.activo) throw new Error("Solo un administrador puede gestionar usuarios");
+  return { repo, yo };
+}
+
+export async function crearUsuario(
+  entrada: EntradaNuevoUsuario,
+): Promise<{ ok: true; id: string } | { ok: false; errores: Record<string, string> }> {
+  const datos = EsquemaNuevoUsuario.safeParse(entrada);
+  if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
+  const { repo } = await repoAdmin();
+  try {
+    const id = await repo.crearUsuario(datos.data);
+    revalidatePath("/admin");
+    return { ok: true, id };
+  } catch (e) {
+    if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
+    throw e;
+  }
+}
+
+export async function actualizarUsuario(entrada: EntradaCambiosUsuario): Promise<Resultado> {
+  const datos = EsquemaCambiosUsuario.safeParse(entrada);
+  if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
+  const { repo, yo } = await repoAdmin();
+  if (datos.data.id === yo.id && (!datos.data.esAdmin || !datos.data.activo))
+    return { ok: false, errores: { _: "No puedes quitarte el rol de administrador ni desactivarte a ti mismo" } };
+  return ejecutar(() => repo.actualizarUsuario(datos.data));
+}
+
+export async function cambiarContrasenaUsuario(entrada: { id: string; password: string }): Promise<Resultado> {
+  const id = z.uuid().or(z.literal("demo")).safeParse(entrada.id);
+  const password = EsquemaContrasena.safeParse(entrada.password);
+  if (!id.success) return { ok: false, errores: { _: "Usuario inválido" } };
+  if (!password.success) return { ok: false, errores: { password: password.error.issues[0]!.message } };
+  const { repo } = await repoAdmin();
+  return ejecutar(() => repo.cambiarContrasena(id.data, password.data));
 }
 
 const EsquemaSubidaDrive = z.object({

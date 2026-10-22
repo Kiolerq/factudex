@@ -883,6 +883,20 @@ $$;
 revoke execute on function drive_conectado() from public, anon;
 grant execute on function drive_conectado() to authenticated;
 
+-- ===== supabase/migrations/20261022000000_modulos_por_usuario.sql =====
+
+-- =============================================================================
+-- Módulos visibles por usuario (panel de administración → Usuarios)
+--  · null = todos los módulos (como hasta ahora).
+--  · Es una preferencia de pantalla: qué datos ve y qué puede hacer cada persona lo siguen
+--    decidiendo su rol global (perfiles.rol) y sus accesos por caja (accesos_caja) con RLS.
+-- =============================================================================
+alter table perfiles
+  add column modulos text[]
+  check (modulos is null or modulos <@ array['registro', 'pendientes', 'historial', 'liquidaciones', 'recargas']::text[]);
+
+comment on column perfiles.modulos is 'Módulos de la app que ve el usuario; null = todos';
+
 -- ===== supabase/seed.sql =====
 
 -- Datos iniciales para la demo (fase 1).
@@ -956,5 +970,6 @@ insert into supabase_migrations.schema_migrations (version, name) values
   ('20260925000000', 'esquema_inicial'),
   ('20260926000000', 'centro_costo_unico_y_solicitantes'),
   ('20260927000000', 'google_drive'),
-  ('20260928000000', 'drive_carpeta_elegida')
+  ('20260928000000', 'drive_carpeta_elegida'),
+  ('20261022000000', 'modulos_por_usuario')
 on conflict do nothing;

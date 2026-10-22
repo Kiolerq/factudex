@@ -1,6 +1,8 @@
+import { crearClienteAdmin } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import type { TablesInsert } from "@/types/database";
+import type { TablesInsert, TablesUpdate } from "@/types/database";
 import { ErrorDeNegocio, type Repositorio } from "./repositorio";
+import { MODULOS, type DatosUsuario, type Modulo, type RolCaja, type UsuarioAdmin } from "./tipos";
 import type {
   AdjuntoGuardado,
   CajaSaldo,
@@ -20,6 +22,21 @@ import type {
 
 function fallo(error: { message: string } | null, contexto: string): asserts error is null {
   if (error) throw new Error(`${contexto}: ${error.message}`);
+}
+
+/** perfiles.modulos: null (o sin la migración 20261022) = todos los módulos. */
+function aModulos(m: string[] | null | undefined): Modulo[] | null {
+  return m ? MODULOS.filter((x) => m.includes(x)) : null;
+}
+
+/** Errores de Supabase Auth al crear un usuario o cambiar su contraseña, en palabras. */
+function falloAuth(error: { code?: string; message: string } | null, contexto: string): asserts error is null {
+  if (!error) return;
+  if (error.code === "email_exists" || /already been registered/i.test(error.message))
+    throw new ErrorDeNegocio("Ya existe un usuario con ese correo");
+  if (error.code === "weak_password") throw new ErrorDeNegocio("La contraseña es muy débil: usa al menos 8 caracteres");
+  if (error.code === "email_address_invalid") throw new ErrorDeNegocio("El correo no es válido");
+  throw new Error(`${contexto}: ${error.message}`);
 }
 
 /** Los `raise exception` de triggers y RPC (P0001) son reglas de negocio: se muestran tal cual. */
@@ -161,19 +178,42 @@ function aRecarga(r: FilaRecarga): Recarga {
 export async function crearRepositorioSupabase(): Promise<Repositorio> {
   const sb = await createClient();
 
+  /** Perfil (nombre, rol global, módulos, activo) y accesos por caja, con la sesión del admin (RLS). */
+  async function guardarDatosUsuario(id: string, d: DatosUsuario, activo?: boolean) {
+    const { data: actual } = await sb.from("perfiles").select("*").eq("id", id).maybeSingle();
+    if (!actual) throw new ErrorDeNegocio("El usuario no existe");
+    const cambios: TablesUpdate<"perfiles"> = { nombre: d.nombre, rol: d.esAdmin ? "admin" : "registrador" };
+    if (activo !== undefined) cambios.activo = activo;
+    // Sin la migración de módulos la columna no existe: solo se puede dejar "todos".
+    if ("modulos" in actual) cambios.modulos = d.modulos;
+    else if (d.modulos) throw new ErrorDeNegocio("Falta correr en Supabase la migración de módulos (20261022000000)");
+    const { error } = await sb.from("perfiles").update(cambios).eq("id", id);
+    fallo(error, "Guardar usuario");
+
+    const { error: errBorrar } = await sb.from("accesos_caja").delete().eq("usuario_id", id);
+    fallo(errBorrar, "Accesos");
+    if (!d.esAdmin && d.accesos.length) {
+      const { error: errAccesos } = await sb
+        .from("accesos_caja")
+        .insert(d.accesos.map((a) => ({ usuario_id: id, caja_id: a.cajaId, rol: a.rol })));
+      fallo(errAccesos, "Accesos");
+    }
+  }
+
   return {
     async usuarioActual() {
       const { data } = await sb.auth.getUser();
       if (!data.user) return null;
-      const { data: perfil } = await sb
-        .from("perfiles")
-        .select("nombre, email")
-        .eq("id", data.user.id)
-        .maybeSingle();
+      // select("*"): funciona también antes de correr la migración de módulos.
+      const { data: perfil } = await sb.from("perfiles").select("*").eq("id", data.user.id).maybeSingle();
+      const esAdmin = perfil?.rol === "admin";
       return {
         id: data.user.id,
         nombre: perfil?.nombre ?? data.user.email ?? "Usuario",
         email: perfil?.email ?? data.user.email ?? null,
+        esAdmin,
+        activo: perfil?.activo ?? true,
+        modulos: esAdmin ? [...MODULOS] : (aModulos(perfil?.modulos) ?? [...MODULOS]),
       };
     },
 
@@ -530,6 +570,53 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       if (error?.code === "42501") throw new ErrorDeNegocio("Solo un aprobador de la caja puede registrar recargas");
       if (error?.code === "23505") throw new ErrorDeNegocio("Esa liquidación ya tiene su reposición registrada");
       falloNegocio(error, "Registrar recarga");
+    },
+
+    async listarUsuarios(): Promise<UsuarioAdmin[]> {
+      const [perfiles, accesos] = await Promise.all([
+        sb.from("perfiles").select("*").order("nombre"),
+        sb.from("accesos_caja").select("usuario_id, caja_id, rol"),
+      ]);
+      fallo(perfiles.error, "Usuarios");
+      fallo(accesos.error, "Accesos");
+      return perfiles.data.map((p) => ({
+        id: p.id,
+        nombre: p.nombre,
+        email: p.email,
+        esAdmin: p.rol === "admin",
+        activo: p.activo,
+        modulos: aModulos(p.modulos),
+        accesos: accesos.data
+          .filter((a) => a.usuario_id === p.id)
+          .map((a) => ({ cajaId: a.caja_id, rol: a.rol as RolCaja })),
+        creado: p.created_at,
+      }));
+    },
+
+    async crearUsuario(u) {
+      const { data, error } = await crearClienteAdmin().auth.admin.createUser({
+        email: u.email,
+        password: u.password,
+        email_confirm: true, // lo crea el admin: no hace falta confirmar el correo
+        user_metadata: { nombre: u.nombre },
+      });
+      falloAuth(error, "Crear usuario");
+      await guardarDatosUsuario(data.user.id, u); // el perfil lo creó el trigger on_auth_user_created
+      return data.user.id;
+    },
+
+    async actualizarUsuario(u) {
+      await guardarDatosUsuario(u.id, u, u.activo);
+      // Desactivado: además se bloquea el ingreso en Supabase Auth (y se puede reactivar).
+      const { error } = await crearClienteAdmin().auth.admin.updateUserById(u.id, {
+        ban_duration: u.activo ? "none" : "876000h",
+      });
+      falloAuth(error, "Activar/desactivar usuario");
+    },
+
+    async cambiarContrasena(id, password) {
+      const { error } = await crearClienteAdmin().auth.admin.updateUserById(id, { password });
+      falloAuth(error, "Cambiar contraseña");
     },
   };
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { FiltrosHistorial } from "@/components/historial/FiltrosHistorial";
 import { ListaMovimientos } from "@/components/movimientos/ListaMovimientos";
 import type { FiltroEstado } from "@/lib/datos/tipos";
-import { contextoPagina } from "@/lib/contexto";
+import { contextoPagina, exigirModulo } from "@/lib/contexto";
 
 export const metadata = { title: "Historial · Factudex" };
 
@@ -10,6 +10,7 @@ const ESTADOS: FiltroEstado[] = ["todos", "pendiente", "completo", "anulado"];
 const POR_PAGINA = 100;
 
 export default async function PaginaHistorial({ searchParams }: PageProps<"/historial">) {
+  await exigirModulo("historial");
   const sp = await searchParams;
   const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
   const { repo, empresas, cajas, caja } = await contextoPagina();

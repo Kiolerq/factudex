@@ -3,11 +3,13 @@ import { FormularioRegistro } from "@/components/registro/FormularioRegistro";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
 import { almacenActivo } from "@/lib/drive/estado";
 import { ocrConfigurado } from "@/lib/ocr/leer";
+import { exigirModulo } from "@/lib/contexto";
 import { leerCajaActiva } from "@/lib/seleccion";
 
 export const metadata = { title: "Registro · Factudex" };
 
 export default async function PaginaRegistro({ searchParams }: PageProps<"/registro">) {
+  await exigirModulo("registro");
   const { compartido } = await searchParams;
   const repo = await obtenerRepositorio();
   const [empresas, cajas] = await Promise.all([repo.listarEmpresas(), repo.listarCajas()]);

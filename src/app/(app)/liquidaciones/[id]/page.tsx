@@ -5,6 +5,7 @@ import { CerrarLiquidacion } from "@/components/liquidaciones/CerrarLiquidacion"
 import { RevisarLiquidacion } from "@/components/liquidaciones/RevisarLiquidacion";
 import { Totales } from "@/components/liquidaciones/Totales";
 import { textoFalta } from "@/components/movimientos/textos";
+import { exigirModulo } from "@/lib/contexto";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
 import { ETIQUETA_DOCUMENTO, ETIQUETA_FORMA_INGRESO, ETIQUETA_TIPO_RECARGA } from "@/lib/datos/tipos";
 import { formatoFecha, formatoSoles } from "@/lib/formato";
@@ -12,6 +13,7 @@ import { formatoFecha, formatoSoles } from "@/lib/formato";
 export const metadata = { title: "Liquidación · Factudex" };
 
 export default async function PaginaLiquidacion({ params }: PageProps<"/liquidaciones/[id]">) {
+  await exigirModulo("liquidaciones", "recargas");
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const repo = await obtenerRepositorio();

@@ -4,6 +4,7 @@ import { AnularMovimiento } from "@/components/movimientos/AnularMovimiento";
 import { CompletarPendiente } from "@/components/movimientos/CompletarPendiente";
 import { textoFalta } from "@/components/movimientos/textos";
 import { BadgeEstado } from "@/components/ui/BadgeEstado";
+import { exigirModulo } from "@/lib/contexto";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
 import { ETIQUETA_DOCUMENTO, ETIQUETA_LIQUIDACION, ETIQUETA_MEDIO_PAGO } from "@/lib/datos/tipos";
 import { almacenActivo } from "@/lib/drive/estado";
@@ -12,6 +13,7 @@ import { formatoFecha, formatoSoles } from "@/lib/formato";
 export const metadata = { title: "Movimiento · Factudex" };
 
 export default async function PaginaMovimiento({ params }: PageProps<"/movimientos/[id]">) {
+  await exigirModulo("historial", "pendientes");
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const repo = await obtenerRepositorio();

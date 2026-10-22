@@ -15,6 +15,8 @@ import {
   type Opcion,
   type Proveedor,
   type Recarga,
+  type UsuarioAdmin,
+  MODULOS,
 } from "./tipos";
 
 // Modo demo: réplica en memoria de supabase/seed.sql + algunos movimientos para que los
@@ -65,6 +67,7 @@ interface Almacen {
   movimientos: MovimientoDemo[];
   liquidaciones: LiquidacionDemo[];
   recargas: RecargaDemo[];
+  usuarios: UsuarioAdmin[];
 }
 
 function sembrar(): Almacen {
@@ -234,6 +237,19 @@ function sembrar(): Almacen {
     movimientos,
     liquidaciones,
     recargas: [apertura(mant.id, 2000), apertura(oper.id, 1000), apertura(gen.id, 1000)],
+    usuarios: [
+      { id: "demo", nombre: "Usuario Demo", email: null, esAdmin: true, activo: true, modulos: null, accesos: [], creado: "2026-09-01" },
+      {
+        id: randomUUID(),
+        nombre: "Carlos Ramírez",
+        email: "carlos@ejemplo.com",
+        esAdmin: false,
+        activo: true,
+        modulos: ["registro", "pendientes", "historial"],
+        accesos: [{ cajaId: mant.id, rol: "registrador" }],
+        creado: "2026-09-02",
+      },
+    ],
   };
 }
 
@@ -359,7 +375,8 @@ function editable(m: MovimientoDemo) {
 
 export const repositorioDemo: Repositorio = {
   async usuarioActual() {
-    return { id: "demo", nombre: "Usuario Demo", email: null };
+    // En demo el usuario es administrador: ve todos los módulos y el panel de usuarios.
+    return { id: "demo", nombre: "Usuario Demo", email: null, esAdmin: true, activo: true, modulos: [...MODULOS] };
   },
 
   async listarEmpresas() {
@@ -570,5 +587,42 @@ export const repositorioDemo: Repositorio = {
       liquidacionIngresoId: liquidacionAbierta(r.cajaId).id,
       liquidacionRepuestaId,
     });
+  },
+
+  async listarUsuarios() {
+    return [...db.usuarios].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  },
+
+  async crearUsuario(u) {
+    if (db.usuarios.some((x) => x.email?.toLowerCase() === u.email.toLowerCase()))
+      throw new ErrorDeNegocio("Ya existe un usuario con ese correo");
+    const id = randomUUID();
+    db.usuarios.push({
+      id,
+      nombre: u.nombre,
+      email: u.email,
+      esAdmin: u.esAdmin,
+      activo: true,
+      modulos: u.modulos,
+      accesos: u.esAdmin ? [] : u.accesos,
+      creado: fechaHoyLima(),
+    });
+    return id; // en demo la contraseña no se guarda
+  },
+
+  async actualizarUsuario(u) {
+    const x = db.usuarios.find((y) => y.id === u.id);
+    if (!x) throw new ErrorDeNegocio("El usuario no existe");
+    Object.assign(x, {
+      nombre: u.nombre,
+      esAdmin: u.esAdmin,
+      activo: u.activo,
+      modulos: u.modulos,
+      accesos: u.esAdmin ? [] : u.accesos,
+    });
+  },
+
+  async cambiarContrasena(id) {
+    if (!db.usuarios.some((y) => y.id === id)) throw new ErrorDeNegocio("El usuario no existe");
   },
 };

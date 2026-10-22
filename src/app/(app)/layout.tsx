@@ -1,12 +1,22 @@
 import { redirect } from "next/navigation";
 import { Hud } from "@/components/hud/Hud";
 import { modoDemo, obtenerRepositorio } from "@/lib/datos/repositorio";
+import { usuarioPeticion } from "@/lib/contexto";
 import { leerCajaActiva } from "@/lib/seleccion";
 
 export default async function LayoutApp({ children }: LayoutProps<"/">) {
   const repo = await obtenerRepositorio();
-  const usuario = await repo.usuarioActual();
+  const usuario = await usuarioPeticion();
   if (!usuario) redirect("/login");
+  if (!usuario.activo) {
+    return (
+      <main className="flex flex-1 items-center justify-center p-6">
+        <div className="fx-card max-w-md p-8 text-center text-sm text-white/60">
+          Tu usuario está desactivado. Si es un error, avisa a un administrador.
+        </div>
+      </main>
+    );
+  }
 
   const [empresas, cajas] = await Promise.all([repo.listarEmpresas(), repo.listarCajas()]);
   const cajaActiva = await leerCajaActiva(cajas);

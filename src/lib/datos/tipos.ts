@@ -45,10 +45,61 @@ export type TipoAdjunto = "documento" | "pago" | "otro";
 export type EstadoMovimiento = "pendiente" | "completo";
 export type TipoDocIdentidad = "RUC" | "DNI" | "CE" | "OTRO";
 
+export const MODULOS = ["registro", "pendientes", "historial", "liquidaciones", "recargas"] as const;
+export type Modulo = (typeof MODULOS)[number];
+
+export const ETIQUETA_MODULO: Record<Modulo, string> = {
+  registro: "Registro",
+  pendientes: "Pendientes",
+  historial: "Historial",
+  liquidaciones: "Liquidaciones",
+  recargas: "Recargas",
+};
+
 export interface Usuario {
   id: string;
   nombre: string;
   email: string | null;
+  esAdmin: boolean;
+  activo: boolean;
+  modulos: Modulo[]; // los que ve en la app (admin: todos)
+}
+
+export type RolCaja = "lector" | "registrador" | "aprobador";
+
+export const ETIQUETA_ROL_CAJA: Record<RolCaja, string> = {
+  lector: "Lector (solo ve)",
+  registrador: "Registrador",
+  aprobador: "Aprobador",
+};
+
+/** Usuario tal como lo ve el administrador. */
+export interface UsuarioAdmin {
+  id: string;
+  nombre: string;
+  email: string | null;
+  esAdmin: boolean;
+  activo: boolean;
+  modulos: Modulo[] | null; // null = todos
+  accesos: { cajaId: string; rol: RolCaja }[];
+  creado: string;
+}
+
+export interface DatosUsuario {
+  nombre: string;
+  esAdmin: boolean;
+  modulos: Modulo[] | null;
+  accesos: { cajaId: string; rol: RolCaja }[];
+}
+
+export interface NuevoUsuario extends DatosUsuario {
+  email: string;
+  password: string;
+}
+
+export interface CambiosUsuario extends DatosUsuario {
+  id: string;
+  activo: boolean;
 }
 
 export interface Empresa {

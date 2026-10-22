@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { textoFalta } from "@/components/movimientos/textos";
-import { contextoPagina } from "@/lib/contexto";
+import { contextoPagina, exigirModulo } from "@/lib/contexto";
 import { fechaHoyLima } from "@/lib/datos/esquemas";
 import { ETIQUETA_MEDIO_PAGO } from "@/lib/datos/tipos";
 import { formatoFecha, formatoSoles } from "@/lib/formato";
@@ -11,6 +11,7 @@ const DIA = 24 * 60 * 60 * 1000;
 const dias = (desde: string, hasta: string) => Math.max(0, Math.round((Date.parse(hasta) - Date.parse(desde)) / DIA));
 
 export default async function PaginaPendientes() {
+  await exigirModulo("pendientes");
   const { repo, empresa, cajasEmpresa } = await contextoPagina();
   if (!empresa) return null;
 

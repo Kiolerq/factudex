@@ -2,20 +2,29 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { Modulo } from "@/lib/datos/tipos";
 
-export const SECCIONES = [
-  { href: "/registro", texto: "Registro" },
-  { href: "/pendientes", texto: "Pendientes" },
-  { href: "/historial", texto: "Historial" },
-  { href: "/liquidaciones", texto: "Liquidaciones" },
-  { href: "/recargas", texto: "Recargas" },
-] as const;
+export const SECCIONES: { href: string; texto: string; modulo: Modulo | null }[] = [
+  { href: "/registro", texto: "Registro", modulo: "registro" },
+  { href: "/pendientes", texto: "Pendientes", modulo: "pendientes" },
+  { href: "/historial", texto: "Historial", modulo: "historial" },
+  { href: "/liquidaciones", texto: "Liquidaciones", modulo: "liquidaciones" },
+  { href: "/recargas", texto: "Recargas", modulo: "recargas" },
+  { href: "/admin", texto: "Usuarios", modulo: null }, // solo administradores
+];
 
-export function Navegacion({ pendientes }: { pendientes: number }) {
+interface Props {
+  pendientes: number;
+  modulos: Modulo[];
+  esAdmin: boolean;
+}
+
+export function Navegacion({ pendientes, modulos, esAdmin }: Props) {
   const ruta = usePathname();
+  const visibles = SECCIONES.filter((s) => (s.modulo ? modulos.includes(s.modulo) : esAdmin));
   return (
     <nav aria-label="Secciones" className="fx-scroll-x -mx-5 flex gap-2 overflow-x-auto px-5 md:mx-0 md:px-0">
-      {SECCIONES.map((s) => {
+      {visibles.map((s) => {
         const activa = ruta.startsWith(s.href);
         return (
           <Link

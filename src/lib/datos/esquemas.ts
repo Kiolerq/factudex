@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MEDIOS_PAGO, MIME_PERMITIDOS, TIPOS_DOCUMENTO } from "./tipos";
+import { MEDIOS_PAGO, MIME_PERMITIDOS, MODULOS, TIPOS_DOCUMENTO } from "./tipos";
 
 export const TAMANO_MAXIMO = 10 * 1024 * 1024; // 10 MB, igual que el bucket
 
@@ -152,6 +152,27 @@ export const EsquemaNuevaRecarga = z
       ctx.addIssue({ code: "custom", path: ["fecha"], message: "La fecha no puede ser futura" });
   });
 export type EntradaRecarga = z.input<typeof EsquemaNuevaRecarga>;
+
+const EsquemaDatosUsuario = z.object({
+  nombre: z.string().trim().min(2, "Escribe el nombre").max(80),
+  esAdmin: z.boolean(),
+  modulos: z.array(z.enum(MODULOS)).min(1, "Elige al menos un módulo").nullable(), // null = todos
+  accesos: z.array(z.object({ cajaId: z.uuid(), rol: z.enum(["lector", "registrador", "aprobador"]) })).max(100),
+});
+
+export const EsquemaContrasena = z
+  .string()
+  .min(8, "Mínimo 8 caracteres")
+  .max(72, "Máximo 72 caracteres");
+
+export const EsquemaNuevoUsuario = EsquemaDatosUsuario.extend({
+  email: z.string().trim().toLowerCase().pipe(z.email("Correo inválido")),
+  password: EsquemaContrasena,
+});
+export type EntradaNuevoUsuario = z.input<typeof EsquemaNuevoUsuario>;
+
+export const EsquemaCambiosUsuario = EsquemaDatosUsuario.extend({ id: z.uuid().or(z.literal("demo")), activo: z.boolean() });
+export type EntradaCambiosUsuario = z.input<typeof EsquemaCambiosUsuario>;
 
 /** Fecha de hoy en Lima, formato YYYY-MM-DD. */
 export function fechaHoyLima(): string {

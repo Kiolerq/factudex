@@ -2,13 +2,14 @@ import Link from "next/link";
 import { BadgeLiquidacion } from "@/components/liquidaciones/BadgeLiquidacion";
 import { CerrarLiquidacion } from "@/components/liquidaciones/CerrarLiquidacion";
 import { Totales } from "@/components/liquidaciones/Totales";
-import { contextoPagina } from "@/lib/contexto";
+import { contextoPagina, exigirModulo } from "@/lib/contexto";
 import { nombreCaja, type LiquidacionResumen } from "@/lib/datos/tipos";
 import { formatoFecha, formatoSoles } from "@/lib/formato";
 
 export const metadata = { title: "Liquidaciones · Factudex" };
 
 export default async function PaginaLiquidaciones() {
+  await exigirModulo("liquidaciones");
   const { repo, caja, empresa } = await contextoPagina();
   if (!caja || !empresa) return null;
   const [liquidaciones, permisos] = await Promise.all([repo.listarLiquidaciones([caja.id]), repo.permisosCaja(caja.id)]);
