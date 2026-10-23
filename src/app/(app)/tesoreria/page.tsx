@@ -2,11 +2,10 @@ import Link from "next/link";
 import { BadgeLiquidacion } from "@/components/liquidaciones/BadgeLiquidacion";
 import { RevisarLiquidacion } from "@/components/liquidaciones/RevisarLiquidacion";
 import { AutorizarGasto } from "@/components/movimientos/AutorizarGasto";
-import { FormularioRecarga } from "@/components/recargas/FormularioRecarga";
 import { FormularioIngreso, type CajaIngreso, type EmpresaIngreso } from "@/components/tesoreria/FormularioIngreso";
 import { GestionCajas } from "@/components/tesoreria/GestionCajas";
 import { contextoPagina, exigirTesoreria } from "@/lib/contexto";
-import { codigoCaja, ETIQUETA_FORMA_INGRESO, ETIQUETA_TIPO_RECARGA, type CajaSaldo } from "@/lib/datos/tipos";
+import { codigoCaja, ETIQUETA_FORMA_INGRESO, ETIQUETA_TIPO_RECARGA } from "@/lib/datos/tipos";
 import { formatoFecha, formatoSoles } from "@/lib/formato";
 
 export const metadata = { title: "Tesorería · Factudex" };
@@ -26,17 +25,18 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
   const { repo, empresas, cajas } = await contextoPagina();
   const ids = cajas.map((c) => c.id);
   const cajaDe = (id: string) => cajas.find((c) => c.id === id);
-  const empresaDe = (c: CajaSaldo | undefined) => empresas.find((e) => e.id === c?.empresaId)?.nombreCorto ?? "";
+  const empresaDe = (c: { empresaId: string } | undefined) => empresas.find((e) => e.id === c?.empresaId)?.nombreCorto ?? "";
 
-  // Contadores para las pestañas (y los datos de la bandeja).
+  // Todas las cajas (también las cerradas) para el historial; contadores para las pestañas.
+  const todas = await repo.listarCajasAdmin();
   const [liquidaciones, porAutorizar] = await Promise.all([
-    repo.listarLiquidaciones(ids),
+    repo.listarLiquidaciones(todas.map((c) => c.id)),
     repo.listarMovimientos({ cajaIds: ids, estado: "por_autorizar", texto: "", limite: 300 }),
   ]);
   const enRevision = liquidaciones.filter((l) => l.estado === "en_revision");
   const aprobadas = liquidaciones.filter((l) => l.estado === "aprobada");
   const contador: Partial<Record<Vista, number>> = {
-    bandeja: enRevision.length + aprobadas.length,
+    bandeja: enRevision.length,
     autorizar: porAutorizar.total,
   };
 
@@ -94,26 +94,67 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
               );
             })}
           </Seccion>
-          <Seccion titulo={`Por reponer (${aprobadas.length})`} vacio="No hay liquidaciones aprobadas esperando su reposición.">
-            {aprobadas.map((l) => {
-              const c = cajaDe(l.cajaId);
-              return (
-                <div key={l.id} className="fx-card flex flex-col gap-3 p-4 md:px-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <Link prefetch={false} href={`/liquidaciones/${l.id}`} className="font-display text-base font-bold hover:underline">
-                        {l.folio}
-                      </Link>
-                      <div className="text-xs text-white/45">
-                        {c && `${codigoCaja(c)} · ${c.nombre} · `}liquidado {formatoSoles(l.egresos)}
+          <Seccion
+            titulo={`Historial de cajas (${todas.length})`}
+            vacio="Aún no hay cajas."
+            ayuda="Cada caja con su saldo y sus liquidaciones. Toca una para ver el detalle."
+          >
+            {[...todas]
+              .sort((a, b) => Number(b.activa) - Number(a.activa) || codigoCaja(a).localeCompare(codigoCaja(b)))
+              .map((c) => {
+                const saldo = cajaDe(c.id);
+                const suyas = liquidaciones.filter((l) => l.cajaId === c.id).sort((a, b) => b.correlativo - a.correlativo);
+                const liquidado = suyas.filter((l) => l.estado !== "abierta").reduce((t, l) => t + l.egresos, 0);
+                return (
+                  <details key={c.id} className="fx-card group overflow-hidden">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 md:px-5">
+                      <div className="min-w-0">
+                        <div className="font-display text-base font-bold">
+                          {codigoCaja(c)}{" "}
+                          {!c.activa && (
+                            <span className="ml-1 rounded-full border border-white/15 px-2 py-0.5 align-middle font-sans text-[11px] font-semibold text-white/50">
+                              Cerrada
+                            </span>
+                          )}
+                        </div>
+                        <div className="truncate text-xs text-white/45">
+                          {empresaDe(c)} · {c.nombre} · {suyas.length} liquidaci{suyas.length === 1 ? "ón" : "ones"}
+                          {liquidado > 0 && ` · liquidado ${formatoSoles(liquidado)}`}
+                        </div>
                       </div>
+                      <div className="flex shrink-0 items-center gap-3">
+                        {saldo && (
+                          <div className="text-right">
+                            <div className={`font-display text-base font-bold ${saldo.bajoUmbral ? "text-fx-error" : ""}`}>{formatoSoles(saldo.saldo)}</div>
+                            <div className="text-[11px] text-white/40">saldo</div>
+                          </div>
+                        )}
+                        <span className="text-white/40 transition-transform group-open:rotate-90">›</span>
+                      </div>
+                    </summary>
+                    <div className="border-t border-white/5">
+                      {suyas.length === 0 && <p className="px-5 py-4 text-[13px] text-white/50">Sin liquidaciones todavía.</p>}
+                      {suyas.map((l) => (
+                        <Link
+                          prefetch={false}
+                          key={l.id}
+                          href={`/liquidaciones/${l.id}`}
+                          className="flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-[13px] last:border-b-0 hover:bg-white/[0.03] md:px-5"
+                        >
+                          <div className="min-w-0">
+                            <div className="font-semibold">{l.folio}</div>
+                            <div className="text-[11.5px] text-white/45">
+                              del {formatoFecha(l.fechaInicio)} al {l.fechaCierre ? formatoFecha(l.fechaCierre) : "hoy"} · {l.numMovimientos} gasto
+                              {l.numMovimientos === 1 ? "" : "s"} · {formatoSoles(l.egresos)}
+                            </div>
+                          </div>
+                          <BadgeLiquidacion estado={l.estado} />
+                        </Link>
+                      ))}
                     </div>
-                    <BadgeLiquidacion estado={l.estado} />
-                  </div>
-                  <FormularioRecarga cajaId={l.cajaId} liquidacion={{ id: l.id, folio: l.folio, sugerido: l.egresos }} textoBoton="Registrar reposición" />
-                </div>
-              );
-            })}
+                  </details>
+                );
+              })}
           </Seccion>
         </>
       )}
@@ -156,7 +197,7 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
 
       {vista === "cajas" && (
         <GestionCajas
-          cajas={await repo.listarCajasAdmin()}
+          cajas={todas}
           empresas={empresas.map((e) => ({ id: e.id, codigo: e.codigo, nombre: e.nombreCorto, topeGasto: e.topeGasto }))}
         />
       )}
@@ -164,7 +205,7 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
   );
 
   async function Ingresos() {
-    const [recargas, todas] = await Promise.all([repo.listarRecargas(ids), repo.listarCajasAdmin()]);
+    const recargas = await repo.listarRecargas(ids);
     const empresasIngreso: EmpresaIngreso[] = empresas.map((e) => ({
       id: e.id,
       codigo: e.codigo,
