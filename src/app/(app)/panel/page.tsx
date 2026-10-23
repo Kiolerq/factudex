@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { contextoPagina, usuarioPeticion } from "@/lib/contexto";
+import { contextoPagina, exigirTesoreria } from "@/lib/contexto";
 import { fechaHoyLima } from "@/lib/datos/esquemas";
 import { codigoCaja, type MovimientoResumen } from "@/lib/datos/tipos";
 import { formatoFecha, formatoSoles } from "@/lib/formato";
@@ -20,9 +20,9 @@ function ultimosMeses(mes: string, n = 6): string[] {
 }
 const nombreMes = (mes: string) => `${MESES[Number(mes.slice(5)) - 1]} ${mes.slice(2, 4)}`;
 
-/** Panel para todos: el estado de las cajas que ve cada persona (tesorería ve todas). */
+/** Panel de tesorería y admin: el estado de todas las cajas (los registradores entran a Registro). */
 export default async function PaginaPanel({ searchParams }: PageProps<"/panel">) {
-  const yo = await usuarioPeticion();
+  const yo = await exigirTesoreria();
   const sp = await searchParams;
   const { repo, empresas, cajas: todas } = await contextoPagina();
   const hoy = fechaHoyLima();

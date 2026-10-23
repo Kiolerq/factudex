@@ -27,7 +27,7 @@ import {
   type EntradaMovimiento,
   type EntradaRecarga,
 } from "@/lib/datos/esquemas";
-import { ErrorDeNegocio, modoDemo, obtenerRepositorio } from "@/lib/datos/repositorio";
+import { ErrorDeNegocio, modoDemo, obtenerRepositorio, type Repositorio } from "@/lib/datos/repositorio";
 import { codigoCaja } from "@/lib/datos/tipos";
 import type {
   AdjuntoSubido,
@@ -38,6 +38,7 @@ import type {
   Opcion,
   Proveedor,
   TipoDocumento,
+  Usuario,
 } from "@/lib/datos/tipos";
 import { COOKIE_CAJA } from "@/lib/seleccion";
 import { createClient } from "@/lib/supabase/server";
@@ -390,13 +391,24 @@ export async function actualizarTope(entrada: { empresaId: string; tope: number 
   return ejecutar(() => repo.actualizarTope(datos.data.empresaId, datos.data.tope));
 }
 
-// --- Administración de usuarios (solo admin) ---
+// --- Usuarios: el admin gestiona a todos; tesorería, solo a los registradores ---
 
-async function repoAdmin() {
+async function repoUsuarios() {
   const repo = await obtenerRepositorio();
   const yo = await repo.usuarioActual();
-  if (!yo?.esAdmin || !yo.activo) throw new Error("Solo un administrador puede gestionar usuarios");
+  if (!yo?.esTesoreria || !yo.activo) throw new Error("Solo tesorería o un administrador puede gestionar usuarios");
   return { repo, yo };
+}
+
+const SOLO_REGISTRADORES = "Tesorería solo puede crear y editar registradores";
+
+/** Tesorería (sin ser admin) no puede dar roles globales ni tocar a admins o tesorería. */
+async function puedeTocar(repo: Repositorio, yo: Usuario, id: string | null, d?: { esAdmin: boolean; esTesoreria: boolean }) {
+  if (yo.esAdmin) return true;
+  if (d && (d.esAdmin || d.esTesoreria)) return false;
+  if (!id) return true;
+  const u = (await repo.listarUsuarios()).find((x) => x.id === id);
+  return !!u && !u.esAdmin && !u.esTesoreria;
 }
 
 export async function crearUsuario(
@@ -404,7 +416,8 @@ export async function crearUsuario(
 ): Promise<{ ok: true; id: string } | { ok: false; errores: Record<string, string> }> {
   const datos = EsquemaNuevoUsuario.safeParse(entrada);
   if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
-  const { repo } = await repoAdmin();
+  const { repo, yo } = await repoUsuarios();
+  if (!(await puedeTocar(repo, yo, null, datos.data))) return { ok: false, errores: { _: SOLO_REGISTRADORES } };
   try {
     const id = await repo.crearUsuario(datos.data);
     revalidatePath("/admin");
@@ -418,9 +431,10 @@ export async function crearUsuario(
 export async function actualizarUsuario(entrada: EntradaCambiosUsuario): Promise<Resultado> {
   const datos = EsquemaCambiosUsuario.safeParse(entrada);
   if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
-  const { repo, yo } = await repoAdmin();
+  const { repo, yo } = await repoUsuarios();
   if (datos.data.id === yo.id && (!datos.data.esAdmin || !datos.data.activo))
     return { ok: false, errores: { _: "No puedes quitarte el rol de administrador ni desactivarte a ti mismo" } };
+  if (!(await puedeTocar(repo, yo, datos.data.id, datos.data))) return { ok: false, errores: { _: SOLO_REGISTRADORES } };
   return ejecutar(() => repo.actualizarUsuario(datos.data));
 }
 
@@ -429,7 +443,8 @@ export async function cambiarContrasenaUsuario(entrada: { id: string; password: 
   const password = EsquemaContrasena.safeParse(entrada.password);
   if (!id.success) return { ok: false, errores: { _: "Usuario inválido" } };
   if (!password.success) return { ok: false, errores: { password: password.error.issues[0]!.message } };
-  const { repo } = await repoAdmin();
+  const { repo, yo } = await repoUsuarios();
+  if (!(await puedeTocar(repo, yo, id.data))) return { ok: false, errores: { _: SOLO_REGISTRADORES } };
   return ejecutar(() => repo.cambiarContrasena(id.data, password.data));
 }
 

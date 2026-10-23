@@ -2,7 +2,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
-import type { Modulo } from "@/lib/datos/tipos";
+import { MODULOS, type Modulo, type Usuario } from "@/lib/datos/tipos";
 import { leerCajaActiva } from "@/lib/seleccion";
 
 /** Usuario de la petición (una sola consulta aunque lo pidan el layout y la página). */
@@ -15,14 +15,20 @@ export const RUTA_MODULO: Record<Modulo, string> = {
   liquidaciones: "/liquidaciones",
 };
 
+/** Pantalla de inicio: tesorería y admin, el Panel; un registrador entra directo a registrar. */
+export function rutaInicio(u: Pick<Usuario, "esTesoreria" | "modulos">): string {
+  if (u.esTesoreria) return "/panel";
+  return RUTA_MODULO[MODULOS.find((m) => u.modulos.includes(m)) ?? "registro"];
+}
+
 /**
  * La página solo se muestra si el usuario tiene alguno de estos módulos (o es tesorería, que ve
- * todo); si no, vuelve al Panel. Es lo que ve en pantalla: qué datos puede tocar lo decide el RLS.
+ * todo); si no, vuelve a su inicio. Es lo que ve en pantalla: qué datos puede tocar lo decide el RLS.
  */
 export async function exigirModulo(...modulos: Modulo[]) {
   const u = await usuarioPeticion();
   if (!u) redirect("/login");
-  if (!u.esTesoreria && !modulos.some((m) => u.modulos.includes(m))) redirect("/panel");
+  if (!u.esTesoreria && !modulos.some((m) => u.modulos.includes(m))) redirect(rutaInicio(u));
   return u;
 }
 
@@ -30,7 +36,7 @@ export async function exigirModulo(...modulos: Modulo[]) {
 export async function exigirTesoreria() {
   const u = await usuarioPeticion();
   if (!u) redirect("/login");
-  if (!u.esTesoreria) redirect("/panel");
+  if (!u.esTesoreria) redirect(rutaInicio(u));
   return u;
 }
 

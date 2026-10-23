@@ -4,36 +4,27 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Modulo } from "@/lib/datos/tipos";
 
-type Acceso = Modulo | "todos" | "tesoreria" | "admin";
+type Acceso = Modulo | "tesoreria";
 
 export const SECCIONES: { href: string; texto: string; acceso: Acceso }[] = [
-  { href: "/panel", texto: "Panel", acceso: "todos" },
+  { href: "/panel", texto: "Panel", acceso: "tesoreria" },
   { href: "/registro", texto: "Registro", acceso: "registro" },
   { href: "/pendientes", texto: "Pendientes", acceso: "pendientes" },
   { href: "/historial", texto: "Historial", acceso: "historial" },
   { href: "/liquidaciones", texto: "Liquidaciones", acceso: "liquidaciones" },
   { href: "/tesoreria", texto: "Tesorería", acceso: "tesoreria" },
-  { href: "/admin", texto: "Usuarios", acceso: "admin" },
+  { href: "/admin", texto: "Usuarios", acceso: "tesoreria" }, // tesorería gestiona registradores
 ];
 
 interface Props {
   pendientes: number;
   modulos: Modulo[];
-  esAdmin: boolean;
   esTesoreria: boolean;
 }
 
-export function Navegacion({ pendientes, modulos, esAdmin, esTesoreria }: Props) {
+export function Navegacion({ pendientes, modulos, esTesoreria }: Props) {
   const ruta = usePathname();
-  const visibles = SECCIONES.filter((s) =>
-    s.acceso === "todos"
-      ? true
-      : s.acceso === "admin"
-        ? esAdmin
-        : s.acceso === "tesoreria"
-          ? esTesoreria
-          : esTesoreria || modulos.includes(s.acceso),
-  );
+  const visibles = SECCIONES.filter((s) => esTesoreria || (s.acceso !== "tesoreria" && modulos.includes(s.acceso)));
   return (
     <nav aria-label="Secciones" className="fx-scroll-x -mx-5 flex gap-2 overflow-x-auto px-5 md:mx-0 md:px-0">
       {visibles.map((s) => {

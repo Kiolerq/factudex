@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { rutaInicio, usuarioPeticion } from "@/lib/contexto";
 
-export default function Inicio() {
-  redirect("/panel");
+export default async function Inicio() {
+  const u = await usuarioPeticion();
+  redirect(u ? rutaInicio(u) : "/login");
 }

@@ -3,26 +3,29 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { actualizarUsuario, cambiarContrasenaUsuario, crearUsuario } from "@/app/acciones";
-import {
-  ETIQUETA_MODULO,
-  ETIQUETA_ROL_CAJA,
-  MODULOS,
-  type Modulo,
-  type RolCaja,
-  type UsuarioAdmin,
-} from "@/lib/datos/tipos";
+import type { UsuarioAdmin } from "@/lib/datos/tipos";
 
 interface EmpresaCajas {
   id: string;
   nombre: string;
-  cajas: { id: string; nombre: string }[];
+  cajas: { id: string; codigo: string; nombre: string }[];
 }
 
 interface Props {
   usuarios: UsuarioAdmin[];
   miId: string;
+  /** El admin gestiona a todos; tesorería, solo a los registradores. */
+  soyAdmin: boolean;
   empresas: EmpresaCajas[];
 }
+
+type Tipo = "registrador" | "tesoreria" | "admin";
+const TIPOS: { id: Tipo; texto: string; ayuda: string }[] = [
+  { id: "registrador", texto: "Registrador", ayuda: "Registra gastos y liquida solo sus cajas" },
+  { id: "tesoreria", texto: "Tesorería", ayuda: "Todas las cajas: ingresos, aprobación, autorizaciones, cajas y registradores" },
+  { id: "admin", texto: "Administrador", ayuda: "Todo, más gestionar a cualquier usuario" },
+];
+const tipoDe = (u: UsuarioAdmin): Tipo => (u.esAdmin ? "admin" : u.esTesoreria ? "tesoreria" : "registrador");
 
 type Edicion = { modo: "nuevo" } | { modo: "editar"; usuario: UsuarioAdmin };
 
@@ -33,11 +36,11 @@ function generarContrasena(): string {
   return Array.from(n, (x) => letras[x % letras.length]).join("");
 }
 
-export function GestionUsuarios({ usuarios, miId, empresas }: Props) {
+export function GestionUsuarios({ usuarios, miId, soyAdmin, empresas }: Props) {
   const [edicion, setEdicion] = useState<Edicion | null>(null);
   const [creado, setCreado] = useState<{ email: string; password: string } | null>(null);
   const editor = useRef<HTMLDivElement>(null);
-  const nombreCaja = new Map(empresas.flatMap((e) => e.cajas.map((c) => [c.id, `${e.nombre} · ${c.nombre}`] as const)));
+  const codigoDe = new Map(empresas.flatMap((e) => e.cajas.map((c) => [c.id, c.codigo] as const)));
 
   const abrir = (e: Edicion) => {
     setEdicion(e);
@@ -66,6 +69,7 @@ export function GestionUsuarios({ usuarios, miId, empresas }: Props) {
             key={edicion.modo === "editar" ? edicion.usuario.id : "nuevo"}
             edicion={edicion}
             empresas={empresas}
+            soyAdmin={soyAdmin}
             esYo={edicion.modo === "editar" && edicion.usuario.id === miId}
             onCerrar={() => setEdicion(null)}
             onCreado={(c) => {
@@ -105,15 +109,17 @@ export function GestionUsuarios({ usuarios, miId, empresas }: Props) {
                   "Todas las cajas: ingresos, aprobación, autorizaciones y cajas"
                 ) : (
                   <>
-                    {u.modulos ? u.modulos.map((m) => ETIQUETA_MODULO[m]).join(", ") : "Todos los módulos"}
-                    {" · "}
-                    {u.accesos.length
-                      ? u.accesos.map((a) => `${nombreCaja.get(a.cajaId) ?? "Caja"} (${ETIQUETA_ROL_CAJA[a.rol].split(" ")[0]})`).join(", ")
-                      : <span className="text-fx-pendiente">sin cajas asignadas</span>}
+                    Registrador ·{" "}
+                    {u.accesos.some((a) => codigoDe.has(a.cajaId)) ? (
+                      u.accesos.flatMap((a) => codigoDe.get(a.cajaId) ?? []).join(", ")
+                    ) : (
+                      <span className="text-fx-pendiente">sin cajas asignadas</span>
+                    )}
                   </>
                 )}
               </div>
             </div>
+            {(soyAdmin || tipoDe(u) === "registrador") && (
             <button
               type="button"
               onClick={() => abrir({ modo: "editar", usuario: u })}
@@ -121,6 +127,7 @@ export function GestionUsuarios({ usuarios, miId, empresas }: Props) {
             >
               Editar
             </button>
+            )}
           </div>
         ))}
       </div>
@@ -135,12 +142,14 @@ function Etiqueta({ clase, children }: { clase: string; children: React.ReactNod
 function EditorUsuario({
   edicion,
   empresas,
+  soyAdmin,
   esYo,
   onCerrar,
   onCreado,
 }: {
   edicion: Edicion;
   empresas: EmpresaCajas[];
+  soyAdmin: boolean;
   esYo: boolean;
   onCerrar: () => void;
   onCreado: (c: { email: string; password: string }) => void;
@@ -150,27 +159,32 @@ function EditorUsuario({
   const [nombre, setNombre] = useState(u?.nombre ?? "");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState(() => (u ? "" : generarContrasena()));
-  const [esAdmin, setEsAdmin] = useState(u?.esAdmin ?? false);
-  const [esTesoreria, setEsTesoreria] = useState(u?.esTesoreria ?? false);
+  const [tipo, setTipo] = useState<Tipo>(u ? tipoDe(u) : "registrador");
   const [activo, setActivo] = useState(u?.activo ?? true);
-  const [todos, setTodos] = useState(!u?.modulos);
-  const [modulos, setModulos] = useState<Modulo[]>(u?.modulos ?? ["registro", "pendientes", "historial"]);
-  const [accesos, setAccesos] = useState<Record<string, RolCaja | "">>(
-    () => Object.fromEntries((u?.accesos ?? []).map((a) => [a.cajaId, a.rol])),
-  );
+  // Las cajas del registrador (solo las activas se muestran; las cerradas se quitan al guardar).
+  const [cajas, setCajas] = useState<Set<string>>(() => new Set((u?.accesos ?? []).map((a) => a.cajaId)));
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [aviso, setAviso] = useState("");
   const [guardando, iniciar] = useTransition();
 
+  const activas = new Set(empresas.flatMap((e) => e.cajas.map((c) => c.id)));
   const datos = () => ({
     nombre,
-    esAdmin,
-    esTesoreria,
-    modulos: todos ? null : modulos,
-    accesos: Object.entries(accesos)
-      .filter((x): x is [string, RolCaja] => !!x[1])
-      .map(([cajaId, rol]) => ({ cajaId, rol })),
+    esAdmin: tipo === "admin",
+    esTesoreria: tipo === "tesoreria",
+    modulos: null, // el registrador ve Registro, Pendientes, Historial y Liquidaciones de sus cajas
+    accesos:
+      tipo === "registrador"
+        ? [...cajas].filter((id) => activas.has(id)).map((cajaId) => ({ cajaId, rol: "registrador" as const }))
+        : [],
   });
+  const marcar = (id: string) =>
+    setCajas((xs) => {
+      const n = new Set(xs);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
 
   const guardar = (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,8 +214,7 @@ function EditorUsuario({
       else setErrores(r.errores);
     });
 
-  const veTodo = esAdmin || esTesoreria;
-  const sinCajas = !veTodo && !Object.values(accesos).some(Boolean);
+  const sinCajas = tipo === "registrador" && ![...cajas].some((id) => activas.has(id));
 
   return (
     <form onSubmit={guardar} noValidate className="fx-card flex flex-col gap-5 p-4 md:p-6">
@@ -271,21 +284,6 @@ function EditorUsuario({
           {aviso && <p className="mt-1.5 text-xs text-fx-completo">{aviso}</p>}
         </Campo>
         <div className="flex flex-col justify-end gap-2.5">
-          <Interruptor
-            activo={esAdmin}
-            onCambiar={setEsAdmin}
-            deshabilitado={esYo}
-            texto="Administrador"
-            ayuda="Ve y hace todo en todas las cajas, y gestiona usuarios"
-          />
-          {!esAdmin && (
-            <Interruptor
-              activo={esTesoreria}
-              onCambiar={setEsTesoreria}
-              texto="Tesorería"
-              ayuda="Todas las cajas: registra ingresos, aprueba liquidaciones, autoriza gastos sobre el tope y crea cajas"
-            />
-          )}
           {u && (
             <Interruptor
               activo={activo}
@@ -298,70 +296,63 @@ function EditorUsuario({
         </div>
       </div>
 
-      {!veTodo && (
-        <>
-          <fieldset className="flex flex-col gap-2.5">
-            <legend className="fx-label">Módulos que ve</legend>
-            <label className="flex items-center gap-2 text-[13px]">
-              <input type="checkbox" checked={todos} onChange={(e) => setTodos(e.target.checked)} /> Todos
-            </label>
-            {!todos && (
-              <div className="flex flex-wrap gap-2">
-                {MODULOS.map((m) => {
-                  const marcado = modulos.includes(m);
+      {soyAdmin && (
+        <fieldset className="flex flex-col gap-2">
+          <legend className="fx-label">Tipo de usuario</legend>
+          <div className="grid gap-2 md:grid-cols-3">
+            {TIPOS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                aria-pressed={tipo === t.id}
+                disabled={esYo && t.id !== "admin"}
+                onClick={() => setTipo(t.id)}
+                className={`fx-btn rounded-[12px] border px-3.5 py-2.5 text-left disabled:opacity-40 ${
+                  tipo === t.id ? "border-fx-primary bg-fx-primary-soft" : "border-white/12"
+                }`}
+              >
+                <span className={`block text-[13px] font-semibold ${tipo === t.id ? "text-fx-primary-light" : "text-white/80"}`}>{t.texto}</span>
+                <span className="block text-[11.5px] text-white/45">{t.ayuda}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
+
+      {tipo === "registrador" && (
+        <fieldset className="flex flex-col gap-3">
+          <legend className="fx-label">Cajas que maneja</legend>
+          <p className="-mt-1 text-[11.5px] text-white/45">
+            Solo en estas cajas registra gastos, adjunta comprobantes y genera su liquidación. Puedes agregarle o quitarle cajas
+            cuando quieras.
+          </p>
+          {empresas.map((e) => (
+            <div key={e.id} className="flex flex-col gap-2">
+              <div className="text-[11px] uppercase tracking-[0.6px] text-white/40">{e.nombre}</div>
+              {e.cajas.length === 0 && <p className="text-[12px] text-white/40">Sin cajas activas.</p>}
+              <div className="grid gap-2 md:grid-cols-2">
+                {e.cajas.map((c) => {
+                  const marcada = cajas.has(c.id);
                   return (
-                    <button
-                      key={m}
-                      type="button"
-                      aria-pressed={marcado}
-                      onClick={() => setModulos((xs) => (marcado ? xs.filter((x) => x !== m) : [...xs, m]))}
-                      className={`fx-btn rounded-full border px-3.5 py-2 text-[12.5px] font-semibold ${
-                        marcado ? "border-fx-primary bg-fx-primary-soft text-fx-primary-light" : "border-white/12 text-white/55"
+                    <label
+                      key={c.id}
+                      className={`flex cursor-pointer items-center gap-3 rounded-[12px] border px-3.5 py-2.5 text-[13px] ${
+                        marcada ? "border-fx-primary bg-fx-primary-soft" : "border-white/12"
                       }`}
                     >
-                      {marcado ? "✓ " : ""}
-                      {ETIQUETA_MODULO[m]}
-                    </button>
+                      <input type="checkbox" checked={marcada} onChange={() => marcar(c.id)} />
+                      <span className="min-w-0">
+                        <span className="block font-display font-bold">{c.codigo}</span>
+                        <span className="block truncate text-[11.5px] text-white/50">{c.nombre}</span>
+                      </span>
+                    </label>
                   );
                 })}
               </div>
-            )}
-            {errores.modulos && <p className="text-xs text-fx-error">{errores.modulos}</p>}
-          </fieldset>
-
-          <fieldset className="flex flex-col gap-3">
-            <legend className="fx-label">Permisos por caja</legend>
-            <p className="-mt-1 text-[11.5px] text-white/45">
-              Lector: solo ve · Registrador: registra gastos, adjunta y cierra liquidaciones · Aprobador: además aprueba
-              liquidaciones y registra recargas.
-            </p>
-            {empresas.map((e) => (
-              <div key={e.id} className="flex flex-col gap-2">
-                <div className="text-[11px] uppercase tracking-[0.6px] text-white/40">{e.nombre}</div>
-                {e.cajas.map((c) => (
-                  <div key={c.id} className="grid grid-cols-[1fr_170px] items-center gap-3 text-[13px]">
-                    <span className="truncate">{c.nombre}</span>
-                    <select
-                      className="fx-input py-2!"
-                      value={accesos[c.id] ?? ""}
-                      onChange={(ev) => setAccesos((a) => ({ ...a, [c.id]: ev.target.value as RolCaja | "" }))}
-                    >
-                      <option value="">Sin acceso</option>
-                      {(Object.keys(ETIQUETA_ROL_CAJA) as RolCaja[]).map((r) => (
-                        <option key={r} value={r}>
-                          {ETIQUETA_ROL_CAJA[r]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
-              </div>
-            ))}
-            {sinCajas && (
-              <p className="text-xs text-fx-pendiente">Sin ninguna caja, al entrar verá “no tienes cajas asignadas”.</p>
-            )}
-          </fieldset>
-        </>
+            </div>
+          ))}
+          {sinCajas && <p className="text-xs text-fx-pendiente">Sin ninguna caja, al entrar verá “no tienes cajas asignadas”.</p>}
+        </fieldset>
       )}
 
       <div className="flex justify-end gap-2">
