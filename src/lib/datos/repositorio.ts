@@ -1,4 +1,6 @@
 import type {
+  CajaAdmin,
+  DatosCaja,
   CambiosUsuario,
   NuevoUsuario,
   UsuarioAdmin,
@@ -49,10 +51,18 @@ export interface Repositorio {
   listarLiquidaciones(cajaIds: string[]): Promise<LiquidacionResumen[]>;
   obtenerLiquidacion(id: string): Promise<DetalleLiquidacion | null>;
   cerrarLiquidacion(id: string): Promise<void>;
+  /** Liquida los gastos completos de la caja entre esas fechas (menos los excluidos); devuelve el folio. */
+  generarLiquidacion(cajaId: string, desde: string, hasta: string, excluir: string[]): Promise<string>;
   revisarLiquidacion(id: string, aprobar: boolean, observaciones: string | null): Promise<void>;
 
-  listarRecargas(cajaIds: string[]): Promise<Recarga[]>;
+  listarRecargas(cajaIds: string[], desde?: string): Promise<Recarga[]>;
   registrarRecarga(r: NuevaRecarga): Promise<void>;
+
+  // Tesorería (quien llama ya fue verificado como tesorería o admin).
+  autorizarMovimiento(id: string): Promise<void>;
+  listarCajasAdmin(): Promise<CajaAdmin[]>;
+  guardarCaja(c: DatosCaja): Promise<void>;
+  actualizarTope(empresaId: string, tope: number): Promise<void>;
 
   // Administración de usuarios: solo admin (quien llama ya fue verificado como admin).
   listarUsuarios(): Promise<UsuarioAdmin[]>;

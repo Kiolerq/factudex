@@ -24,6 +24,7 @@ import {
 import { formatoSoles, leerMonto } from "@/lib/formato";
 import { comprimirImagen } from "@/lib/imagen";
 import { motivoNoLegible, pedirLectura } from "@/lib/ocr/cliente";
+import { BadgePorAutorizar } from "@/components/movimientos/ListaMovimientos";
 import { CampoCentroCosto } from "./CampoCentroCosto";
 import { SelectorCompartido, type Eleccion } from "./SelectorCompartido";
 import type { ExtraccionComprobante, SugerenciasLectura } from "@/lib/ocr/esquema";
@@ -50,6 +51,7 @@ type Archivos = Record<"documento" | "pago", File | null>;
 export interface ListasEmpresa {
   empresaId: string;
   nombre: string;
+  topeGasto: number; // máximo por gasto; más que esto queda por autorizar (tesorería)
   categorias: Opcion[];
   centrosCosto: Opcion[];
   solicitantes: string[];
@@ -64,7 +66,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
   const lista = listas.find((l) => l.empresaId === caja.empresaId)!;
   // Centros agregados en esta sesión desde el campo (ya están en la BD; aquí para no recargar).
   const [centrosNuevos, setCentrosNuevos] = useState<(Opcion & { empresaId: string })[]>([]);
-  const { categorias, solicitantes, nombre: empresaNombre } = lista;
+  const { categorias, solicitantes, nombre: empresaNombre, topeGasto } = lista;
   const centrosCosto = [
     ...lista.centrosCosto,
     ...centrosNuevos.filter((c) => c.empresaId === caja.empresaId && !lista.centrosCosto.some((x) => x.id === c.id)),
@@ -87,7 +89,12 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
   const [archivos, setArchivos] = useState<Archivos>({ documento: null, pago: null });
 
   const [errores, setErrores] = useState<Record<string, string>>({});
-  const [guardado, setGuardado] = useState<{ estado: EstadoMovimiento; detalle: string; monto: number } | null>(null);
+  const [guardado, setGuardado] = useState<{
+    estado: EstadoMovimiento;
+    detalle: string;
+    monto: number;
+    porAutorizar: boolean;
+  } | null>(null);
   const [guardando, iniciar] = useTransition();
   const [paso, setPaso] = useState("");
   const camaraRapida = useRef<HTMLInputElement>(null);
@@ -420,7 +427,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
         setPaso("Guardando…");
         const r = await registrarMovimiento({ ...entrada, adjuntos });
         if (r.ok) {
-          setGuardado({ estado: r.estado, detalle, monto });
+          setGuardado({ estado: r.estado, detalle, monto, porAutorizar: monto > topeGasto });
           reiniciar(true);
         } else {
           setErrores(r.errores);
@@ -469,7 +476,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
                 {guardado.detalle} · {formatoSoles(guardado.monto)}
               </span>
             </div>
-            <BadgeEstado estado={guardado.estado} />
+            {guardado.porAutorizar ? <BadgePorAutorizar /> : <BadgeEstado estado={guardado.estado} />}
           </div>
         )}
         {errores._ && (
@@ -547,6 +554,12 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
                 }}
               />
               {errores.monto && <p className="mt-1.5 text-xs text-fx-error">{errores.monto}</p>}
+              {!errores.monto && monto > topeGasto && (
+                <p className="mt-1.5 text-xs text-fx-pendiente">
+                  Supera el tope de {formatoSoles(topeGasto)} por gasto: quedará por autorizar por tesorería y no entra a la
+                  liquidación hasta que lo autorice.
+                </p>
+              )}
             </div>
 
             <div className="order-6 grid grid-cols-2 gap-3.5 md:order-1 md:gap-4">

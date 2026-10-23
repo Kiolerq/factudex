@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { seleccionarCaja } from "@/app/acciones";
-import type { CajaSaldo, Empresa } from "@/lib/datos/tipos";
+import { codigoCaja, type CajaSaldo, type Empresa } from "@/lib/datos/tipos";
 import { formatoSoles } from "@/lib/formato";
 
 interface Props {
@@ -125,7 +125,7 @@ function TarjetaCaja({
       />
       <span className="mb-2 flex items-center justify-between gap-2 text-xs text-white/50">
         <span className="truncate">
-          Caja {String(caja.numero).padStart(2, "0")} · {caja.nombre}
+          {codigoCaja(caja)} · {caja.nombre}
         </span>
         {activa && (
           <span className="shrink-0 rounded-full bg-fx-primary-soft px-2 py-0.5 text-[10px] font-semibold text-fx-primary-light">

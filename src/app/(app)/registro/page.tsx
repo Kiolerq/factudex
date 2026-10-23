@@ -37,7 +37,7 @@ export default async function PaginaRegistro({ searchParams }: PageProps<"/regis
           repo.listarCentrosCosto(e.id),
           repo.listarSolicitantes(e.id),
         ]);
-        return { empresaId: e.id, nombre: e.nombreCorto, categorias, centrosCosto, solicitantes };
+        return { empresaId: e.id, nombre: e.nombreCorto, topeGasto: e.topeGasto, categorias, centrosCosto, solicitantes };
       }),
     ),
     almacenActivo(),

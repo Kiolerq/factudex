@@ -45,7 +45,8 @@ export type TipoAdjunto = "documento" | "pago" | "otro";
 export type EstadoMovimiento = "pendiente" | "completo";
 export type TipoDocIdentidad = "RUC" | "DNI" | "CE" | "OTRO";
 
-export const MODULOS = ["registro", "pendientes", "historial", "liquidaciones", "recargas"] as const;
+// Módulos que se pueden dar a cada usuario. El Panel lo ven todos; Tesorería va por rol (es_tesoreria).
+export const MODULOS = ["registro", "pendientes", "historial", "liquidaciones"] as const;
 export type Modulo = (typeof MODULOS)[number];
 
 export const ETIQUETA_MODULO: Record<Modulo, string> = {
@@ -53,7 +54,6 @@ export const ETIQUETA_MODULO: Record<Modulo, string> = {
   pendientes: "Pendientes",
   historial: "Historial",
   liquidaciones: "Liquidaciones",
-  recargas: "Recargas",
 };
 
 export interface Usuario {
@@ -61,6 +61,7 @@ export interface Usuario {
   nombre: string;
   email: string | null;
   esAdmin: boolean;
+  esTesoreria: boolean; // tesorería o admin: todas las cajas, ingresos, aprobación, autorizaciones
   activo: boolean;
   modulos: Modulo[]; // los que ve en la app (admin: todos)
 }
@@ -79,6 +80,7 @@ export interface UsuarioAdmin {
   nombre: string;
   email: string | null;
   esAdmin: boolean;
+  esTesoreria: boolean;
   activo: boolean;
   modulos: Modulo[] | null; // null = todos
   accesos: { cajaId: string; rol: RolCaja }[];
@@ -88,6 +90,7 @@ export interface UsuarioAdmin {
 export interface DatosUsuario {
   nombre: string;
   esAdmin: boolean;
+  esTesoreria: boolean;
   modulos: Modulo[] | null;
   accesos: { cajaId: string; rol: RolCaja }[];
 }
@@ -109,6 +112,7 @@ export interface Empresa {
   nombreCorto: string;
   razonSocial: string;
   ciudad: string; // pie de la liquidación: "TRUJILLO 24.09.2026"
+  topeGasto: number; // máximo por gasto; más que esto queda "por autorizar" (tesorería)
 }
 
 export interface CajaSaldo {
@@ -177,13 +181,15 @@ export interface PermisosCaja {
   aprobar: boolean; // aprobar/observar liquidaciones y registrar recargas
 }
 
-export type FiltroEstado = "todos" | "pendiente" | "completo" | "anulado";
+export type FiltroEstado = "todos" | "pendiente" | "completo" | "anulado" | "por_autorizar";
 
 export interface FiltroMovimientos {
   cajaIds: string[];
   estado: FiltroEstado;
   texto: string; // proveedor, detalle, N° de documento o solicitante
   limite: number;
+  desde?: string; // fecha del gasto (YYYY-MM-DD), inclusive
+  hasta?: string;
 }
 
 export interface MovimientoResumen {
@@ -206,6 +212,7 @@ export interface MovimientoResumen {
   anulado: boolean;
   faltaDocumento: boolean;
   faltaPago: boolean; // en efectivo nunca falta
+  porAutorizar: boolean; // supera el tope de la empresa y tesorería aún no lo autoriza
 }
 
 export interface PaginaMovimientos {
@@ -339,3 +346,22 @@ export function estadoEsperado(
 export function nombreCaja(caja: Pick<CajaSaldo, "numero" | "nombre">) {
   return `Caja ${String(caja.numero).padStart(2, "0")} · ${caja.nombre}`;
 }
+
+/** Código de la caja: SL-CAJA-MT-01 (empresa, área y número). */
+export function codigoCaja(caja: Pick<CajaSaldo, "empresaCodigo" | "area" | "numero">) {
+  return `${caja.empresaCodigo}-CAJA-${caja.area}-${String(caja.numero).padStart(2, "0")}`;
+}
+
+/** Caja tal como la administra tesorería (incluye las inactivas). */
+export interface CajaAdmin {
+  id: string;
+  empresaId: string;
+  empresaCodigo: CodigoEmpresa;
+  numero: number;
+  area: string; // sigla: MT, OP, GE…
+  nombre: string;
+  umbralAlerta: number;
+  activa: boolean;
+}
+
+export type DatosCaja = Omit<CajaAdmin, "id" | "empresaCodigo"> & { id: string | null }; // id null = nueva

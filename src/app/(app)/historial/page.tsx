@@ -6,7 +6,7 @@ import { contextoPagina, exigirModulo } from "@/lib/contexto";
 
 export const metadata = { title: "Historial · Factudex" };
 
-const ESTADOS: FiltroEstado[] = ["todos", "pendiente", "completo", "anulado"];
+const ESTADOS: FiltroEstado[] = ["todos", "pendiente", "completo", "por_autorizar", "anulado"];
 const POR_PAGINA = 100;
 
 export default async function PaginaHistorial({ searchParams }: PageProps<"/historial">) {

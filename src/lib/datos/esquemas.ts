@@ -156,6 +156,7 @@ export type EntradaRecarga = z.input<typeof EsquemaNuevaRecarga>;
 const EsquemaDatosUsuario = z.object({
   nombre: z.string().trim().min(2, "Escribe el nombre").max(80),
   esAdmin: z.boolean(),
+  esTesoreria: z.boolean(),
   modulos: z.array(z.enum(MODULOS)).min(1, "Elige al menos un módulo").nullable(), // null = todos
   accesos: z.array(z.object({ cajaId: z.uuid(), rol: z.enum(["lector", "registrador", "aprobador"]) })).max(100),
 });
@@ -173,6 +174,31 @@ export type EntradaNuevoUsuario = z.input<typeof EsquemaNuevoUsuario>;
 
 export const EsquemaCambiosUsuario = EsquemaDatosUsuario.extend({ id: z.uuid().or(z.literal("demo")), activo: z.boolean() });
 export type EntradaCambiosUsuario = z.input<typeof EsquemaCambiosUsuario>;
+
+export const EsquemaGenerarLiquidacion = z
+  .object({
+    cajaId: z.uuid(),
+    desde: z.iso.date("Fecha inválida"),
+    hasta: z.iso.date("Fecha inválida"),
+    excluir: z.array(z.uuid()).max(1000),
+  })
+  .refine((g) => g.hasta >= g.desde, { path: ["hasta"], message: "\"Hasta\" no puede ser antes de \"desde\"" })
+  .refine((g) => g.hasta <= fechaHoyLima(), { path: ["hasta"], message: "La fecha no puede ser futura" });
+
+export const EsquemaCaja = z.object({
+  id: z.uuid().nullable(),
+  empresaId: z.uuid("Elige la empresa"),
+  numero: z.number("Número inválido").int("Número inválido").min(1, "Del 1 al 99").max(99, "Del 1 al 99"),
+  area: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]{2,4}$/, "2 a 4 letras, ej. MT"),
+  nombre: z.string().trim().min(2, "Escribe el nombre").max(60),
+  umbralAlerta: z.number("Monto inválido").min(0, "No puede ser negativo").max(1000000),
+  activa: z.boolean(),
+});
+export type EntradaCaja = z.input<typeof EsquemaCaja>;
 
 /** Fecha de hoy en Lima, formato YYYY-MM-DD. */
 export function fechaHoyLima(): string {

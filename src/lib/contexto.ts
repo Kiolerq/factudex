@@ -13,17 +13,24 @@ export const RUTA_MODULO: Record<Modulo, string> = {
   pendientes: "/pendientes",
   historial: "/historial",
   liquidaciones: "/liquidaciones",
-  recargas: "/recargas",
 };
 
 /**
- * La página solo se muestra si el usuario tiene alguno de estos módulos; si no, va al primero
- * que sí tenga. Es lo que ve en pantalla: qué datos puede tocar lo decide el RLS por caja.
+ * La página solo se muestra si el usuario tiene alguno de estos módulos (o es tesorería, que ve
+ * todo); si no, vuelve al Panel. Es lo que ve en pantalla: qué datos puede tocar lo decide el RLS.
  */
 export async function exigirModulo(...modulos: Modulo[]) {
   const u = await usuarioPeticion();
   if (!u) redirect("/login");
-  if (!modulos.some((m) => u.modulos.includes(m))) redirect(u.modulos[0] ? RUTA_MODULO[u.modulos[0]] : "/cuenta");
+  if (!u.esTesoreria && !modulos.some((m) => u.modulos.includes(m))) redirect("/panel");
+  return u;
+}
+
+/** Solo tesorería (o admin). */
+export async function exigirTesoreria() {
+  const u = await usuarioPeticion();
+  if (!u) redirect("/login");
+  if (!u.esTesoreria) redirect("/panel");
   return u;
 }
 

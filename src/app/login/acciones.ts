@@ -33,5 +33,5 @@ export async function iniciarSesion(_: EstadoLogin, formData: FormData): Promise
 /** Solo rutas internas de la app (evita redirigir a otro sitio con ?siguiente=https://…). */
 function destinoSeguro(valor: FormDataEntryValue | null): string {
   const destino = typeof valor === "string" ? valor : "";
-  return /^\/(?!\/)[^\\]*$/.test(destino) && !destino.startsWith("/login") ? destino : "/registro";
+  return /^\/(?!\/)[^\\]*$/.test(destino) && !destino.startsWith("/login") ? destino : "/panel";
 }

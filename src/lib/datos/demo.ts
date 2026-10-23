@@ -30,6 +30,7 @@ interface CajaDemo {
   area: string;
   nombre: string;
   umbralAlerta: number;
+  activa: boolean;
 }
 interface MovimientoDemo extends Omit<NuevoMovimiento, "adjuntos"> {
   estado: EstadoMovimiento;
@@ -38,6 +39,8 @@ interface MovimientoDemo extends Omit<NuevoMovimiento, "adjuntos"> {
   motivoAnulacion: string | null;
   creado: number;
   adjuntos: (AdjuntoSubido & { id: string })[];
+  requiereAutorizacion: boolean; // monto > tope de la empresa al registrarlo
+  autorizado: boolean;
 }
 interface LiquidacionDemo {
   id: string;
@@ -79,6 +82,7 @@ function sembrar(): Almacen {
     nombreCorto: "San Lorenzo",
     razonSocial: "Compañía San Lorenzo S.A.C.",
     ciudad: "TRUJILLO",
+    topeGasto: 300,
   };
   const sipe: Empresa = {
     id: randomUUID(),
@@ -87,6 +91,7 @@ function sembrar(): Almacen {
     nombreCorto: "SIPE",
     razonSocial: "SIPE",
     ciudad: "TRUJILLO",
+    topeGasto: 300,
   };
   const caja = (empresaId: string, numero: number, area: string, nombre: string): CajaDemo => ({
     id: randomUUID(),
@@ -95,6 +100,7 @@ function sembrar(): Almacen {
     area,
     nombre,
     umbralAlerta: 200,
+    activa: true,
   });
   const mant = caja(sl.id, 1, "MT", "Mantenimiento");
   const oper = caja(sl.id, 2, "OP", "Operaciones");
@@ -144,6 +150,8 @@ function sembrar(): Almacen {
     anulado: false,
     motivoAnulacion: null,
     creado: Date.now(),
+    requiereAutorizacion: false,
+    autorizado: false,
     fecha,
     detalle,
     monto,
@@ -193,7 +201,8 @@ function sembrar(): Almacen {
   // Una liquidación abierta por caja con sus gastos y la recarga de apertura.
   const empresasDemo = [sl, sipe];
   const cajasDemo = [mant, oper, gen];
-  const liquidaciones = cajasDemo.map((c) => nuevaLiquidacion(c, empresasDemo, 1, "2026-09-01", 0));
+  const liquidaciones: LiquidacionDemo[] = [];
+  for (const c of cajasDemo) liquidaciones.push(nuevaLiquidacion(c, empresasDemo, liquidaciones, 1, "2026-09-01", 0));
   const liqDe = (cajaId: string) => liquidaciones.find((l) => l.cajaId === cajaId)!.id;
   for (const m of movimientos) {
     m.liquidacionId = liqDe(m.cajaId);
@@ -239,12 +248,13 @@ function sembrar(): Almacen {
     liquidaciones,
     recargas: [apertura(mant.id, 2000), apertura(oper.id, 1000), apertura(gen.id, 1000)],
     usuarios: [
-      { id: "demo", nombre: "Usuario Demo", email: null, esAdmin: true, activo: true, modulos: null, accesos: [], creado: "2026-09-01" },
+      { id: "demo", nombre: "Usuario Demo", email: null, esAdmin: true, esTesoreria: true, activo: true, modulos: null, accesos: [], creado: "2026-09-01" },
       {
         id: randomUUID(),
         nombre: "Carlos Ramírez",
         email: "carlos@ejemplo.com",
         esAdmin: false,
+        esTesoreria: false,
         activo: true,
         modulos: ["registro", "pendientes", "historial"],
         accesos: [{ cajaId: mant.id, rol: "registrador" }],
@@ -254,19 +264,22 @@ function sembrar(): Almacen {
   };
 }
 
+/** Folio SL-LIQ-MT-001: correlativo por empresa y área (como fx_siguiente_folio en la BD). */
 function nuevaLiquidacion(
   caja: CajaDemo,
   empresas: Empresa[],
+  existentes: LiquidacionDemo[],
   correlativo: number,
   fechaInicio: string,
   saldoInicial: number,
 ): LiquidacionDemo {
-  const sigla = empresas.find((e) => e.id === caja.empresaId)!.sigla;
+  const prefijo = `${empresas.find((e) => e.id === caja.empresaId)!.codigo}-LIQ-${caja.area}-`;
+  const n = Math.max(0, ...existentes.filter((l) => l.folio.startsWith(prefijo)).map((l) => Number(l.folio.slice(prefijo.length)))) + 1;
   return {
     id: randomUUID(),
     cajaId: caja.id,
     correlativo,
-    folio: `${sigla}LQ${String(caja.numero).padStart(2, "0")}-${caja.area}-${String(correlativo).padStart(4, "0")}`,
+    folio: prefijo + String(n).padStart(3, "0"),
     estado: "abierta",
     fechaInicio,
     fechaCierre: null,
@@ -296,10 +309,13 @@ function liquidacionAbierta(cajaId: string): LiquidacionDemo {
   if (abierta) return abierta;
   const caja = db.cajas.find((c) => c.id === cajaId)!;
   const correlativo = Math.max(0, ...db.liquidaciones.filter((l) => l.cajaId === cajaId).map((l) => l.correlativo)) + 1;
-  const nueva = nuevaLiquidacion(caja, db.empresas, correlativo, fechaHoyLima(), 0);
+  const nueva = nuevaLiquidacion(caja, db.empresas, db.liquidaciones, correlativo, fechaHoyLima(), 0);
   db.liquidaciones.push(nueva);
   return nueva;
 }
+
+/** Como fx_liquidable(): completo, no anulado y, si pasa el tope, autorizado. */
+const liquidable = (m: MovimientoDemo) => !m.anulado && m.estado === "completo" && (!m.requiereAutorizacion || m.autorizado);
 
 const estadoDe = (m: MovimientoDemo) =>
   estadoEsperado(
@@ -330,6 +346,7 @@ function resumen(m: MovimientoDemo): MovimientoResumen {
     anulado: m.anulado,
     faltaDocumento: !m.adjuntos.some((a) => a.tipo === "documento"),
     faltaPago: m.medioPago !== "efectivo" && !m.adjuntos.some((a) => a.tipo === "pago"),
+    porAutorizar: m.requiereAutorizacion && !m.autorizado && !m.anulado,
   };
 }
 
@@ -338,8 +355,8 @@ const ordenMovimientos = (a: MovimientoDemo, b: MovimientoDemo) =>
 
 function resumenLiquidacion(l: LiquidacionDemo): LiquidacionResumen {
   const movs = db.movimientos.filter((m) => m.liquidacionId === l.id && !m.anulado);
-  const completos = movs.filter((m) => m.estado === "completo");
-  const pendientes = movs.filter((m) => m.estado === "pendiente");
+  const completos = movs.filter(liquidable);
+  const pendientes = movs.filter((m) => !liquidable(m));
   const ingresos = suma(db.recargas.filter((r) => r.liquidacionIngresoId === l.id), (r) => r.monto);
   const egresos = suma(completos, (m) => m.monto);
   const vivo = l.estado === "abierta" || l.estado === "observada";
@@ -377,7 +394,7 @@ function editable(m: MovimientoDemo) {
 export const repositorioDemo: Repositorio = {
   async usuarioActual() {
     // En demo el usuario es administrador: ve todos los módulos y el panel de usuarios.
-    return { id: "demo", nombre: "Usuario Demo", email: null, esAdmin: true, activo: true, modulos: [...MODULOS] };
+    return { id: "demo", nombre: "Usuario Demo", email: null, esAdmin: true, esTesoreria: true, activo: true, modulos: [...MODULOS] };
   },
 
   async listarEmpresas() {
@@ -385,7 +402,7 @@ export const repositorioDemo: Repositorio = {
   },
 
   async listarCajas(): Promise<CajaSaldo[]> {
-    return db.cajas.map((c) => {
+    return db.cajas.filter((c) => c.activa).map((c) => {
       const empresa = db.empresas.find((e) => e.id === c.empresaId)!;
       const recargado = suma(db.recargas.filter((r) => r.cajaId === c.id), (r) => r.monto);
       const movs = db.movimientos.filter((m) => m.cajaId === c.id && !m.anulado);
@@ -455,6 +472,8 @@ export const repositorioDemo: Repositorio = {
       anulado: false,
       motivoAnulacion: null,
       creado: Date.now(),
+      requiereAutorizacion: m.monto > db.empresas.find((e) => e.id === empresaId)!.topeGasto,
+      autorizado: false,
     };
     nuevo.estado = estadoDe(nuevo);
     db.movimientos.push(nuevo);
@@ -471,6 +490,8 @@ export const repositorioDemo: Repositorio = {
       .filter((m) => f.cajaIds.includes(m.cajaId))
       .filter((m) => (f.estado === "anulado" ? m.anulado : !m.anulado))
       .filter((m) => (f.estado !== "pendiente" && f.estado !== "completo") || m.estado === f.estado)
+      .filter((m) => f.estado !== "por_autorizar" || (m.requiereAutorizacion && !m.autorizado))
+      .filter((m) => (!f.desde || m.fecha >= f.desde) && (!f.hasta || m.fecha <= f.hasta))
       .map(resumen)
       .filter(
         (m) =>
@@ -554,20 +575,66 @@ export const repositorioDemo: Repositorio = {
     if (l.estado !== "abierta" && l.estado !== "observada")
       throw new ErrorDeNegocio(`La liquidación ${l.folio} está ${l.estado}`);
     const movs = db.movimientos.filter((m) => m.liquidacionId === id && !m.anulado);
-    if (!movs.some((m) => m.estado === "completo"))
+    if (!movs.some(liquidable))
       throw new ErrorDeNegocio(`La liquidación ${l.folio} no tiene movimientos completos para liquidar`);
 
     l.estado = "en_revision";
-    l.fechaCierre = fechaHoyLima();
+    l.fechaCierre ??= fechaHoyLima();
     const siguiente = liquidacionAbierta(l.cajaId);
     if (siguiente.fechaInicio > l.fechaCierre) siguiente.fechaInicio = l.fechaCierre;
-    for (const m of movs) if (m.estado === "pendiente") m.liquidacionId = siguiente.id;
+    for (const m of movs) if (!liquidable(m)) m.liquidacionId = siguiente.id;
 
     l.totalIngresos = suma(db.recargas.filter((r) => r.liquidacionIngresoId === id), (r) => r.monto);
-    l.totalGastado = suma(movs.filter((m) => m.estado === "completo"), (m) => m.monto);
+    l.totalGastado = suma(movs.filter(liquidable), (m) => m.monto);
     l.saldoFinal = redondear(l.saldoInicial + l.totalIngresos - l.totalGastado);
     const proxima = db.liquidaciones.find((x) => x.cajaId === l.cajaId && x.correlativo === l.correlativo + 1);
     if (proxima) proxima.saldoInicial = l.saldoFinal;
+  },
+
+  async generarLiquidacion(cajaId, desde, hasta, excluir) {
+    if (hasta < desde) throw new ErrorDeNegocio('La fecha "hasta" no puede ser anterior a "desde"');
+    if (hasta > fechaHoyLima()) throw new ErrorDeNegocio('La fecha "hasta" no puede ser futura');
+    const l = db.liquidaciones.find((x) => x.cajaId === cajaId && x.estado === "abierta");
+    if (!l) throw new ErrorDeNegocio("La caja no tiene gastos por liquidar");
+    const entra = (m: MovimientoDemo) => liquidable(m) && m.fecha >= desde && m.fecha <= hasta && !excluir.includes(m.id);
+    const movs = db.movimientos.filter((m) => m.liquidacionId === l.id);
+    if (!movs.some(entra)) throw new ErrorDeNegocio("No hay gastos completos para liquidar en ese rango");
+
+    Object.assign(l, { estado: "en_revision", fechaInicio: desde, fechaCierre: hasta });
+    const nueva = liquidacionAbierta(cajaId);
+    nueva.fechaInicio = hasta;
+    for (const m of movs) if (!entra(m)) m.liquidacionId = nueva.id;
+    l.totalIngresos = suma(db.recargas.filter((r) => r.liquidacionIngresoId === l.id), (r) => r.monto);
+    l.totalGastado = suma(movs.filter(entra), (m) => m.monto);
+    l.saldoFinal = redondear(l.saldoInicial + l.totalIngresos - l.totalGastado);
+    nueva.saldoInicial = l.saldoFinal;
+    return l.folio;
+  },
+
+  async autorizarMovimiento(id) {
+    const m = db.movimientos.find((x) => x.id === id);
+    if (!m || !m.requiereAutorizacion || m.autorizado || m.anulado)
+      throw new ErrorDeNegocio("El gasto no requiere autorización o ya fue autorizado");
+    m.autorizado = true;
+  },
+
+  async listarCajasAdmin() {
+    return db.cajas.map((c) => ({ ...c, empresaCodigo: db.empresas.find((e) => e.id === c.empresaId)!.codigo }));
+  },
+
+  async guardarCaja(c) {
+    if (db.cajas.some((x) => x.empresaId === c.empresaId && x.numero === c.numero && x.id !== c.id))
+      throw new ErrorDeNegocio(`Ya existe la caja N° ${String(c.numero).padStart(2, "0")} en esa empresa`);
+    const { id, ...datos } = c;
+    const actual = id ? db.cajas.find((x) => x.id === id) : undefined;
+    if (actual) Object.assign(actual, datos);
+    else db.cajas.push({ id: randomUUID(), ...datos });
+  },
+
+  async actualizarTope(empresaId, tope) {
+    const e = db.empresas.find((x) => x.id === empresaId);
+    if (!e) throw new ErrorDeNegocio("La empresa no existe");
+    e.topeGasto = tope;
   },
 
   async revisarLiquidacion(id, aprobar, observaciones) {
@@ -577,9 +644,9 @@ export const repositorioDemo: Repositorio = {
     l.observaciones = observaciones;
   },
 
-  async listarRecargas(cajaIds) {
+  async listarRecargas(cajaIds, desde) {
     return db.recargas
-      .filter((r) => cajaIds.includes(r.cajaId))
+      .filter((r) => cajaIds.includes(r.cajaId) && (!desde || r.fecha >= desde))
       .sort((a, b) => b.fecha.localeCompare(a.fecha))
       .map(aRecarga);
   },
@@ -613,6 +680,7 @@ export const repositorioDemo: Repositorio = {
       nombre: u.nombre,
       email: u.email,
       esAdmin: u.esAdmin,
+      esTesoreria: u.esTesoreria,
       activo: true,
       modulos: u.modulos,
       accesos: u.esAdmin ? [] : u.accesos,
@@ -627,6 +695,7 @@ export const repositorioDemo: Repositorio = {
     Object.assign(x, {
       nombre: u.nombre,
       esAdmin: u.esAdmin,
+      esTesoreria: u.esTesoreria,
       activo: u.activo,
       modulos: u.modulos,
       accesos: u.esAdmin ? [] : u.accesos,

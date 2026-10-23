@@ -7,20 +7,20 @@ import { Totales } from "@/components/liquidaciones/Totales";
 import { textoFalta } from "@/components/movimientos/textos";
 import { exigirModulo } from "@/lib/contexto";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
-import { ETIQUETA_DOCUMENTO, ETIQUETA_FORMA_INGRESO, ETIQUETA_TIPO_RECARGA } from "@/lib/datos/tipos";
+import { codigoCaja, ETIQUETA_DOCUMENTO, ETIQUETA_FORMA_INGRESO, ETIQUETA_TIPO_RECARGA } from "@/lib/datos/tipos";
 import { formatoFecha, formatoSoles } from "@/lib/formato";
 
 export const metadata = { title: "Liquidación · Factudex" };
 
 export default async function PaginaLiquidacion({ params }: PageProps<"/liquidaciones/[id]">) {
-  await exigirModulo("liquidaciones", "recargas");
+  await exigirModulo("liquidaciones");
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const repo = await obtenerRepositorio();
   const l = await repo.obtenerLiquidacion(id);
   if (!l) notFound();
-  const permisos = await repo.permisosCaja(l.cajaId);
-  const enCurso = l.estado === "abierta" || l.estado === "observada";
+  const [permisos, cajas] = await Promise.all([repo.permisosCaja(l.cajaId), repo.listarCajas()]);
+  const caja = cajas.find((c) => c.id === l.cajaId);
 
   return (
     <main className="flex flex-col gap-4 md:gap-5">
@@ -33,7 +33,8 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
           <div>
             <h1 className="font-display text-lg font-bold md:text-xl">{l.folio}</h1>
             <p className="text-xs text-white/45">
-              {formatoFecha(l.fechaInicio)} – {l.fechaCierre ? formatoFecha(l.fechaCierre) : "en curso"}
+              {caja && `Caja ${codigoCaja(caja)} · ${caja.nombre} · `}
+              del {formatoFecha(l.fechaInicio)} al {l.fechaCierre ? formatoFecha(l.fechaCierre) : "en curso"}
               {l.folioAnterior && ` · viene de ${l.folioAnterior}`}
             </p>
           </div>
@@ -52,7 +53,7 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
           >
             Descargar Excel
           </a>
-          {enCurso && permisos.registrar && (
+          {l.estado === "observada" && permisos.registrar && (
             <CerrarLiquidacion
               id={l.id}
               folio={l.folio}
@@ -88,14 +89,14 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
         <div className="fx-card overflow-hidden">
           {l.movimientos.length === 0 && <Fila izquierda="Sin movimientos" derecha="" />}
           {l.movimientos.map((m) => {
-            const incompleto = m.estado === "pendiente";
+            const incompleto = m.estado === "pendiente" || m.porAutorizar;
             return (
               <Link key={m.id} href={`/movimientos/${m.id}`} className="block hover:bg-white/4">
                 <Fila
                   izquierda={`${formatoFecha(m.fecha, true)} · ${m.detalle}`}
                   detalle={
                     incompleto
-                      ? `${textoFalta(m)} — no entra al cierre, pasa a la siguiente liquidación`
+                      ? `${m.estado === "pendiente" ? textoFalta(m) : "Supera el tope y falta la autorización de tesorería"} — no entra, pasa a la siguiente liquidación`
                       : [m.proveedor, m.tipoDocumento && ETIQUETA_DOCUMENTO[m.tipoDocumento], m.serieNumero, m.centroCosto]
                           .filter(Boolean)
                           .join(" · ")

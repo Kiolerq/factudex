@@ -32,7 +32,10 @@ La referencia visual aprobada son los HTML de `diseno/`. Copia de ahí espaciado
 - Centro de costo (`centros_costo`): lista por empresa. Incluye **placas** o cualquier destino del gasto (no hay campo placa aparte). Opcional; preselecciona "General". En el registro se escribe y se filtra (`CampoCentroCosto`); si no existe, "＋ Agregar" lo suma a la lista de la empresa (registradores de esa empresa pueden; migración `20261023000000`). Nunca texto suelto en el movimiento: siempre `centro_costo_id`. Se compara sin mayúsculas, tildes ni guiones (`claveCentro`).
 - Solicitantes (`solicitantes`): lista por empresa que solo sugiere nombres; el movimiento guarda el texto.
 - Datos maestros llegan en `docs/plantillas/datos_maestros_factudex.xlsx` (centros de costo, solicitantes, proveedores).
-- Folio de liquidación: `NNLQXX-AREA-0001` (ej. `SLLQ01-MT-0001`), lo genera la BD con `empresas.sigla`, `cajas.numero` y `cajas.area`.
+- Numeración: caja `SL-CAJA-MT-01` (`codigoCaja()`: `empresas.codigo`, `cajas.area`, `cajas.numero`; la asigna tesorería) y liquidación `SL-LIQ-MT-001` (la genera la BD con `fx_siguiente_folio`: correlativo por empresa y área). Las liquidaciones viejas conservan su folio `SLLQ01-MT-0001`.
+- Liquidación por rango (`generar_liquidacion(caja, desde, hasta, excluidos)`): entran los gastos liquidables (completos y autorizados) de la liquidación abierta con fecha en el rango, menos los desmarcados; el resto pasa a la nueva abierta. Los ingresos de una liquidación son los registrados mientras estaba abierta (tesorería indica qué liquidación repone).
+- Tope por gasto (`empresas.tope_gasto`, S/ 300): un gasto mayor queda `requiere_autorizacion` y no entra a ninguna liquidación hasta `autorizar_movimiento` (solo tesorería). `fx_liquidable()` es la regla.
+- Tesorería (`perfiles.es_tesoreria`, o admin): todas las cajas (`tiene_acceso_caja` devuelve true), aprueba/observa, registra ingresos, autoriza gastos sobre el tope, crea y numera cajas, cambia el tope. Módulo `/tesoreria`. El Panel (`/panel`, inicio) lo ven todos con sus cajas.
 - Monto de recarga libre (no hay fondo fijo por caja).
 - El medio de pago (efectivo / Yape / transferencia / otro) es independiente del tipo de documento.
 - Movimientos no se borran: se anulan con motivo. Si la liquidación ya se cerró, no se editan ni se les quitan adjuntos.

@@ -141,7 +141,7 @@ Cuando el movimiento ya está en una liquidación cerrada, sus adjuntos no se pu
 ### `liquidaciones`
 | Campo | Nota |
 |---|---|
-| correlativo, folio | automáticos por caja, formato `NNLQXX-AREA-0001`: sigla de empresa + `LQ` + n° de caja (2 dígitos) + área + correlativo. Ej. `SLLQ01-MT-0001`, `SLLQ02-OP-0001`, `SPLQ01-GE-0001` |
+| correlativo, folio | correlativo por caja (encadena el saldo); folio `EMPRESA-LIQ-AREA-NNN` con correlativo por empresa y área, ej. `SL-LIQ-MT-001`, `SIPE-LIQ-GE-001` (migración 20261024; las anteriores conservan `SLLQ01-MT-0001`) |
 | estado | ver ciclo abajo |
 | fecha_inicio, fecha_cierre | |
 | saldo_inicial | saldo final de la liquidación anterior (0 en la primera). Se fija al cerrar la anterior |

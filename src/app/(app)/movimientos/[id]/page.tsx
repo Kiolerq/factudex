@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AnularMovimiento } from "@/components/movimientos/AnularMovimiento";
+import { AutorizarGasto } from "@/components/movimientos/AutorizarGasto";
 import { CompletarPendiente } from "@/components/movimientos/CompletarPendiente";
 import { textoFalta } from "@/components/movimientos/textos";
 import { BadgeEstado } from "@/components/ui/BadgeEstado";
@@ -13,7 +14,7 @@ import { formatoFecha, formatoSoles } from "@/lib/formato";
 export const metadata = { title: "Movimiento · Factudex" };
 
 export default async function PaginaMovimiento({ params }: PageProps<"/movimientos/[id]">) {
-  await exigirModulo("historial", "pendientes");
+  const yo = await exigirModulo("historial", "pendientes");
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const repo = await obtenerRepositorio();
@@ -82,6 +83,15 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
             <p className="rounded-xl border border-fx-pendiente/40 bg-fx-pendiente/10 px-4 py-3 text-[13px] text-fx-pendiente">
               {textoFalta(m)}. No entra a la liquidación hasta completarlo.
             </p>
+          )}
+          {m.porAutorizar && (
+            <div className="flex flex-col gap-3 rounded-xl border border-fx-pendiente/40 bg-fx-pendiente/10 px-4 py-3 text-[13px] text-fx-pendiente">
+              <span>
+                Supera el tope por gasto de la empresa: necesita autorización de tesorería para entrar a una liquidación.
+                {yo.esTesoreria && " Si no corresponde, anúlalo con el motivo."}
+              </span>
+              {yo.esTesoreria && <AutorizarGasto id={m.id} />}
+            </div>
           )}
 
           <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-[13px] sm:grid-cols-2">

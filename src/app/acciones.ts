@@ -6,7 +6,9 @@ import { redirect } from "next/navigation";
 import {
   EsquemaAdjuntarCompartido,
   EsquemaAnular,
+  EsquemaCaja,
   EsquemaCambiosUsuario,
+  EsquemaGenerarLiquidacion,
   EsquemaCompletarMovimiento,
   EsquemaContrasena,
   EsquemaNuevoUsuario,
@@ -16,6 +18,7 @@ import {
   EsquemaRevision,
   erroresPorCampo,
   type EntradaAdjuntarCompartido,
+  type EntradaCaja,
   type EntradaCambiosUsuario,
   type EntradaNuevoUsuario,
   type EntradaCompletar,
@@ -259,6 +262,27 @@ export async function cerrarLiquidacion(id: string): Promise<Resultado> {
   return ejecutar(() => repo.cerrarLiquidacion(id));
 }
 
+/** Liquida una caja por rango de fechas: entran sus gastos completos del rango, menos los desmarcados. */
+export async function generarLiquidacion(entrada: {
+  cajaId: string;
+  desde: string;
+  hasta: string;
+  excluir: string[];
+}): Promise<{ ok: true; folio: string } | { ok: false; errores: Record<string, string> }> {
+  const datos = EsquemaGenerarLiquidacion.safeParse(entrada);
+  if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
+  const repo = await repoAutenticado();
+  const { cajaId, desde, hasta, excluir } = datos.data;
+  try {
+    const folio = await repo.generarLiquidacion(cajaId, desde, hasta, excluir);
+    revalidatePath("/", "layout");
+    return { ok: true, folio };
+  } catch (e) {
+    if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
+    throw e;
+  }
+}
+
 export async function revisarLiquidacion(entrada: {
   id: string;
   aprobar: boolean;
@@ -275,6 +299,38 @@ export async function registrarRecarga(entrada: EntradaRecarga): Promise<Resulta
   if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
   const repo = await repoAutenticado();
   return ejecutar(() => repo.registrarRecarga(datos.data));
+}
+
+// --- Tesorería (tesorería o admin) ---
+
+async function repoTesoreria() {
+  const repo = await obtenerRepositorio();
+  const yo = await repo.usuarioActual();
+  if (!yo?.esTesoreria || !yo.activo) throw new Error("Solo tesorería puede hacer esto");
+  return repo;
+}
+
+/** Autoriza un gasto que supera el tope de la empresa (para que pueda liquidarse). */
+export async function autorizarGasto(id: string): Promise<Resultado> {
+  if (!z.uuid().safeParse(id).success) return { ok: false, errores: { _: "Gasto inválido" } };
+  const repo = await repoTesoreria();
+  return ejecutar(() => repo.autorizarMovimiento(id));
+}
+
+export async function guardarCaja(entrada: EntradaCaja): Promise<Resultado> {
+  const datos = EsquemaCaja.safeParse(entrada);
+  if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
+  const repo = await repoTesoreria();
+  return ejecutar(() => repo.guardarCaja(datos.data));
+}
+
+export async function actualizarTope(entrada: { empresaId: string; tope: number }): Promise<Resultado> {
+  const datos = z
+    .object({ empresaId: z.uuid(), tope: z.number("Monto inválido").positive("Debe ser mayor a 0").max(100000) })
+    .safeParse(entrada);
+  if (!datos.success) return { ok: false, errores: { tope: datos.error.issues[0]!.message } };
+  const repo = await repoTesoreria();
+  return ejecutar(() => repo.actualizarTope(datos.data.empresaId, datos.data.tope));
 }
 
 // --- Administración de usuarios (solo admin) ---

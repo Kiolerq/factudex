@@ -54,7 +54,7 @@ export function ListaMovimientos({ movimientos, nombreCaja, vacio = "No hay movi
               <span className="truncate text-white/65">{m.categoria ?? "Sin categorizar"}</span>
               <span className="text-right font-semibold">{formatoSoles(m.monto)}</span>
               <span className={`truncate ${doc.falta ? "text-fx-pendiente" : "text-white/50"}`}>{doc.texto}</span>
-              <span>{m.anulado ? <BadgeAnulado /> : <BadgeEstado estado={m.estado} />}</span>
+              <span>{m.anulado ? <BadgeAnulado /> : m.porAutorizar ? <BadgePorAutorizar /> : <BadgeEstado estado={m.estado} />}</span>
             </Link>
           );
         })}
@@ -85,13 +85,22 @@ export function ListaMovimientos({ movimientos, nombreCaja, vacio = "No hay movi
               </div>
               <div className="mt-2 flex items-center justify-between gap-2">
                 <span className={`truncate text-[11px] ${doc.falta ? "text-fx-pendiente" : "text-white/40"}`}>{doc.texto}</span>
-                {m.anulado ? <BadgeAnulado /> : <BadgeEstado estado={m.estado} />}
+                {m.anulado ? <BadgeAnulado /> : m.porAutorizar ? <BadgePorAutorizar /> : <BadgeEstado estado={m.estado} />}
               </div>
             </Link>
           );
         })}
       </div>
     </>
+  );
+}
+
+/** Supera el tope por gasto de la empresa: no entra a la liquidación hasta que tesorería lo autorice. */
+export function BadgePorAutorizar() {
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-fx-pendiente/40 bg-fx-pendiente/16 px-3 py-1 text-[11px] font-semibold text-fx-pendiente">
+      ● Por autorizar
+    </span>
   );
 }
 

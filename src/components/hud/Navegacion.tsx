@@ -4,24 +4,36 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Modulo } from "@/lib/datos/tipos";
 
-export const SECCIONES: { href: string; texto: string; modulo: Modulo | null }[] = [
-  { href: "/registro", texto: "Registro", modulo: "registro" },
-  { href: "/pendientes", texto: "Pendientes", modulo: "pendientes" },
-  { href: "/historial", texto: "Historial", modulo: "historial" },
-  { href: "/liquidaciones", texto: "Liquidaciones", modulo: "liquidaciones" },
-  { href: "/recargas", texto: "Recargas", modulo: "recargas" },
-  { href: "/admin", texto: "Usuarios", modulo: null }, // solo administradores
+type Acceso = Modulo | "todos" | "tesoreria" | "admin";
+
+export const SECCIONES: { href: string; texto: string; acceso: Acceso }[] = [
+  { href: "/panel", texto: "Panel", acceso: "todos" },
+  { href: "/registro", texto: "Registro", acceso: "registro" },
+  { href: "/pendientes", texto: "Pendientes", acceso: "pendientes" },
+  { href: "/historial", texto: "Historial", acceso: "historial" },
+  { href: "/liquidaciones", texto: "Liquidaciones", acceso: "liquidaciones" },
+  { href: "/tesoreria", texto: "Tesorería", acceso: "tesoreria" },
+  { href: "/admin", texto: "Usuarios", acceso: "admin" },
 ];
 
 interface Props {
   pendientes: number;
   modulos: Modulo[];
   esAdmin: boolean;
+  esTesoreria: boolean;
 }
 
-export function Navegacion({ pendientes, modulos, esAdmin }: Props) {
+export function Navegacion({ pendientes, modulos, esAdmin, esTesoreria }: Props) {
   const ruta = usePathname();
-  const visibles = SECCIONES.filter((s) => (s.modulo ? modulos.includes(s.modulo) : esAdmin));
+  const visibles = SECCIONES.filter((s) =>
+    s.acceso === "todos"
+      ? true
+      : s.acceso === "admin"
+        ? esAdmin
+        : s.acceso === "tesoreria"
+          ? esTesoreria
+          : esTesoreria || modulos.includes(s.acceso),
+  );
   return (
     <nav aria-label="Secciones" className="fx-scroll-x -mx-5 flex gap-2 overflow-x-auto px-5 md:mx-0 md:px-0">
       {visibles.map((s) => {

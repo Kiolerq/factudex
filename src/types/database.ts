@@ -266,6 +266,7 @@ export type Database = {
           razon_social: string
           ruc: string | null
           sigla: string
+          tope_gasto: number
         }
         Insert: {
           activa?: boolean
@@ -279,6 +280,7 @@ export type Database = {
           razon_social: string
           ruc?: string | null
           sigla: string
+          tope_gasto?: number
         }
         Update: {
           activa?: boolean
@@ -292,6 +294,7 @@ export type Database = {
           razon_social?: string
           ruc?: string | null
           sigla?: string
+          tope_gasto?: number
         }
         Relationships: []
       }
@@ -493,6 +496,9 @@ export type Database = {
           solicitante: string | null
           tipo_documento: Database["public"]["Enums"]["tipo_documento"] | null
           updated_at: string
+          requiere_autorizacion: boolean
+          autorizado_por: string | null
+          autorizado_en: string | null
         }
         Insert: {
           anulado?: boolean
@@ -516,6 +522,9 @@ export type Database = {
           solicitante?: string | null
           tipo_documento?: Database["public"]["Enums"]["tipo_documento"] | null
           updated_at?: string
+          requiere_autorizacion?: boolean
+          autorizado_por?: string | null
+          autorizado_en?: string | null
         }
         Update: {
           anulado?: boolean
@@ -539,6 +548,9 @@ export type Database = {
           solicitante?: string | null
           tipo_documento?: Database["public"]["Enums"]["tipo_documento"] | null
           updated_at?: string
+          requiere_autorizacion?: boolean
+          autorizado_por?: string | null
+          autorizado_en?: string | null
         }
         Relationships: [
           {
@@ -608,6 +620,7 @@ export type Database = {
           modulos: string[] | null
           nombre: string
           rol: Database["public"]["Enums"]["rol_usuario"]
+          es_tesoreria: boolean
         }
         Insert: {
           activo?: boolean
@@ -617,6 +630,7 @@ export type Database = {
           modulos?: string[] | null
           nombre: string
           rol?: Database["public"]["Enums"]["rol_usuario"]
+          es_tesoreria?: boolean
         }
         Update: {
           activo?: boolean
@@ -626,6 +640,7 @@ export type Database = {
           modulos?: string[] | null
           nombre?: string
           rol?: Database["public"]["Enums"]["rol_usuario"]
+          es_tesoreria?: boolean
         }
         Relationships: []
       }
@@ -1071,6 +1086,12 @@ export type Database = {
         }[]
       }
       es_admin: { Args: never; Returns: boolean }
+      es_tesoreria: { Args: never; Returns: boolean }
+      autorizar_movimiento: { Args: { p_mov: string }; Returns: undefined }
+      generar_liquidacion: {
+        Args: { p_caja: string; p_desde: string; p_hasta: string; p_excluir?: string[] }
+        Returns: Database["public"]["Tables"]["liquidaciones"]["Row"]
+      }
       fx_estado_movimiento: {
         Args: {
           p_medio: Database["public"]["Enums"]["medio_pago"]

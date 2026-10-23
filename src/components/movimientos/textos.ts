@@ -3,6 +3,7 @@ import { ETIQUETA_DOCUMENTO, ETIQUETA_MEDIO_PAGO, type MovimientoResumen } from 
 /** Columna "Documento": el tipo, o qué falta si está pendiente (como en el diseño aprobado). */
 export function textoDocumento(m: MovimientoResumen): { texto: string; falta: boolean } {
   if (m.anulado) return { texto: "Anulado", falta: false };
+  if (m.porAutorizar && !m.faltaDocumento && !m.faltaPago) return { texto: "Supera el tope · por autorizar", falta: true };
   const medio = m.medioPago ? ETIQUETA_MEDIO_PAGO[m.medioPago] : null;
   const tipo = m.tipoDocumento ? ETIQUETA_DOCUMENTO[m.tipoDocumento] : null;
   if (m.faltaDocumento) return { texto: medio ? `${medio} · sin comprobante` : "Sin documento", falta: true };

@@ -91,6 +91,9 @@ export function GestionUsuarios({ usuarios, miId, empresas }: Props) {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="truncate text-[14px] font-semibold">{u.nombre}</span>
                 {u.esAdmin && <Etiqueta clase="border-fx-primary-line bg-fx-primary-soft text-fx-primary-light">Administrador</Etiqueta>}
+                {u.esTesoreria && !u.esAdmin && (
+                  <Etiqueta clase="border-fx-completo/40 bg-fx-completo/12 text-fx-completo">Tesorería</Etiqueta>
+                )}
                 {!u.activo && <Etiqueta clase="border-fx-error/40 bg-fx-error/12 text-fx-error">Desactivado</Etiqueta>}
                 {u.id === miId && <Etiqueta clase="border-white/15 bg-white/6 text-white/55">Tú</Etiqueta>}
               </div>
@@ -98,6 +101,8 @@ export function GestionUsuarios({ usuarios, miId, empresas }: Props) {
               <div className="mt-1 text-[12px] text-white/60">
                 {u.esAdmin ? (
                   "Ve y hace todo en todas las cajas"
+                ) : u.esTesoreria ? (
+                  "Todas las cajas: ingresos, aprobación, autorizaciones y cajas"
                 ) : (
                   <>
                     {u.modulos ? u.modulos.map((m) => ETIQUETA_MODULO[m]).join(", ") : "Todos los módulos"}
@@ -146,6 +151,7 @@ function EditorUsuario({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState(() => (u ? "" : generarContrasena()));
   const [esAdmin, setEsAdmin] = useState(u?.esAdmin ?? false);
+  const [esTesoreria, setEsTesoreria] = useState(u?.esTesoreria ?? false);
   const [activo, setActivo] = useState(u?.activo ?? true);
   const [todos, setTodos] = useState(!u?.modulos);
   const [modulos, setModulos] = useState<Modulo[]>(u?.modulos ?? ["registro", "pendientes", "historial"]);
@@ -159,6 +165,7 @@ function EditorUsuario({
   const datos = () => ({
     nombre,
     esAdmin,
+    esTesoreria,
     modulos: todos ? null : modulos,
     accesos: Object.entries(accesos)
       .filter((x): x is [string, RolCaja] => !!x[1])
@@ -193,7 +200,8 @@ function EditorUsuario({
       else setErrores(r.errores);
     });
 
-  const sinCajas = !esAdmin && !Object.values(accesos).some(Boolean);
+  const veTodo = esAdmin || esTesoreria;
+  const sinCajas = !veTodo && !Object.values(accesos).some(Boolean);
 
   return (
     <form onSubmit={guardar} noValidate className="fx-card flex flex-col gap-5 p-4 md:p-6">
@@ -270,6 +278,14 @@ function EditorUsuario({
             texto="Administrador"
             ayuda="Ve y hace todo en todas las cajas, y gestiona usuarios"
           />
+          {!esAdmin && (
+            <Interruptor
+              activo={esTesoreria}
+              onCambiar={setEsTesoreria}
+              texto="Tesorería"
+              ayuda="Todas las cajas: registra ingresos, aprueba liquidaciones, autoriza gastos sobre el tope y crea cajas"
+            />
+          )}
           {u && (
             <Interruptor
               activo={activo}
@@ -282,7 +298,7 @@ function EditorUsuario({
         </div>
       </div>
 
-      {!esAdmin && (
+      {!veTodo && (
         <>
           <fieldset className="flex flex-col gap-2.5">
             <legend className="fx-label">Módulos que ve</legend>

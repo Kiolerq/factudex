@@ -49,7 +49,8 @@ function falloNegocio(error: { code?: string; message: string } | null, contexto
 // Columnas de un movimiento para listas (historial, pendientes, liquidación).
 const COLUMNAS_MOVIMIENTO =
   "id, caja_id, liquidacion_id, fecha, detalle, monto, solicitante, tipo_documento, serie_numero, medio_pago, " +
-  "operacion_pago, estado, anulado, proveedores(razon_social, num_doc), categorias(nombre), centros_costo(nombre), adjuntos(tipo)";
+  "operacion_pago, estado, anulado, requiere_autorizacion, autorizado_por, " +
+  "proveedores(razon_social, num_doc), categorias(nombre), centros_costo(nombre), adjuntos(tipo)";
 
 interface FilaMovimiento {
   id: string;
@@ -65,6 +66,8 @@ interface FilaMovimiento {
   operacion_pago: string | null;
   estado: MovimientoResumen["estado"];
   anulado: boolean;
+  requiere_autorizacion: boolean;
+  autorizado_por: string | null;
   proveedores: { razon_social: string; num_doc: string } | null;
   categorias: { nombre: string } | null;
   centros_costo: { nombre: string } | null;
@@ -93,6 +96,7 @@ function aMovimiento(m: FilaMovimiento): MovimientoResumen {
     anulado: m.anulado,
     faltaDocumento: !tiene("documento"),
     faltaPago: m.medio_pago !== "efectivo" && !tiene("pago"),
+    porAutorizar: m.requiere_autorizacion && !m.autorizado_por && !m.anulado,
   };
 }
 
@@ -185,6 +189,9 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
     if (!actual) throw new ErrorDeNegocio("El usuario no existe");
     const cambios: TablesUpdate<"perfiles"> = { nombre: d.nombre, rol: d.esAdmin ? "admin" : "registrador" };
     if (activo !== undefined) cambios.activo = activo;
+    // Sin la migración de tesorería la columna no existe.
+    if ("es_tesoreria" in actual) cambios.es_tesoreria = d.esTesoreria;
+    else if (d.esTesoreria) throw new ErrorDeNegocio("Falta correr en Supabase la migración de tesorería (20261024000000)");
     // Sin la migración de módulos la columna no existe: solo se puede dejar "todos".
     if ("modulos" in actual) cambios.modulos = d.modulos;
     else if (d.modulos) throw new ErrorDeNegocio("Falta correr en Supabase la migración de módulos (20261022000000)");
@@ -213,6 +220,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         nombre: perfil?.nombre ?? data.user.email ?? "Usuario",
         email: perfil?.email ?? data.user.email ?? null,
         esAdmin,
+        esTesoreria: esAdmin || !!perfil?.es_tesoreria,
         activo: perfil?.activo ?? true,
         modulos: esAdmin ? [...MODULOS] : (aModulos(perfil?.modulos) ?? [...MODULOS]),
       };
@@ -221,7 +229,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
     async listarEmpresas(): Promise<Empresa[]> {
       const { data, error } = await sb
         .from("empresas")
-        .select("id, codigo, sigla, nombre_corto, razon_social, ciudad")
+        .select("id, codigo, sigla, nombre_corto, razon_social, ciudad, tope_gasto")
         .eq("activa", true)
         .order("codigo", { ascending: false }); // SL antes que SIPE
       fallo(error, "Empresas");
@@ -232,6 +240,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         nombreCorto: e.nombre_corto,
         razonSocial: e.razon_social,
         ciudad: e.ciudad,
+        topeGasto: Number(e.tope_gasto),
       }));
     },
 
@@ -406,6 +415,9 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         .in("caja_id", f.cajaIds)
         .eq("anulado", f.estado === "anulado");
       if (f.estado === "pendiente" || f.estado === "completo") q = q.eq("estado", f.estado);
+      if (f.estado === "por_autorizar") q = q.eq("requiere_autorizacion", true).is("autorizado_por", null);
+      if (f.desde) q = q.gte("fecha", f.desde);
+      if (f.hasta) q = q.lte("fecha", f.hasta);
 
       // Quita caracteres con significado en la sintaxis de filtros de PostgREST.
       const texto = f.texto.replace(/[%,().*\\]/g, " ").trim();
@@ -555,6 +567,78 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       };
     },
 
+    async generarLiquidacion(cajaId, desde, hasta, excluir) {
+      const { data, error } = await sb.rpc("generar_liquidacion", {
+        p_caja: cajaId,
+        p_desde: desde,
+        p_hasta: hasta,
+        p_excluir: excluir,
+      });
+      falloNegocio(error, "Generar liquidación");
+      return data.folio;
+    },
+
+    async autorizarMovimiento(id) {
+      const { error } = await sb.rpc("autorizar_movimiento", { p_mov: id });
+      falloNegocio(error, "Autorizar gasto");
+    },
+
+    async listarCajasAdmin() {
+      const { data, error } = await sb
+        .from("cajas")
+        .select("id, empresa_id, numero, area, nombre, umbral_alerta, activa, empresas(codigo)")
+        .order("numero")
+        .overrideTypes<
+          {
+            id: string;
+            empresa_id: string;
+            numero: number;
+            area: string;
+            nombre: string;
+            umbral_alerta: number;
+            activa: boolean;
+            empresas: { codigo: string };
+          }[],
+          { merge: false }
+        >();
+      fallo(error, "Cajas");
+      return data.map((c) => ({
+        id: c.id,
+        empresaId: c.empresa_id,
+        empresaCodigo: c.empresas.codigo as CodigoEmpresa,
+        numero: c.numero,
+        area: c.area,
+        nombre: c.nombre,
+        umbralAlerta: Number(c.umbral_alerta),
+        activa: c.activa,
+      }));
+    },
+
+    async guardarCaja(c) {
+      const fila = {
+        empresa_id: c.empresaId,
+        numero: c.numero,
+        area: c.area,
+        nombre: c.nombre,
+        umbral_alerta: c.umbralAlerta,
+        activa: c.activa,
+      };
+      const { data, error } = c.id
+        ? await sb.from("cajas").update(fila).eq("id", c.id).select("id")
+        : await sb.from("cajas").insert(fila).select("id");
+      if (error?.code === "23505") throw new ErrorDeNegocio(`Ya existe la caja N° ${String(c.numero).padStart(2, "0")} en esa empresa`);
+      if (error?.code === "23514") throw new ErrorDeNegocio("Revisa los datos: el área va con 2 a 4 letras y el número entre 1 y 99");
+      if (error?.code === "42501") throw new ErrorDeNegocio("Solo tesorería o un administrador puede crear o editar cajas");
+      fallo(error, "Guardar caja");
+      if (!data.length) throw new ErrorDeNegocio("Solo tesorería o un administrador puede editar cajas");
+    },
+
+    async actualizarTope(empresaId, tope) {
+      const { data, error } = await sb.from("empresas").update({ tope_gasto: tope }).eq("id", empresaId).select("id");
+      fallo(error, "Tope por gasto");
+      if (!data.length) throw new ErrorDeNegocio("Solo tesorería o un administrador puede cambiar el tope");
+    },
+
     async cerrarLiquidacion(id) {
       const { error } = await sb.rpc("cerrar_liquidacion", { p_liquidacion: id });
       falloNegocio(error, "Cerrar liquidación");
@@ -569,15 +653,14 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       falloNegocio(error, "Revisar liquidación");
     },
 
-    async listarRecargas(cajaIds) {
+    async listarRecargas(cajaIds, desde) {
       if (!cajaIds.length) return [];
-      const { data, error } = await sb
-        .from("recargas")
-        .select(COLUMNAS_RECARGA)
-        .in("caja_id", cajaIds)
+      let q = sb.from("recargas").select(COLUMNAS_RECARGA).in("caja_id", cajaIds);
+      if (desde) q = q.gte("fecha", desde);
+      const { data, error } = await q
         .order("fecha", { ascending: false })
         .order("created_at", { ascending: false })
-        .limit(100)
+        .limit(500)
         .overrideTypes<FilaRecarga[], { merge: false }>();
       fallo(error, "Recargas");
       return data.map(aRecarga);
@@ -614,6 +697,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         nombre: p.nombre,
         email: p.email,
         esAdmin: p.rol === "admin",
+        esTesoreria: !!p.es_tesoreria,
         activo: p.activo,
         modulos: aModulos(p.modulos),
         accesos: accesos.data

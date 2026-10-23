@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
-import { ETIQUETA_TIPO_RECARGA } from "@/lib/datos/tipos";
+import { codigoCaja, ETIQUETA_TIPO_RECARGA } from "@/lib/datos/tipos";
 import { generarLiquidacionExcel, nombreArchivoLiquidacion } from "@/lib/exportar/liquidacionExcel";
 
 // Descarga la liquidación con el formato de contabilidad. Solo entran los movimientos completos.
@@ -20,6 +20,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
   const datos = {
     empresa: empresa.nombreCorto,
     cajaNombre: caja.nombre,
+    cajaCodigo: codigoCaja(caja),
     folio: l.folio,
     ciudad: empresa.ciudad,
     fechaInicio: l.fechaInicio,

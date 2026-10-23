@@ -40,6 +40,13 @@ Objetivo: una app usable con datos reales de una o dos cajas, instalada en el ce
 - [x] Sugerencias con datos de la app: proveedor por parecido de nombre, categoría, centro de costo / placa (con alta en la lista), duplicados y montos que no coinciden.
 - [ ] Medir precisión (campos corregidos por el usuario vs. leídos).
 
+## Fase 2.5 — Tesorería
+- [x] Rol de tesorería (todas las cajas): aprobar/observar, ingresos (reposición de una liquidación aprobada o recarga extraordinaria/apertura/ajuste), autorizar gastos sobre el tope, crear y numerar cajas, tope por empresa.
+- [x] Numeración `SL-CAJA-MT-01` y folio `SL-LIQ-MT-001`.
+- [x] Liquidación por caja y rango de fechas, con resumen y gastos que se pueden desmarcar.
+- [x] Tope por gasto (S/ 300) con autorización de tesorería.
+- [x] Panel (inicio) para todos: saldo y consumo por caja y empresa, gasto por mes, en qué se gasta, pendientes y avisos.
+
 ## Fase 3 — Producción
 - [ ] Alta de todas las cajas reales y sus límites; usuarios y roles definitivos.
 - [x] Exportar liquidación a Excel (formato que usa contabilidad): `/api/liquidaciones/<id>/excel`. Falta PDF.

@@ -32,6 +32,7 @@ export interface EgresoExcel {
 export interface DatosLiquidacionExcel {
   empresa: string; // "SIPE", "San Lorenzo"
   cajaNombre: string; // "Mantenimiento"
+  cajaCodigo: string; // "SL-CAJA-MT-01"
   folio: string;
   ciudad: string; // "TRUJILLO"
   fechaInicio: string;
@@ -133,7 +134,7 @@ export async function generarLiquidacionExcel(d: DatosLiquidacionExcel): Promise
   const periodo = d.fechaCierre
     ? `del ${fechaPie(d.fechaInicio).replaceAll(".", "/")} al ${fechaPie(d.fechaCierre).replaceAll(".", "/")}`
     : `desde el ${fechaPie(d.fechaInicio).replaceAll(".", "/")} (abierta)`;
-  sub.value = `Folio ${d.folio} · ${periodo}`;
+  sub.value = `${d.cajaCodigo} · Folio ${d.folio} · ${periodo}`;
   estilo(sub);
   sub.alignment = { horizontal: "center" };
 

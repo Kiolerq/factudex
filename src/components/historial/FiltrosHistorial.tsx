@@ -16,6 +16,7 @@ const ESTADOS: { valor: FiltroEstado; texto: string }[] = [
   { valor: "todos", texto: "Todos" },
   { valor: "pendiente", texto: "Pendientes" },
   { valor: "completo", texto: "Completos" },
+  { valor: "por_autorizar", texto: "Por autorizar" },
   { valor: "anulado", texto: "Anulados" },
 ];
 
