@@ -654,6 +654,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       if (error?.code === "42501") throw new ErrorDeNegocio("Solo tesorería o un administrador puede crear o editar cajas");
       fallo(error, "Guardar caja");
       if (!data.length) throw new ErrorDeNegocio("Solo tesorería o un administrador puede editar cajas");
+      return data[0]!.id;
     },
 
     async actualizarTope(empresaId, tope) {

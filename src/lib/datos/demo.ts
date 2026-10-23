@@ -627,8 +627,13 @@ export const repositorioDemo: Repositorio = {
       throw new ErrorDeNegocio(`Ya existe la caja N° ${String(c.numero).padStart(2, "0")} en esa empresa`);
     const { id, ...datos } = c;
     const actual = id ? db.cajas.find((x) => x.id === id) : undefined;
-    if (actual) Object.assign(actual, datos);
-    else db.cajas.push({ id: randomUUID(), ...datos });
+    if (actual) {
+      Object.assign(actual, datos);
+      return actual.id;
+    }
+    const nueva = { id: randomUUID(), ...datos };
+    db.cajas.push(nueva);
+    return nueva.id;
   },
 
   async actualizarTope(empresaId, tope) {

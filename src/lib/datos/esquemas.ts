@@ -200,6 +200,27 @@ export const EsquemaCaja = z.object({
 });
 export type EntradaCaja = z.input<typeof EsquemaCaja>;
 
+/** Abrir una caja nueva con su dinero inicial: el número (y el código SL-CAJA-MT-01) los pone la app. */
+export const EsquemaAbrirCaja = z
+  .object({
+    empresaId: z.uuid("Elige la empresa"),
+    area: EsquemaCaja.shape.area,
+    nombre: EsquemaCaja.shape.nombre,
+    umbralAlerta: EsquemaCaja.shape.umbralAlerta,
+    monto: z
+      .number("Ingresa el monto")
+      .positive("El monto debe ser mayor a 0")
+      .max(1000000, "Monto demasiado alto")
+      .refine((m) => Math.abs(m * 100 - Math.round(m * 100)) < 1e-6, "Máximo 2 decimales"),
+    fecha: z.iso.date("Fecha inválida"),
+    forma: z.enum(["banco", "efectivo", "otros"]),
+    banco: textoOpcional(60),
+    operacion: textoOpcional(40),
+    recibo: textoOpcional(40),
+  })
+  .refine((a) => a.fecha <= fechaHoyLima(), { path: ["fecha"], message: "La fecha no puede ser futura" });
+export type EntradaAbrirCaja = z.input<typeof EsquemaAbrirCaja>;
+
 /** Fecha de hoy en Lima, formato YYYY-MM-DD. */
 export function fechaHoyLima(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(new Date());

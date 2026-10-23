@@ -3,7 +3,7 @@ import { BadgeLiquidacion } from "@/components/liquidaciones/BadgeLiquidacion";
 import { RevisarLiquidacion } from "@/components/liquidaciones/RevisarLiquidacion";
 import { AutorizarGasto } from "@/components/movimientos/AutorizarGasto";
 import { FormularioRecarga } from "@/components/recargas/FormularioRecarga";
-import { FormularioIngreso, type CajaIngreso } from "@/components/tesoreria/FormularioIngreso";
+import { FormularioIngreso, type CajaIngreso, type EmpresaIngreso } from "@/components/tesoreria/FormularioIngreso";
 import { GestionCajas } from "@/components/tesoreria/GestionCajas";
 import { contextoPagina, exigirTesoreria } from "@/lib/contexto";
 import { codigoCaja, ETIQUETA_FORMA_INGRESO, ETIQUETA_TIPO_RECARGA, type CajaSaldo } from "@/lib/datos/tipos";
@@ -164,7 +164,13 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
   );
 
   async function Ingresos() {
-    const recargas = await repo.listarRecargas(ids);
+    const [recargas, todas] = await Promise.all([repo.listarRecargas(ids), repo.listarCajasAdmin()]);
+    const empresasIngreso: EmpresaIngreso[] = empresas.map((e) => ({
+      id: e.id,
+      codigo: e.codigo,
+      nombre: e.nombreCorto,
+      numeros: todas.filter((c) => c.empresaId === e.id).map((c) => c.numero),
+    }));
     const cajasIngreso: CajaIngreso[] = cajas.map((c) => ({
       id: c.id,
       empresa: empresaDe(c),
@@ -174,7 +180,7 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
     }));
     return (
       <>
-        <FormularioIngreso cajas={cajasIngreso} />
+        <FormularioIngreso cajas={cajasIngreso} empresas={empresasIngreso} />
         <Seccion titulo="Últimos ingresos" vacio="Aún no hay ingresos registrados.">
           {recargas.length > 0 && (
           <div className="fx-card overflow-hidden">

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import {
   EsquemaAdjuntarCompartido,
   EsquemaAnular,
+  EsquemaAbrirCaja,
   EsquemaCaja,
   EsquemaCambiosUsuario,
   EsquemaGenerarLiquidacion,
@@ -18,6 +19,7 @@ import {
   EsquemaRevision,
   erroresPorCampo,
   type EntradaAdjuntarCompartido,
+  type EntradaAbrirCaja,
   type EntradaCaja,
   type EntradaCambiosUsuario,
   type EntradaNuevoUsuario,
@@ -26,6 +28,7 @@ import {
   type EntradaRecarga,
 } from "@/lib/datos/esquemas";
 import { ErrorDeNegocio, modoDemo, obtenerRepositorio } from "@/lib/datos/repositorio";
+import { codigoCaja } from "@/lib/datos/tipos";
 import type {
   AdjuntoSubido,
   EstadoMovimiento,
@@ -322,6 +325,60 @@ export async function guardarCaja(entrada: EntradaCaja): Promise<Resultado> {
   if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
   const repo = await repoTesoreria();
   return ejecutar(() => repo.guardarCaja(datos.data));
+}
+
+/**
+ * Tesorería abre una caja nueva: la crea con el siguiente número de la empresa (el código
+ * SL-CAJA-MT-01 sale solo) y registra su dinero de apertura.
+ */
+export async function abrirCaja(
+  entrada: EntradaAbrirCaja,
+): Promise<{ ok: true; codigo: string } | { ok: false; errores: Record<string, string> }> {
+  const datos = EsquemaAbrirCaja.safeParse(entrada);
+  if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
+  const repo = await repoTesoreria();
+  const d = datos.data;
+  const [cajas, empresas] = await Promise.all([repo.listarCajasAdmin(), repo.listarEmpresas()]);
+  const empresa = empresas.find((e) => e.id === d.empresaId);
+  if (!empresa) return { ok: false, errores: { empresaId: "Elige la empresa" } };
+  const numero = Math.max(0, ...cajas.filter((c) => c.empresaId === d.empresaId).map((c) => c.numero)) + 1;
+  if (numero > 99) return { ok: false, errores: { _: "La empresa ya tiene 99 cajas" } };
+  const codigo = codigoCaja({ empresaCodigo: empresa.codigo, area: d.area, numero });
+  try {
+    const cajaId = await repo.guardarCaja({
+      id: null,
+      empresaId: d.empresaId,
+      numero,
+      area: d.area,
+      nombre: d.nombre,
+      umbralAlerta: d.umbralAlerta,
+      activa: true,
+    });
+    try {
+      await repo.registrarRecarga({
+        cajaId,
+        tipo: "apertura",
+        liquidacionRepuestaId: null,
+        monto: d.monto,
+        fecha: d.fecha,
+        descripcion: `Apertura ${codigo}`,
+        forma: d.forma,
+        banco: d.forma === "banco" ? d.banco : null,
+        operacion: d.operacion,
+        recibo: d.recibo,
+        nota: null,
+      });
+    } catch (e) {
+      if (e instanceof ErrorDeNegocio)
+        return { ok: false, errores: { _: `Se creó ${codigo}, pero no se pudo registrar la apertura: ${e.message}. Regístrala en "Recargar caja".` } };
+      throw e;
+    }
+    revalidatePath("/", "layout");
+    return { ok: true, codigo };
+  } catch (e) {
+    if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
+    throw e;
+  }
 }
 
 export async function actualizarTope(entrada: { empresaId: string; tope: number }): Promise<Resultado> {

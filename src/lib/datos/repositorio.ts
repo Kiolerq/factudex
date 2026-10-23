@@ -62,7 +62,8 @@ export interface Repositorio {
   // Tesorería (quien llama ya fue verificado como tesorería o admin).
   autorizarMovimiento(id: string): Promise<void>;
   listarCajasAdmin(): Promise<CajaAdmin[]>;
-  guardarCaja(c: DatosCaja): Promise<void>;
+  /** Crea o edita una caja; devuelve su id. */
+  guardarCaja(c: DatosCaja): Promise<string>;
   actualizarTope(empresaId: string, tope: number): Promise<void>;
 
   // Administración de usuarios: solo admin (quien llama ya fue verificado como admin).
