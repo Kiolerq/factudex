@@ -40,7 +40,7 @@ export default async function PaginaLiquidaciones({ searchParams }: PageProps<"/
             <div key={e.id} className="flex flex-wrap items-center gap-2">
               <span className="w-24 shrink-0 text-[11px] uppercase tracking-[0.6px] text-white/40">{e.nombreCorto}</span>
               {deEmpresa.map((c) => (
-                <Link
+                <Link prefetch={false}
                   key={c.id}
                   href={`/liquidaciones?caja=${c.id}`}
                   aria-current={c.id === caja.id ? "page" : undefined}
@@ -132,7 +132,7 @@ export default async function PaginaLiquidaciones({ searchParams }: PageProps<"/
           <h2 className="text-xs uppercase tracking-[1.2px] text-white/40">Liquidaciones de {codigoCaja(caja)}</h2>
           <div className="fx-card overflow-hidden">
             {anteriores.map((l) => (
-              <Link
+              <Link prefetch={false}
                 key={l.id}
                 href={`/liquidaciones/${l.id}`}
                 className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 border-b border-white/5 px-4 py-3.5 text-[13px] last:border-b-0 hover:bg-white/4 md:grid-cols-[1.2fr_1.2fr_130px_120px_120px] md:px-5"
@@ -173,7 +173,7 @@ function Cabecera({ l }: { l: LiquidacionResumen }) {
 function Acciones({ l }: { l: LiquidacionResumen }) {
   return (
     <>
-      <Link href={`/liquidaciones/${l.id}`} className="fx-btn rounded-[10px] border border-white/12 px-4 py-2.5 text-[13px] text-white/75 hover:text-white">
+      <Link prefetch={false} href={`/liquidaciones/${l.id}`} className="fx-btn rounded-[10px] border border-white/12 px-4 py-2.5 text-[13px] text-white/75 hover:text-white">
         Ver detalle
       </Link>
       <a

@@ -2,7 +2,6 @@ import { InstalarApp } from "@/components/InstalarApp";
 import { cerrarSesion } from "@/app/acciones";
 import { modoDemo, obtenerRepositorio } from "@/lib/datos/repositorio";
 import { estadoDrive } from "@/lib/drive/estado";
-import { sesionActual } from "@/lib/permisos";
 import { FormularioContrasena } from "./FormularioContrasena";
 
 export const metadata = { title: "Mi cuenta · Factudex" };
@@ -23,7 +22,7 @@ const AVISOS: Record<string, { texto: string; ok: boolean }> = {
 
 export default async function PaginaCuenta({ searchParams }: PageProps<"/cuenta">) {
   const usuario = await (await obtenerRepositorio()).usuarioActual();
-  const esAdmin = !modoDemo() && (await sesionActual())?.esAdmin;
+  const esAdmin = !modoDemo() && usuario?.esAdmin;
   const drive = esAdmin ? await estadoDrive() : null;
   const aviso = AVISOS[String((await searchParams).drive ?? "")];
 

@@ -42,6 +42,8 @@ export function Navegacion({ pendientes, modulos, esAdmin, esTesoreria }: Props)
           <Link
             key={s.href}
             href={s.href}
+            // Precarga la pantalla completa al abrir la app: cambiar de pestaña es instantáneo.
+            prefetch
             aria-current={activa ? "page" : undefined}
             className={`shrink-0 rounded-[10px] border px-4 py-[9px] text-[13px] font-semibold transition-colors ${
               activa

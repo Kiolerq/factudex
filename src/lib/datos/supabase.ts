@@ -180,8 +180,45 @@ function aRecarga(r: FilaRecarga): Recarga {
   };
 }
 
+/** Guarda el resultado de la primera llamada (el repositorio vive solo durante una petición). */
+function memo<T>(f: () => Promise<T>): () => Promise<T> {
+  let p: Promise<T> | undefined;
+  return () => (p ??= f().catch((e) => {
+    p = undefined;
+    throw e;
+  }));
+}
+
 export async function crearRepositorioSupabase(): Promise<Repositorio> {
   const sb = await createClient();
+
+  // La sesión se verifica con la clave pública del proyecto (ES256), sin ir a Supabase Auth.
+  const usuarioActual = memo(async () => {
+    const { data } = await sb.auth.getClaims();
+    const c = data?.claims;
+    if (!c?.sub) return null;
+    // select("*"): funciona también antes de correr las migraciones de módulos y tesorería.
+    const { data: perfil } = await sb.from("perfiles").select("*").eq("id", c.sub).maybeSingle();
+    const esAdmin = perfil?.rol === "admin";
+    return {
+      id: c.sub,
+      nombre: perfil?.nombre ?? c.email ?? "Usuario",
+      email: perfil?.email ?? c.email ?? null,
+      esAdmin,
+      esTesoreria: esAdmin || !!perfil?.es_tesoreria,
+      activo: perfil?.activo ?? true,
+      modulos: esAdmin ? [...MODULOS] : (aModulos(perfil?.modulos) ?? [...MODULOS]),
+    };
+  });
+
+  // Roles por caja del usuario, en una sola consulta (en vez de 2 RPC por caja).
+  const misAccesos = memo(async () => {
+    const yo = await usuarioActual();
+    if (!yo) return new Map<string, RolCaja>();
+    const { data, error } = await sb.from("accesos_caja").select("caja_id, rol").eq("usuario_id", yo.id);
+    fallo(error, "Accesos");
+    return new Map(data.map((a) => [a.caja_id, a.rol as RolCaja]));
+  });
 
   /** Perfil (nombre, rol global, módulos, activo) y accesos por caja, con la sesión del admin (RLS). */
   async function guardarDatosUsuario(id: string, d: DatosUsuario, activo?: boolean) {
@@ -209,24 +246,9 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
   }
 
   return {
-    async usuarioActual() {
-      const { data } = await sb.auth.getUser();
-      if (!data.user) return null;
-      // select("*"): funciona también antes de correr la migración de módulos.
-      const { data: perfil } = await sb.from("perfiles").select("*").eq("id", data.user.id).maybeSingle();
-      const esAdmin = perfil?.rol === "admin";
-      return {
-        id: data.user.id,
-        nombre: perfil?.nombre ?? data.user.email ?? "Usuario",
-        email: perfil?.email ?? data.user.email ?? null,
-        esAdmin,
-        esTesoreria: esAdmin || !!perfil?.es_tesoreria,
-        activo: perfil?.activo ?? true,
-        modulos: esAdmin ? [...MODULOS] : (aModulos(perfil?.modulos) ?? [...MODULOS]),
-      };
-    },
+    usuarioActual,
 
-    async listarEmpresas(): Promise<Empresa[]> {
+    listarEmpresas: memo(async (): Promise<Empresa[]> => {
       const { data, error } = await sb
         .from("empresas")
         .select("id, codigo, sigla, nombre_corto, razon_social, ciudad, tope_gasto")
@@ -242,9 +264,9 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         ciudad: e.ciudad,
         topeGasto: Number(e.tope_gasto),
       }));
-    },
+    }),
 
-    async listarCajas(): Promise<CajaSaldo[]> {
+    listarCajas: memo(async (): Promise<CajaSaldo[]> => {
       const { data, error } = await sb
         .from("v_saldo_cajas")
         .select("*")
@@ -264,7 +286,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         bajoUmbral: !!c.bajo_umbral,
         pendientes: Number(c.movimientos_pendientes),
       }));
-    },
+    }),
 
     async listarCategorias(empresaId): Promise<Opcion[]> {
       const { data, error } = await sb
@@ -399,12 +421,13 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       return { id: m.id, estado: data.estado };
     },
 
+    // Misma regla que tiene_acceso_caja(): admin y tesorería pueden todo; si no, el rol en la caja.
     async permisosCaja(cajaId) {
-      const [registrar, aprobar] = await Promise.all([
-        sb.rpc("tiene_acceso_caja", { p_caja: cajaId, p_min: "registrador" }),
-        sb.rpc("tiene_acceso_caja", { p_caja: cajaId, p_min: "aprobador" }),
-      ]);
-      return { registrar: !!registrar.data, aprobar: !!aprobar.data };
+      const yo = await usuarioActual();
+      if (!yo?.activo) return { registrar: false, aprobar: false };
+      if (yo.esAdmin || yo.esTesoreria) return { registrar: true, aprobar: true };
+      const rol = (await misAccesos()).get(cajaId);
+      return { registrar: rol === "registrador" || rol === "aprobador", aprobar: rol === "aprobador" };
     },
 
     async listarMovimientos(f) {

@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Pestañas precargadas (Link prefetch={true}): se reutilizan 60 s y luego se vuelven a pedir.
+    // Guardar algo (Server Action con revalidatePath) las invalida al momento.
+    staleTimes: { dynamic: 30, static: 60 },
+  },
   async headers() {
     return [
       {

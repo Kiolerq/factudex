@@ -58,7 +58,7 @@ export default async function PaginaPendientes() {
           {lista.map((m) => {
             const d = dias(m.fecha, hoy);
             return (
-              <Link
+              <Link prefetch={false}
                 key={m.id}
                 href={`/movimientos/${m.id}`}
                 className="fx-card flex flex-col gap-2.5 rounded-[14px] border-fx-pendiente/35! p-3.5 hover:bg-white/6 md:flex-row md:items-center md:gap-5 md:px-5"

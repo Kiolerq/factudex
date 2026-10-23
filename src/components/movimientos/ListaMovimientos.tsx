@@ -38,7 +38,7 @@ export function ListaMovimientos({ movimientos, nombreCaja, vacio = "No hay movi
           const doc = textoDocumento(m);
           const pendiente = m.estado === "pendiente" && !m.anulado;
           return (
-            <Link
+            <Link prefetch={false}
               key={m.id}
               href={`/movimientos/${m.id}`}
               className={`grid ${COLUMNAS} items-center gap-2.5 border-b border-white/5 px-5 py-3.5 text-[13px] last:border-b-0 hover:bg-white/4 ${
@@ -66,7 +66,7 @@ export function ListaMovimientos({ movimientos, nombreCaja, vacio = "No hay movi
           const doc = textoDocumento(m);
           const pendiente = m.estado === "pendiente" && !m.anulado;
           return (
-            <Link
+            <Link prefetch={false}
               key={m.id}
               href={`/movimientos/${m.id}`}
               className={`fx-card block rounded-[14px] p-3.5 ${pendiente ? "border-fx-pendiente/35!" : ""} ${

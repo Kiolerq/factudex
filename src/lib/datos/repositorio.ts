@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type {
   CajaAdmin,
   DatosCaja,
@@ -77,7 +78,13 @@ export function modoDemo(): boolean {
   return !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 }
 
-export async function obtenerRepositorio(): Promise<Repositorio> {
+/**
+ * Uno por petición (React cache): el layout y la página comparten el mismo repositorio y, con él,
+ * las consultas que se repiten (usuario, empresas, cajas, accesos), que se hacen una sola vez.
+ */
+export const obtenerRepositorio = cache(async (): Promise<Repositorio> => crearRepositorio());
+
+async function crearRepositorio(): Promise<Repositorio> {
   if (modoDemo()) {
     const { repositorioDemo } = await import("./demo");
     return repositorioDemo;

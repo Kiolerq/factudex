@@ -22,10 +22,11 @@ export async function actualizarSesion(request: NextRequest) {
     },
   );
 
-  // No poner código entre createServerClient y getUser (recomendación de @supabase/ssr).
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // No poner código entre createServerClient y getClaims (recomendación de @supabase/ssr).
+  // getClaims verifica el token con la clave pública (ES256) sin ir a Supabase Auth, y lo
+  // refresca si está por vencer.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims?.sub ? data.claims : null;
 
   const publica = ["/login", "/auth", "/privacidad", "/terminos"].some((p) => request.nextUrl.pathname.startsWith(p));
   if (!user && !publica) {

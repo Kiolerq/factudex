@@ -98,7 +98,7 @@ export function AvisoLectura({ lectura, hayProveedor, onCrearProveedor, hayCentr
         <p className="rounded-lg border border-fx-error/40 bg-fx-error/10 px-3 py-2 text-fx-error">
           Este comprobante ya parece registrado: {duplicado.detalle} · {formatoFecha(duplicado.fecha)} ·{" "}
           {formatoSoles(duplicado.monto)}.{" "}
-          <Link href={`/movimientos/${duplicado.id}`} className="font-semibold underline">
+          <Link prefetch={false} href={`/movimientos/${duplicado.id}`} className="font-semibold underline">
             Ver gasto
           </Link>
         </p>

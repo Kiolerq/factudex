@@ -41,7 +41,7 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
     ],
     [
       "Liquidación",
-      <Link key="l" href={`/liquidaciones/${m.liquidacion.id}`} className="text-fx-primary-light hover:underline">
+      <Link prefetch={false} key="l" href={`/liquidaciones/${m.liquidacion.id}`} className="text-fx-primary-light hover:underline">
         {m.liquidacion.folio} · {ETIQUETA_LIQUIDACION[m.liquidacion.estado]}
       </Link>,
     ],
@@ -49,7 +49,7 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
 
   return (
     <main className="flex flex-col gap-4 md:gap-5">
-      <Link href="/historial" className="text-[13px] text-white/50 hover:text-white">
+      <Link prefetch={false} href="/historial" className="text-[13px] text-white/50 hover:text-white">
         ← Historial
       </Link>
 

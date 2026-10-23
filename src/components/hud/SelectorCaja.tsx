@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useOptimistic, useRef, useTransition } from "react";
 import { seleccionarCaja } from "@/app/acciones";
 import { codigoCaja, type CajaSaldo, type Empresa } from "@/lib/datos/tipos";
 import { formatoSoles } from "@/lib/formato";
@@ -12,13 +12,23 @@ interface Props {
 }
 
 /** Switch San Lorenzo / SIPE + tira con el saldo de cada caja de la empresa activa. */
-export function SelectorCaja({ empresas, cajas, cajaActivaId }: Props) {
+export function SelectorCaja({ empresas, cajas, cajaActivaId: activaServidor }: Props) {
   const [pendiente, iniciar] = useTransition();
-  const activa = cajas.find((c) => c.id === cajaActivaId)!;
+  // El cambio se ve al instante; el servidor guarda la preferencia y actualiza los datos detrás.
+  const [cajaActivaId, setCajaActivaId] = useOptimistic(activaServidor);
+  const raiz = useRef<HTMLDivElement>(null);
+  const activa = cajas.find((c) => c.id === cajaActivaId) ?? cajas.find((c) => c.id === activaServidor)!;
   const cajasEmpresa = cajas.filter((c) => c.empresaId === activa.empresaId);
 
   const elegir = (cajaId: string) => {
-    if (cajaId !== cajaActivaId) iniciar(() => seleccionarCaja(cajaId));
+    if (cajaId === cajaActivaId) return;
+    // El color de marca de la empresa también cambia ya (el layout lo confirma al responder).
+    const codigo = cajas.find((c) => c.id === cajaId)?.empresaCodigo;
+    if (codigo) raiz.current?.closest("[data-empresa]")?.setAttribute("data-empresa", codigo);
+    iniciar(async () => {
+      setCajaActivaId(cajaId);
+      await seleccionarCaja(cajaId);
+    });
   };
 
   const switchEmpresa = (
@@ -49,7 +59,7 @@ export function SelectorCaja({ empresas, cajas, cajaActivaId }: Props) {
   );
 
   return (
-    <div className={`transition-opacity ${pendiente ? "opacity-60" : ""}`} aria-busy={pendiente}>
+    <div ref={raiz} aria-busy={pendiente}>
       {/* Escritorio: switch arriba a la derecha lo pone el HUD; aquí van las tarjetas de caja */}
       <div className="hidden md:flex md:flex-col md:gap-4">
         <div className="flex items-center justify-between gap-4">

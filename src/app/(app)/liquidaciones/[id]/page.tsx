@@ -24,7 +24,7 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
 
   return (
     <main className="flex flex-col gap-4 md:gap-5">
-      <Link href="/liquidaciones" className="text-[13px] text-white/50 hover:text-white">
+      <Link prefetch={false} href="/liquidaciones" className="text-[13px] text-white/50 hover:text-white">
         ← Liquidaciones
       </Link>
 
@@ -91,7 +91,7 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
           {l.movimientos.map((m) => {
             const incompleto = m.estado === "pendiente" || m.porAutorizar;
             return (
-              <Link key={m.id} href={`/movimientos/${m.id}`} className="block hover:bg-white/4">
+              <Link prefetch={false} key={m.id} href={`/movimientos/${m.id}`} className="block hover:bg-white/4">
                 <Fila
                   izquierda={`${formatoFecha(m.fecha, true)} · ${m.detalle}`}
                   detalle={

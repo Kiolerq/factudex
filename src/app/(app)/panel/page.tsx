@@ -95,7 +95,7 @@ export default async function PaginaPanel({ searchParams }: PageProps<"/panel">)
         <div className="fx-scroll-x -mx-5 flex max-w-full gap-1.5 overflow-x-auto px-5 md:mx-0 md:px-0">
           {empresas.length > 1 &&
             [{ codigo: null, nombre: "Todas" }, ...empresas.map((e) => ({ codigo: e.codigo, nombre: e.nombreCorto }))].map((e) => (
-              <Link
+              <Link prefetch={false}
                 key={e.nombre}
                 href={enlace({ empresa: e.codigo })}
                 className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[12px] font-semibold ${
@@ -108,7 +108,7 @@ export default async function PaginaPanel({ searchParams }: PageProps<"/panel">)
           {ultimosMeses(mesActual, 4)
             .reverse()
             .map((m) => (
-              <Link
+              <Link prefetch={false}
                 key={m}
                 href={enlace({ mes: m === mesActual ? null : m })}
                 className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[12px] font-semibold capitalize ${
@@ -205,7 +205,7 @@ export default async function PaginaPanel({ searchParams }: PageProps<"/panel">)
             {porMes.map((x) => {
               const elegido = x.mes === mes;
               return (
-                <Link
+                <Link prefetch={false}
                   key={x.mes}
                   href={enlace({ mes: x.mes === mesActual ? null : x.mes })}
                   role="listitem"
@@ -264,7 +264,7 @@ function Cifra({
   );
   const clase = "fx-card block rounded-[14px] px-3.5 py-3 md:px-5 md:py-4";
   return href ? (
-    <Link href={href} className={`${clase} hover:bg-white/6`}>
+    <Link prefetch={false} href={href} className={`${clase} hover:bg-white/6`}>
       {contenido}
     </Link>
   ) : (
@@ -274,7 +274,7 @@ function Cifra({
 
 function Aviso({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <Link
+    <Link prefetch={false}
       href={href}
       className="rounded-full border border-fx-pendiente/40 bg-fx-pendiente/10 px-3.5 py-1.5 text-[12.5px] font-semibold text-fx-pendiente hover:bg-fx-pendiente/16"
     >

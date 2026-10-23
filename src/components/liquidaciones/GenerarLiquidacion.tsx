@@ -115,7 +115,7 @@ export function GenerarLiquidacion({ cajaId, cajaCodigo, folio, saldoInicial, in
           {posteriores.length > 0 && <span>· {posteriores.length} posterior{posteriores.length === 1 ? "" : "es"} al {formatoFecha(hasta)} ({formatoSoles(suma(posteriores))})</span>}
           {enRango.length - entran.length > 0 && <span>· {enRango.length - entran.length} desmarcado{enRango.length - entran.length === 1 ? "" : "s"}</span>}
           {sinSustento.length > 0 && (
-            <Link href="/pendientes" className="text-fx-error hover:underline">
+            <Link prefetch={false} href="/pendientes" className="text-fx-error hover:underline">
               · {sinSustento.length} sin sustento completo ({formatoSoles(suma(sinSustento))}) →
             </Link>
           )}

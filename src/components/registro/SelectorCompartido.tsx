@@ -270,7 +270,7 @@ export function SelectorCompartido({
               {resultado.estado === "completo" ? "Quedó Completo y entra a la liquidación." : "Sigue pendiente: aún le falta un archivo."}
             </p>
             <div className="flex justify-end gap-2">
-              <Link href={`/movimientos/${resultado.m.id}`} className="fx-btn rounded-[10px] border border-white/12 px-4 py-2 text-[13px] text-white/75">
+              <Link prefetch={false} href={`/movimientos/${resultado.m.id}`} className="fx-btn rounded-[10px] border border-white/12 px-4 py-2 text-[13px] text-white/75">
                 Ver gasto
               </Link>
               <button type="button" onClick={siguiente} className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 text-[13px] font-semibold text-white">

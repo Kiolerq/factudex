@@ -47,14 +47,14 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
           <h1 className="text-lg font-bold md:text-xl">Tesorería</h1>
           <p className="text-xs text-white/45">Todas las cajas de {empresas.map((e) => e.nombreCorto).join(" y ")}.</p>
         </div>
-        <Link href="/panel" className="text-[13px] font-semibold text-fx-primary-light hover:underline">
+        <Link prefetch={false} href="/panel" className="text-[13px] font-semibold text-fx-primary-light hover:underline">
           Ver panel →
         </Link>
       </div>
 
       <nav aria-label="Secciones de tesorería" className="fx-scroll-x -mx-5 flex gap-2 overflow-x-auto px-5 md:mx-0 md:px-0">
         {VISTAS.map((x) => (
-          <Link
+          <Link prefetch={false}
             key={x.id}
             href={`/tesoreria?vista=${x.id}`}
             aria-current={x.id === vista ? "page" : undefined}
@@ -76,7 +76,7 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
               return (
                 <div key={l.id} className="fx-card flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between md:px-5">
                   <div className="min-w-0">
-                    <Link href={`/liquidaciones/${l.id}`} className="font-display text-base font-bold hover:underline">
+                    <Link prefetch={false} href={`/liquidaciones/${l.id}`} className="font-display text-base font-bold hover:underline">
                       {l.folio}
                     </Link>
                     <div className="text-xs text-white/45">
@@ -101,7 +101,7 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
                 <div key={l.id} className="fx-card flex flex-col gap-3 p-4 md:px-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <Link href={`/liquidaciones/${l.id}`} className="font-display text-base font-bold hover:underline">
+                      <Link prefetch={false} href={`/liquidaciones/${l.id}`} className="font-display text-base font-bold hover:underline">
                         {l.folio}
                       </Link>
                       <div className="text-xs text-white/45">
@@ -130,7 +130,7 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
             return (
               <div key={m.id} className="fx-card flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between md:px-5">
                 <div className="min-w-0">
-                  <Link href={`/movimientos/${m.id}`} className="text-[14px] font-semibold hover:underline">
+                  <Link prefetch={false} href={`/movimientos/${m.id}`} className="text-[14px] font-semibold hover:underline">
                     {m.detalle}
                   </Link>
                   <div className="text-xs text-white/45">

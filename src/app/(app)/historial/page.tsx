@@ -42,7 +42,7 @@ export default async function PaginaHistorial({ searchParams }: PageProps<"/hist
     <main className="flex flex-col gap-4 md:gap-5">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-lg font-bold md:text-xl">Historial de movimientos</h1>
-        <Link
+        <Link prefetch={false}
           href="/registro"
           aria-label="Nuevo registro"
           className="fx-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-fx-primary text-base font-semibold text-white md:h-auto md:w-auto md:rounded-[10px] md:px-4 md:py-2.5 md:text-[13px]"
@@ -73,7 +73,7 @@ export default async function PaginaHistorial({ searchParams }: PageProps<"/hist
           {pendientes.total > 0 && ` · ${pendientes.total} pendiente${pendientes.total === 1 ? "" : "s"} de sustento`}
         </span>
         {pagina.total > pagina.movimientos.length && (
-          <Link href={`/historial?${masParams}`} scroll={false} className="font-semibold text-fx-primary-light hover:underline">
+          <Link prefetch={false} href={`/historial?${masParams}`} scroll={false} className="font-semibold text-fx-primary-light hover:underline">
             Ver más
           </Link>
         )}
