@@ -1,11 +1,22 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { abrirCaja, registrarRecarga } from "@/app/acciones";
+import { useRef, useState, useTransition } from "react";
+import { abrirCaja, adjuntarFotoIngreso, crearArea, registrarRecarga } from "@/app/acciones";
 import { fechaHoyLima } from "@/lib/datos/esquemas";
-import { codigoCaja, ETIQUETA_FORMA_INGRESO, ETIQUETA_TIPO_RECARGA, type CodigoEmpresa, type FormaIngreso, type TipoRecarga } from "@/lib/datos/tipos";
+import {
+  codigoCaja,
+  ETIQUETA_FORMA_INGRESO,
+  ETIQUETA_TIPO_RECARGA,
+  MIME_PERMITIDOS,
+  type Area,
+  type CodigoEmpresa,
+  type FormaIngreso,
+  type TipoRecarga,
+} from "@/lib/datos/tipos";
 import { formatoSoles, leerMonto } from "@/lib/formato";
+import { comprimirImagen } from "@/lib/imagen";
+import { subirFotoIngreso, type Almacen } from "@/lib/subida";
 
 export interface CajaIngreso {
   id: string;
@@ -26,11 +37,33 @@ export interface EmpresaIngreso {
 
 const OTROS: TipoRecarga[] = ["extraordinaria", "apertura", "ajuste"];
 
+/** Sube la foto del depósito y la registra en el ingreso. Devuelve el error, o null si fue bien. */
+async function guardarFoto(o: { almacen: Almacen; cajaId: string; recargaId: string; archivo: File; fecha: string; monto: number }) {
+  try {
+    const archivo = await comprimirImagen(o.archivo);
+    const { storagePath, mime } = await subirFotoIngreso({ ...o, archivo });
+    const r = await adjuntarFotoIngreso({ recargaId: o.recargaId, storagePath, mime });
+    return r.ok ? null : (r.errores._ ?? "No se pudo registrar la foto");
+  } catch (e) {
+    return e instanceof Error ? e.message : "No se pudo subir la foto";
+  }
+}
+
 /**
  * Ingresos de tesorería, en dos caminos: agregar dinero a una caja que ya existe, o abrir una
- * caja nueva (se elige la empresa y el código SL-CAJA-MT-01 sale solo) con su monto de apertura.
+ * caja nueva (empresa y área de la lista; el código SL-CAJA-MT-01 sale solo) con su monto de apertura.
  */
-export function FormularioIngreso({ cajas, empresas }: { cajas: CajaIngreso[]; empresas: EmpresaIngreso[] }) {
+export function FormularioIngreso({
+  cajas,
+  empresas,
+  areas,
+  almacen,
+}: {
+  cajas: CajaIngreso[];
+  empresas: EmpresaIngreso[];
+  areas: Area[];
+  almacen: Almacen;
+}) {
   const [modo, setModo] = useState<"recargar" | "abrir">(cajas.length ? "recargar" : "abrir");
   return (
     <div className="flex flex-col gap-3">
@@ -55,7 +88,11 @@ export function FormularioIngreso({ cajas, empresas }: { cajas: CajaIngreso[]; e
           </button>
         ))}
       </div>
-      {modo === "recargar" ? <RecargarCaja cajas={cajas} /> : <AbrirCaja empresas={empresas} />}
+      {modo === "recargar" ? (
+        <RecargarCaja cajas={cajas} almacen={almacen} />
+      ) : (
+        <AbrirCaja empresas={empresas} areas={areas} almacen={almacen} />
+      )}
     </div>
   );
 }
@@ -64,7 +101,7 @@ export function FormularioIngreso({ cajas, empresas }: { cajas: CajaIngreso[]; e
  * Agregar dinero a una caja existente: a qué corresponde (la reposición de una liquidación
  * aprobada, o una recarga extraordinaria, apertura o ajuste). Monto libre.
  */
-function RecargarCaja({ cajas }: { cajas: CajaIngreso[] }) {
+function RecargarCaja({ cajas, almacen }: { cajas: CajaIngreso[]; almacen: Almacen }) {
   const router = useRouter();
   const [cajaId, setCajaId] = useState(cajas[0]?.id ?? "");
   const caja = cajas.find((c) => c.id === cajaId);
@@ -75,8 +112,7 @@ function RecargarCaja({ cajas }: { cajas: CajaIngreso[] }) {
   const [fecha, setFecha] = useState(fechaHoyLima());
   const [forma, setForma] = useState<FormaIngreso>("banco");
   const [banco, setBanco] = useState("");
-  const [operacion, setOperacion] = useState("");
-  const [recibo, setRecibo] = useState("");
+  const [foto, setFoto] = useState<File | null>(null);
   const [descripcion, setDescripcion] = useState("");
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [listo, setListo] = useState("");
@@ -100,33 +136,36 @@ function RecargarCaja({ cajas }: { cajas: CajaIngreso[] }) {
     setListo("");
     const negativo = montoTexto.trim().startsWith("-");
     const tipo: TipoRecarga = reposicion ? "reposicion" : (destino as TipoRecarga);
+    const monto = leerMonto(montoTexto.replace(/^-/, "")) * (negativo ? -1 : 1);
     iniciar(async () => {
       const r = await registrarRecarga({
         cajaId,
         tipo,
         liquidacionRepuestaId: reposicion?.id ?? null,
-        monto: leerMonto(montoTexto.replace(/^-/, "")) * (negativo ? -1 : 1),
+        monto,
         fecha,
         descripcion: descripcion || (reposicion ? `Reposición ${reposicion.folio}` : null),
         forma,
         banco: forma === "banco" ? banco || null : null,
-        operacion: operacion || null,
-        recibo: recibo || null,
+        operacion: null,
+        recibo: null,
         nota: null,
       });
-      if (r.ok) {
-        setErrores({});
-        setListo(`Ingreso de ${montoTexto} registrado en ${caja?.codigo}.`);
-        setOperacion("");
-        setRecibo("");
-        setDescripcion("");
-        setMontoTexto("");
-        router.refresh();
-      } else setErrores(r.errores);
+      if (!r.ok) {
+        setErrores(r.errores);
+        return;
+      }
+      const errorFoto = foto ? await guardarFoto({ almacen, cajaId, recargaId: r.id, archivo: foto, fecha, monto }) : null;
+      setErrores(errorFoto ? { _: `El ingreso se registró, pero la foto no: ${errorFoto}. Adjúntala desde la lista.` } : {});
+      setListo(`Ingreso de ${formatoSoles(monto)} registrado en ${caja?.codigo}.`);
+      setFoto(null);
+      setDescripcion("");
+      setMontoTexto("");
+      router.refresh();
     });
   };
 
-  if (!cajas.length) return <p className="text-[13px] text-white/50">No hay cajas activas.</p>;
+  if (!cajas.length) return <p className="text-[13px] text-white/50">No hay cajas activas. Abre una con “＋ Abrir caja nueva”.</p>;
 
   return (
     <form onSubmit={guardar} noValidate className="fx-card flex flex-col gap-4 p-4 md:p-6">
@@ -179,45 +218,18 @@ function RecargarCaja({ cajas }: { cajas: CajaIngreso[] }) {
           />
           {errores.monto && <p className="mt-1.5 text-xs text-fx-error">{errores.monto}</p>}
         </div>
-        <div>
-          <label htmlFor="ing-fecha" className="fx-label">
-            Fecha del depósito *
-          </label>
-          <input id="ing-fecha" type="date" className="fx-input" max={fechaHoyLima()} value={fecha} onChange={(e) => setFecha(e.target.value)} />
-          {errores.fecha && <p className="mt-1.5 text-xs text-fx-error">{errores.fecha}</p>}
-        </div>
-        <div>
-          <label htmlFor="ing-forma" className="fx-label">
-            Forma
-          </label>
-          <select id="ing-forma" className="fx-input" value={forma} onChange={(e) => setForma(e.target.value as FormaIngreso)}>
-            {(Object.keys(ETIQUETA_FORMA_INGRESO) as FormaIngreso[]).map((f) => (
-              <option key={f} value={f}>
-                {ETIQUETA_FORMA_INGRESO[f]}
-              </option>
-            ))}
-          </select>
-        </div>
-        {forma === "banco" && (
-          <div>
-            <label htmlFor="ing-banco" className="fx-label">
-              Banco
-            </label>
-            <input id="ing-banco" className="fx-input" placeholder="BCP, Interbank…" value={banco} onChange={(e) => setBanco(e.target.value)} />
-          </div>
-        )}
-        <div>
-          <label htmlFor="ing-op" className="fx-label">
-            N° de operación
-          </label>
-          <input id="ing-op" className="fx-input" value={operacion} onChange={(e) => setOperacion(e.target.value)} />
-        </div>
-        <div>
-          <label htmlFor="ing-recibo" className="fx-label">
-            Recibo
-          </label>
-          <input id="ing-recibo" className="fx-input" value={recibo} onChange={(e) => setRecibo(e.target.value)} />
-        </div>
+        <CamposDeposito
+          prefijo="ing"
+          fecha={fecha}
+          setFecha={setFecha}
+          forma={forma}
+          setForma={setForma}
+          banco={banco}
+          setBanco={setBanco}
+          foto={foto}
+          setFoto={setFoto}
+          errores={errores}
+        />
         <div className="md:col-span-2">
           <label htmlFor="ing-desc" className="fx-label">
             Descripción
@@ -245,53 +257,70 @@ function RecargarCaja({ cajas }: { cajas: CajaIngreso[] }) {
   );
 }
 
-/** Abrir una caja nueva: empresa, área y nombre; el número y el código los pone la app. */
-function AbrirCaja({ empresas }: { empresas: EmpresaIngreso[] }) {
+/** Abrir una caja nueva: empresa, área de la lista y nombre; el número sale solo (o se pone el que ya usaban). */
+function AbrirCaja({ empresas, areas, almacen }: { empresas: EmpresaIngreso[]; areas: Area[]; almacen: Almacen }) {
   const router = useRouter();
   const [empresaId, setEmpresaId] = useState(empresas[0]?.id ?? "");
   const [area, setArea] = useState("");
   const [nombre, setNombre] = useState("");
+  const [numeroTexto, setNumeroTexto] = useState("");
   const [umbralTexto, setUmbralTexto] = useState("200.00");
   const [montoTexto, setMontoTexto] = useState("");
   const [fecha, setFecha] = useState(fechaHoyLima());
   const [forma, setForma] = useState<FormaIngreso>("banco");
   const [banco, setBanco] = useState("");
-  const [operacion, setOperacion] = useState("");
-  const [recibo, setRecibo] = useState("");
+  const [foto, setFoto] = useState<File | null>(null);
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [listo, setListo] = useState("");
   const [guardando, iniciar] = useTransition();
 
   const empresa = empresas.find((e) => e.id === empresaId);
-  const numero = Math.max(0, ...(empresa?.numeros ?? [])) + 1;
-  const codigo = empresa ? codigoCaja({ empresaCodigo: empresa.codigo, area: area || "??", numero }) : "—";
+  const siguiente = Math.max(0, ...(empresa?.numeros ?? [])) + 1;
+  const numeroElegido = numeroTexto.trim() ? Number(numeroTexto) : null;
+  const numero = numeroElegido ?? siguiente;
+  const repetido = numeroElegido !== null && !!empresa?.numeros.includes(numeroElegido);
+  const codigo =
+    empresa && Number.isInteger(numero) && numero >= 1 && numero <= 99
+      ? codigoCaja({ empresaCodigo: empresa.codigo, area: area || "??", numero })
+      : "—";
+
+  const elegirArea = (a: Area | null) => {
+    setArea(a?.codigo ?? "");
+    // El nombre se propone con el área (si aún no lo escribieron a mano).
+    if (a && (!nombre || nombre.startsWith("Caja chica "))) setNombre(`Caja chica ${a.nombre}`);
+  };
 
   const guardar = (e: React.FormEvent) => {
     e.preventDefault();
     setListo("");
+    const monto = leerMonto(montoTexto);
     iniciar(async () => {
       const r = await abrirCaja({
         empresaId,
         area,
         nombre,
         umbralAlerta: leerMonto(umbralTexto),
-        monto: leerMonto(montoTexto),
+        monto,
         fecha,
         forma,
         banco: forma === "banco" ? banco || null : null,
-        operacion: operacion || null,
-        recibo: recibo || null,
+        numero: numeroElegido,
       });
-      if (r.ok) {
-        setErrores({});
-        setListo(`Caja ${r.codigo} abierta con ${formatoSoles(leerMonto(montoTexto))}.`);
-        setArea("");
-        setNombre("");
-        setMontoTexto("");
-        setOperacion("");
-        setRecibo("");
-        router.refresh();
-      } else setErrores(r.errores);
+      if (!r.ok) {
+        setErrores(r.errores);
+        return;
+      }
+      const errorFoto = foto
+        ? await guardarFoto({ almacen, cajaId: r.cajaId, recargaId: r.recargaId, archivo: foto, fecha, monto })
+        : null;
+      setErrores(errorFoto ? { _: `La caja se abrió, pero la foto no: ${errorFoto}. Adjúntala desde la lista.` } : {});
+      setListo(`Caja ${r.codigo} abierta con ${formatoSoles(monto)}. Asígnala a su registrador en Usuarios.`);
+      setArea("");
+      setNombre("");
+      setNumeroTexto("");
+      setMontoTexto("");
+      setFoto(null);
+      router.refresh();
     });
   };
 
@@ -327,20 +356,31 @@ function AbrirCaja({ empresas }: { empresas: EmpresaIngreso[] }) {
         {errores.empresaId && <p className="mt-1.5 text-xs text-fx-error">{errores.empresaId}</p>}
       </div>
       <div className="grid gap-3.5 md:grid-cols-2">
+        <CampoArea areas={areas} valor={area} onElegir={elegirArea} error={errores.area} />
         <div>
-          <label htmlFor="nueva-area" className="fx-label">
-            Área (sigla) *
+          <label htmlFor="nueva-numero" className="fx-label">
+            N° de caja
           </label>
           <input
-            id="nueva-area"
-            className="fx-input uppercase"
-            placeholder="MT, AD, OP…"
-            maxLength={4}
-            value={area}
-            aria-invalid={!!errores.area}
-            onChange={(e) => setArea(e.target.value.toUpperCase().replace(/[^A-ZÑ]/g, "").replace("Ñ", "N"))}
+            id="nueva-numero"
+            className="fx-input"
+            inputMode="numeric"
+            maxLength={2}
+            placeholder={`${String(siguiente).padStart(2, "0")} (el siguiente)`}
+            value={numeroTexto}
+            aria-invalid={!!errores.numero || repetido}
+            onChange={(e) => setNumeroTexto(e.target.value.replace(/\D/g, ""))}
           />
-          {errores.area && <p className="mt-1.5 text-xs text-fx-error">{errores.area}</p>}
+          {(errores.numero || repetido) && (
+            <p className="mt-1.5 text-xs text-fx-error">
+              {errores.numero ?? `${empresa?.nombre} ya tiene la caja N° ${String(numeroElegido).padStart(2, "0")}`}
+            </p>
+          )}
+          {!errores.numero && !repetido && (
+            <p className="mt-1.5 text-[11.5px] text-white/45">
+              Déjalo vacío para usar el siguiente. Si ya venían trabajando con otras cajas, pon el número que les toca.
+            </p>
+          )}
         </div>
         <div>
           <label htmlFor="nueva-nombre" className="fx-label">
@@ -378,56 +418,312 @@ function AbrirCaja({ empresas }: { empresas: EmpresaIngreso[] }) {
           <input id="nueva-umbral" className="fx-input" inputMode="decimal" value={umbralTexto} onChange={(e) => setUmbralTexto(e.target.value)} />
           {errores.umbralAlerta && <p className="mt-1.5 text-xs text-fx-error">{errores.umbralAlerta}</p>}
         </div>
-        <div>
-          <label htmlFor="nueva-fecha" className="fx-label">
-            Fecha del depósito *
-          </label>
-          <input id="nueva-fecha" type="date" className="fx-input" max={fechaHoyLima()} value={fecha} onChange={(e) => setFecha(e.target.value)} />
-          {errores.fecha && <p className="mt-1.5 text-xs text-fx-error">{errores.fecha}</p>}
-        </div>
-        <div>
-          <label htmlFor="nueva-forma" className="fx-label">
-            Forma
-          </label>
-          <select id="nueva-forma" className="fx-input" value={forma} onChange={(e) => setForma(e.target.value as FormaIngreso)}>
-            {(Object.keys(ETIQUETA_FORMA_INGRESO) as FormaIngreso[]).map((f) => (
-              <option key={f} value={f}>
-                {ETIQUETA_FORMA_INGRESO[f]}
-              </option>
-            ))}
-          </select>
-        </div>
-        {forma === "banco" && (
-          <div>
-            <label htmlFor="nueva-banco" className="fx-label">
-              Banco
-            </label>
-            <input id="nueva-banco" className="fx-input" placeholder="BCP, Interbank…" value={banco} onChange={(e) => setBanco(e.target.value)} />
-          </div>
-        )}
-        <div>
-          <label htmlFor="nueva-op" className="fx-label">
-            N° de operación
-          </label>
-          <input id="nueva-op" className="fx-input" value={operacion} onChange={(e) => setOperacion(e.target.value)} />
-        </div>
-        <div>
-          <label htmlFor="nueva-recibo" className="fx-label">
-            Recibo
-          </label>
-          <input id="nueva-recibo" className="fx-input" value={recibo} onChange={(e) => setRecibo(e.target.value)} />
-        </div>
+        <CamposDeposito
+          prefijo="nueva"
+          fecha={fecha}
+          setFecha={setFecha}
+          forma={forma}
+          setForma={setForma}
+          banco={banco}
+          setBanco={setBanco}
+          foto={foto}
+          setFoto={setFoto}
+          errores={errores}
+        />
       </div>
-      <p className="text-[11.5px] text-white/45">
-        El número es el siguiente de la empresa ({String(numero).padStart(2, "0")}). Luego da acceso a la caja en Usuarios.
-      </p>
       <button
         type="submit"
-        disabled={guardando}
+        disabled={guardando || repetido}
         className="fx-btn self-end rounded-[10px] bg-fx-primary px-5 py-2.5 text-[13px] font-semibold text-white disabled:opacity-60"
       >
         {guardando ? "Abriendo…" : "Abrir caja"}
       </button>
     </form>
+  );
+}
+
+/** Desplegable de áreas (MT, AD, OP…) con la opción de agregar una nueva con su nombre y descripción. */
+function CampoArea({
+  areas: iniciales,
+  valor,
+  onElegir,
+  error,
+}: {
+  areas: Area[];
+  valor: string;
+  onElegir: (area: Area | null) => void;
+  error?: string;
+}) {
+  const router = useRouter();
+  const [areas, setAreas] = useState(iniciales);
+  const [agregando, setAgregando] = useState(false);
+  const [codigo, setCodigo] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [errores, setErrores] = useState<Record<string, string>>({});
+  const [guardando, iniciar] = useTransition();
+
+  const guardar = () =>
+    iniciar(async () => {
+      const r = await crearArea({ codigo, nombre, descripcion: descripcion || null });
+      if (!r.ok) {
+        setErrores(r.errores);
+        return;
+      }
+      const nueva = { codigo: codigo.toUpperCase(), nombre: nombre.trim(), descripcion: descripcion.trim() || null };
+      setAreas((xs) => [...xs, nueva].sort((a, b) => a.codigo.localeCompare(b.codigo)));
+      onElegir(nueva);
+      setAgregando(false);
+      setCodigo("");
+      setNombre("");
+      setDescripcion("");
+      setErrores({});
+      router.refresh();
+    });
+
+  return (
+    <div className="md:col-span-2">
+      <label htmlFor="nueva-area" className="fx-label">
+        Área *
+      </label>
+      <select
+        id="nueva-area"
+        className="fx-input"
+        value={agregando ? "+" : valor}
+        aria-invalid={!!error}
+        onChange={(e) => {
+          if (e.target.value === "+") setAgregando(true);
+          else {
+            setAgregando(false);
+            onElegir(areas.find((a) => a.codigo === e.target.value) ?? null);
+          }
+        }}
+      >
+        <option value="">Elige el área…</option>
+        {areas.map((a) => (
+          <option key={a.codigo} value={a.codigo}>
+            {a.codigo} · {a.nombre}
+          </option>
+        ))}
+        <option value="+">＋ Agregar área nueva…</option>
+      </select>
+      {error && !agregando && <p className="mt-1.5 text-xs text-fx-error">{error}</p>}
+      {!agregando && valor && areas.find((a) => a.codigo === valor)?.descripcion && (
+        <p className="mt-1.5 text-[11.5px] text-white/45">{areas.find((a) => a.codigo === valor)!.descripcion}</p>
+      )}
+      {agregando && (
+        <div className="mt-2.5 grid gap-3 rounded-xl border border-white/10 bg-white/3 p-3.5 md:grid-cols-[120px_1fr]">
+          <div>
+            <label htmlFor="area-codigo" className="fx-label">
+              Sigla *
+            </label>
+            <input
+              id="area-codigo"
+              className="fx-input uppercase"
+              placeholder="Ej. LG"
+              maxLength={4}
+              value={codigo}
+              aria-invalid={!!errores.codigo}
+              onChange={(e) => setCodigo(e.target.value.toUpperCase().replace(/[^A-ZÑ]/g, "").replace("Ñ", "N"))}
+            />
+            {errores.codigo && <p className="mt-1.5 text-xs text-fx-error">{errores.codigo}</p>}
+          </div>
+          <div>
+            <label htmlFor="area-nombre" className="fx-label">
+              Nombre *
+            </label>
+            <input
+              id="area-nombre"
+              className="fx-input"
+              placeholder="Ej. Logística"
+              value={nombre}
+              aria-invalid={!!errores.nombre}
+              onChange={(e) => setNombre(e.target.value)}
+            />
+            {errores.nombre && <p className="mt-1.5 text-xs text-fx-error">{errores.nombre}</p>}
+          </div>
+          <div className="md:col-span-2">
+            <label htmlFor="area-desc" className="fx-label">
+              Descripción
+            </label>
+            <input
+              id="area-desc"
+              className="fx-input"
+              placeholder="Ej. Despachos, almacén y transporte de materiales"
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+            />
+          </div>
+          {errores._ && <p className="text-xs text-fx-error md:col-span-2">{errores._}</p>}
+          <div className="flex justify-end gap-2 md:col-span-2">
+            <button
+              type="button"
+              onClick={() => {
+                setAgregando(false);
+                setErrores({});
+              }}
+              className="fx-btn rounded-[10px] px-4 py-2 text-[13px] text-white/60"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={guardando}
+              onClick={guardar}
+              className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
+            >
+              {guardando ? "Guardando…" : "Agregar área"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Fecha, forma, banco y la foto de la operación (en vez de N° de operación y recibo). */
+function CamposDeposito(p: {
+  prefijo: string;
+  fecha: string;
+  setFecha: (v: string) => void;
+  forma: FormaIngreso;
+  setForma: (v: FormaIngreso) => void;
+  banco: string;
+  setBanco: (v: string) => void;
+  foto: File | null;
+  setFoto: (f: File | null) => void;
+  errores: Record<string, string>;
+}) {
+  return (
+    <>
+      <div>
+        <label htmlFor={`${p.prefijo}-fecha`} className="fx-label">
+          Fecha del depósito *
+        </label>
+        <input
+          id={`${p.prefijo}-fecha`}
+          type="date"
+          className="fx-input"
+          max={fechaHoyLima()}
+          value={p.fecha}
+          onChange={(e) => p.setFecha(e.target.value)}
+        />
+        {p.errores.fecha && <p className="mt-1.5 text-xs text-fx-error">{p.errores.fecha}</p>}
+      </div>
+      <div>
+        <label htmlFor={`${p.prefijo}-forma`} className="fx-label">
+          Forma
+        </label>
+        <select id={`${p.prefijo}-forma`} className="fx-input" value={p.forma} onChange={(e) => p.setForma(e.target.value as FormaIngreso)}>
+          {(Object.keys(ETIQUETA_FORMA_INGRESO) as FormaIngreso[]).map((f) => (
+            <option key={f} value={f}>
+              {ETIQUETA_FORMA_INGRESO[f]}
+            </option>
+          ))}
+        </select>
+      </div>
+      {p.forma === "banco" && (
+        <div>
+          <label htmlFor={`${p.prefijo}-banco`} className="fx-label">
+            Banco
+          </label>
+          <input
+            id={`${p.prefijo}-banco`}
+            className="fx-input"
+            placeholder="BCP, Interbank…"
+            value={p.banco}
+            onChange={(e) => p.setBanco(e.target.value)}
+          />
+        </div>
+      )}
+      <div className={p.forma === "banco" ? "" : "md:col-span-2"}>
+        <span className="fx-label">Foto de la operación</span>
+        <ElegirFoto id={`${p.prefijo}-foto`} foto={p.foto} onCambiar={p.setFoto} />
+      </div>
+    </>
+  );
+}
+
+function ElegirFoto({ id, foto, onCambiar }: { id: string; foto: File | null; onCambiar: (f: File | null) => void }) {
+  const entrada = useRef<HTMLInputElement>(null);
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        ref={entrada}
+        id={id}
+        type="file"
+        accept={MIME_PERMITIDOS.join(",")}
+        className="hidden"
+        onChange={(e) => onCambiar(e.target.files?.[0] ?? null)}
+      />
+      <button
+        type="button"
+        onClick={() => entrada.current?.click()}
+        className="fx-btn min-w-0 flex-1 truncate rounded-[10px] border border-dashed border-white/20 px-3.5 py-2.5 text-left text-[13px] text-white/70"
+      >
+        {foto ? `📎 ${foto.name}` : "Adjuntar foto o PDF del depósito / Yape"}
+      </button>
+      {foto && (
+        <button
+          type="button"
+          onClick={() => {
+            onCambiar(null);
+            if (entrada.current) entrada.current.value = "";
+          }}
+          className="fx-btn shrink-0 rounded-[10px] px-2.5 py-2 text-[12px] text-white/50 hover:text-white"
+        >
+          Quitar
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** En la lista de ingresos: adjuntar (o cambiar) la foto de un ingreso ya registrado. */
+export function AdjuntarFotoIngreso({
+  recargaId,
+  cajaId,
+  fecha,
+  monto,
+  almacen,
+}: {
+  recargaId: string;
+  cajaId: string;
+  fecha: string;
+  monto: number;
+  almacen: Almacen;
+}) {
+  const router = useRouter();
+  const entrada = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState("");
+  const [subiendo, iniciar] = useTransition();
+  return (
+    <>
+      <input
+        ref={entrada}
+        type="file"
+        accept={MIME_PERMITIDOS.join(",")}
+        className="hidden"
+        aria-label="Foto de la operación"
+        onChange={(e) => {
+          const archivo = e.target.files?.[0];
+          if (!archivo) return;
+          iniciar(async () => {
+            const err = await guardarFoto({ almacen, cajaId, recargaId, archivo, fecha, monto });
+            setError(err ?? "");
+            if (!err) router.refresh();
+          });
+        }}
+      />
+      <button
+        type="button"
+        disabled={subiendo}
+        title={error || undefined}
+        onClick={() => entrada.current?.click()}
+        className={`text-[11.5px] font-semibold hover:underline disabled:opacity-60 ${error ? "text-fx-error" : "text-fx-primary-light"}`}
+      >
+        {subiendo ? "Subiendo…" : error ? "No se subió · reintentar" : "＋ Foto"}
+      </button>
+    </>
   );
 }

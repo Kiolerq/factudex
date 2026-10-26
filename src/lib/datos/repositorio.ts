@@ -1,5 +1,6 @@
 import { cache } from "react";
 import type {
+  Area,
   CajaAdmin,
   DatosCaja,
   CambiosUsuario,
@@ -57,7 +58,11 @@ export interface Repositorio {
   revisarLiquidacion(id: string, aprobar: boolean, observaciones: string | null): Promise<void>;
 
   listarRecargas(cajaIds: string[], desde?: string): Promise<Recarga[]>;
-  registrarRecarga(r: NuevaRecarga): Promise<void>;
+  /** Devuelve el id del ingreso (para adjuntarle la foto del depósito). */
+  registrarRecarga(r: NuevaRecarga): Promise<string>;
+  adjuntarComprobanteRecarga(id: string, path: string, mime: string): Promise<void>;
+  listarAreas(): Promise<Area[]>;
+  crearArea(a: Area): Promise<void>;
 
   // Tesorería (quien llama ya fue verificado como tesorería o admin).
   autorizarMovimiento(id: string): Promise<void>;

@@ -7,6 +7,8 @@ import {
   EsquemaAdjuntarCompartido,
   EsquemaAnular,
   EsquemaAbrirCaja,
+  EsquemaArea,
+  EsquemaFotoIngreso,
   EsquemaCaja,
   EsquemaCambiosUsuario,
   EsquemaGenerarLiquidacion,
@@ -20,6 +22,7 @@ import {
   erroresPorCampo,
   type EntradaAdjuntarCompartido,
   type EntradaAbrirCaja,
+  type EntradaArea,
   type EntradaCaja,
   type EntradaCambiosUsuario,
   type EntradaNuevoUsuario,
@@ -307,11 +310,37 @@ export async function revisarLiquidacion(entrada: {
   return ejecutar(() => repo.revisarLiquidacion(datos.data.id, datos.data.aprobar, datos.data.observaciones));
 }
 
-export async function registrarRecarga(entrada: EntradaRecarga): Promise<Resultado> {
+export async function registrarRecarga(
+  entrada: EntradaRecarga,
+): Promise<{ ok: true; id: string } | { ok: false; errores: Record<string, string> }> {
   const datos = EsquemaNuevaRecarga.safeParse(entrada);
   if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
-  const repo = await repoAutenticado();
-  return ejecutar(() => repo.registrarRecarga(datos.data));
+  const repo = await repoTesoreria();
+  try {
+    const id = await repo.registrarRecarga(datos.data);
+    revalidatePath("/", "layout");
+    return { ok: true, id };
+  } catch (e) {
+    if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
+    throw e;
+  }
+}
+
+/** Foto del depósito de un ingreso (el navegador ya la subió a Drive o Storage). */
+export async function adjuntarFotoIngreso(entrada: z.input<typeof EsquemaFotoIngreso>): Promise<Resultado> {
+  const datos = EsquemaFotoIngreso.safeParse(entrada);
+  if (!datos.success) return { ok: false, errores: { _: "No se pudo registrar la foto" } };
+  const repo = await repoTesoreria();
+  const { recargaId, storagePath, mime } = datos.data;
+  return ejecutar(() => repo.adjuntarComprobanteRecarga(recargaId, storagePath, mime));
+}
+
+/** Tesorería agrega un área a la lista (la sigla que va en el código de la caja). */
+export async function crearArea(entrada: EntradaArea): Promise<Resultado> {
+  const datos = EsquemaArea.safeParse(entrada);
+  if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
+  const repo = await repoTesoreria();
+  return ejecutar(() => repo.crearArea(datos.data));
 }
 
 // --- Tesorería (tesorería o admin) ---
@@ -343,7 +372,7 @@ export async function guardarCaja(entrada: EntradaCaja): Promise<Resultado> {
  */
 export async function abrirCaja(
   entrada: EntradaAbrirCaja,
-): Promise<{ ok: true; codigo: string } | { ok: false; errores: Record<string, string> }> {
+): Promise<{ ok: true; codigo: string; cajaId: string; recargaId: string } | { ok: false; errores: Record<string, string> }> {
   const datos = EsquemaAbrirCaja.safeParse(entrada);
   if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
   const repo = await repoTesoreria();
@@ -351,8 +380,11 @@ export async function abrirCaja(
   const [cajas, empresas] = await Promise.all([repo.listarCajasAdmin(), repo.listarEmpresas()]);
   const empresa = empresas.find((e) => e.id === d.empresaId);
   if (!empresa) return { ok: false, errores: { empresaId: "Elige la empresa" } };
-  const numero = Math.max(0, ...cajas.filter((c) => c.empresaId === d.empresaId).map((c) => c.numero)) + 1;
-  if (numero > 99) return { ok: false, errores: { _: "La empresa ya tiene 99 cajas" } };
+  const usados = cajas.filter((c) => c.empresaId === d.empresaId).map((c) => c.numero);
+  const numero = d.numero ?? Math.max(0, ...usados) + 1;
+  if (numero > 99) return { ok: false, errores: { numero: "La empresa ya tiene 99 cajas" } };
+  if (usados.includes(numero))
+    return { ok: false, errores: { numero: `${empresa.codigo} ya tiene la caja N° ${String(numero).padStart(2, "0")}` } };
   const codigo = codigoCaja({ empresaCodigo: empresa.codigo, area: d.area, numero });
   try {
     const cajaId = await repo.guardarCaja({
@@ -364,8 +396,9 @@ export async function abrirCaja(
       umbralAlerta: d.umbralAlerta,
       activa: true,
     });
+    let recargaId: string;
     try {
-      await repo.registrarRecarga({
+      recargaId = await repo.registrarRecarga({
         cajaId,
         tipo: "apertura",
         liquidacionRepuestaId: null,
@@ -374,8 +407,8 @@ export async function abrirCaja(
         descripcion: `Apertura ${codigo}`,
         forma: d.forma,
         banco: d.forma === "banco" ? d.banco : null,
-        operacion: d.operacion,
-        recibo: d.recibo,
+        operacion: null,
+        recibo: null,
         nota: null,
       });
     } catch (e) {
@@ -384,7 +417,7 @@ export async function abrirCaja(
       throw e;
     }
     revalidatePath("/", "layout");
-    return { ok: true, codigo };
+    return { ok: true, codigo, cajaId, recargaId };
   } catch (e) {
     if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
     throw e;
@@ -459,8 +492,8 @@ export async function cambiarContrasenaUsuario(entrada: { id: string; password: 
 
 const EsquemaSubidaDrive = z.object({
   cajaId: z.uuid(),
-  movimientoId: z.uuid(),
-  tipo: z.enum(["documento", "pago", "otro"]),
+  movimientoId: z.uuid(), // o el id del ingreso, si tipo = "ingreso"
+  tipo: z.enum(["documento", "pago", "otro", "ingreso"]),
   mime: z.enum(MIME_PERMITIDOS),
   tamano: z.number().int().positive().max(TAMANO_MAXIMO),
   fecha: z.iso.date(),
@@ -492,7 +525,7 @@ export async function iniciarSubidaDrive(
   const empresa = empresas.find((e) => e.id === caja?.empresaId);
   if (!caja || !empresa) return { ok: false, error: "Caja no encontrada" };
 
-  const tipo: TipoAdjunto = d.data.tipo;
+  const tipo: TipoAdjunto | "ingreso" = d.data.tipo;
   const monto = d.data.monto !== null ? `S-${d.data.monto.toFixed(2)}` : "";
   const nombre = [d.data.fecha, d.data.referencia, monto, tipo].filter(Boolean).join("_") + `.${EXTENSION[d.data.mime]}`;
   try {

@@ -2,7 +2,13 @@ import Link from "next/link";
 import { BadgeLiquidacion } from "@/components/liquidaciones/BadgeLiquidacion";
 import { RevisarLiquidacion } from "@/components/liquidaciones/RevisarLiquidacion";
 import { AutorizarGasto } from "@/components/movimientos/AutorizarGasto";
-import { FormularioIngreso, type CajaIngreso, type EmpresaIngreso } from "@/components/tesoreria/FormularioIngreso";
+import {
+  AdjuntarFotoIngreso,
+  FormularioIngreso,
+  type CajaIngreso,
+  type EmpresaIngreso,
+} from "@/components/tesoreria/FormularioIngreso";
+import { almacenActivo } from "@/lib/drive/estado";
 import { GestionCajas } from "@/components/tesoreria/GestionCajas";
 import { contextoPagina, exigirTesoreria } from "@/lib/contexto";
 import { codigoCaja, ETIQUETA_FORMA_INGRESO, ETIQUETA_TIPO_RECARGA } from "@/lib/datos/tipos";
@@ -205,7 +211,7 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
   );
 
   async function Ingresos() {
-    const recargas = await repo.listarRecargas(ids);
+    const [recargas, areas, almacen] = await Promise.all([repo.listarRecargas(ids), repo.listarAreas(), almacenActivo()]);
     const empresasIngreso: EmpresaIngreso[] = empresas.map((e) => ({
       id: e.id,
       codigo: e.codigo,
@@ -221,7 +227,7 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
     }));
     return (
       <>
-        <FormularioIngreso cajas={cajasIngreso} empresas={empresasIngreso} />
+        <FormularioIngreso cajas={cajasIngreso} empresas={empresasIngreso} areas={areas} almacen={almacen} />
         <Seccion titulo="Últimos ingresos" vacio="Aún no hay ingresos registrados.">
           {recargas.length > 0 && (
           <div className="fx-card overflow-hidden">
@@ -237,6 +243,14 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
                       {[ETIQUETA_TIPO_RECARGA[r.tipo], r.folioRepuesto && `repone ${r.folioRepuesto}`, ETIQUETA_FORMA_INGRESO[r.forma], r.banco, r.operacion && `Op. ${r.operacion}`]
                         .filter(Boolean)
                         .join(" · ")}
+                      {" · "}
+                      {r.conFoto ? (
+                        <a href={`/api/recargas/${r.id}/comprobante`} target="_blank" rel="noreferrer" className="font-semibold text-fx-primary-light hover:underline">
+                          Ver foto
+                        </a>
+                      ) : (
+                        <AdjuntarFotoIngreso recargaId={r.id} cajaId={r.cajaId} fecha={r.fecha} monto={r.monto} almacen={almacen} />
+                      )}
                     </div>
                   </div>
                   <div className={`shrink-0 font-semibold ${r.monto < 0 ? "text-fx-error" : "text-fx-completo"}`}>

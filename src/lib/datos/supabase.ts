@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { TablesInsert, TablesUpdate } from "@/types/database";
 import { ErrorDeNegocio, type Repositorio } from "./repositorio";
 import { MODULOS, type DatosUsuario, type Modulo, type RolCaja, type UsuarioAdmin } from "./tipos";
-import { claveCentro } from "./tipos";
+import { AREAS_BASE, claveCentro } from "./tipos";
 import type {
   AdjuntoGuardado,
   CajaSaldo,
@@ -177,6 +177,7 @@ function aRecarga(r: FilaRecarga): Recarga {
     recibo: r.recibo,
     nota: r.nota,
     folioRepuesto: r.repuesta?.folio ?? null,
+    conFoto: false,
   };
 }
 
@@ -688,11 +689,40 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         .limit(500)
         .overrideTypes<FilaRecarga[], { merge: false }>();
       fallo(error, "Recargas");
-      return data.map(aRecarga);
+      // La foto del depósito va aparte: si aún no se corrió la migración 20261026, no hay fotos.
+      const fotos = await sb
+        .from("recargas")
+        .select("id, comprobante_path")
+        .in("id", data.map((r) => r.id))
+        .not("comprobante_path", "is", null);
+      const conFoto = new Set((fotos.data ?? []).map((f) => f.id));
+      return data.map((r) => ({ ...aRecarga(r), conFoto: conFoto.has(r.id) }));
+    },
+
+    async adjuntarComprobanteRecarga(id, path, mime) {
+      const { error } = await sb.rpc("adjuntar_comprobante_recarga", { p_recarga: id, p_path: path, p_mime: mime });
+      if (error?.code === "PGRST202") throw new ErrorDeNegocio("Falta correr en Supabase la migración 20261026000000 (foto del ingreso)");
+      if (error?.code === "42501") throw new ErrorDeNegocio("Solo tesorería puede adjuntar la foto de un ingreso");
+      falloNegocio(error, "Foto del ingreso");
+    },
+
+    async listarAreas() {
+      const { data, error } = await sb.from("areas").select("codigo, nombre, descripcion").order("codigo");
+      if (error) return AREAS_BASE; // sin la migración 20261026: las tres de siempre
+      return data;
+    },
+
+    async crearArea(a) {
+      const { error } = await sb.from("areas").insert({ codigo: a.codigo, nombre: a.nombre, descripcion: a.descripcion });
+      if (error?.code === "23505") throw new ErrorDeNegocio(`Ya existe el área ${a.codigo}`);
+      if (error?.code === "42P01" || error?.code === "PGRST205")
+        throw new ErrorDeNegocio("Falta correr en Supabase la migración 20261026000000 (áreas)");
+      if (error?.code === "42501") throw new ErrorDeNegocio("Solo tesorería puede agregar áreas");
+      falloNegocio(error, "Agregar área");
     },
 
     async registrarRecarga(r) {
-      const { error } = await sb.from("recargas").insert({
+      const { data, error } = await sb.from("recargas").insert({
         caja_id: r.cajaId,
         tipo: r.tipo,
         liquidacion_repuesta_id: r.liquidacionRepuestaId,
@@ -704,10 +734,11 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         operacion: r.operacion,
         recibo: r.recibo,
         nota: r.nota,
-      } as TablesInsert<"recargas">);
-      if (error?.code === "42501") throw new ErrorDeNegocio("Solo un aprobador de la caja puede registrar recargas");
+      } as TablesInsert<"recargas">).select("id").single();
+      if (error?.code === "42501") throw new ErrorDeNegocio("Solo tesorería puede registrar ingresos");
       if (error?.code === "23505") throw new ErrorDeNegocio("Esa liquidación ya tiene su reposición registrada");
       falloNegocio(error, "Registrar recarga");
+      return data!.id;
     },
 
     async listarUsuarios(): Promise<UsuarioAdmin[]> {

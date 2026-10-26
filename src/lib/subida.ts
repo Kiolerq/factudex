@@ -60,3 +60,41 @@ export async function subirAdjunto(opciones: {
   }
   return { tipo, storagePath: ruta, mimeType, tamanoBytes: archivo.size, nombreArchivo: archivo.name };
 }
+
+/** Foto del depósito de un ingreso: misma carpeta de la caja en Drive, o <caja_id>/ingresos/ en Storage. */
+export async function subirFotoIngreso(opciones: {
+  almacen: Almacen;
+  cajaId: string;
+  recargaId: string;
+  archivo: File;
+  fecha: string;
+  monto: number;
+}): Promise<{ storagePath: string; mime: MimePermitido }> {
+  const { almacen, cajaId, recargaId, archivo } = opciones;
+  const mime = archivo.type as MimePermitido;
+  if (almacen === "drive") {
+    const sesion = await iniciarSubidaDrive({
+      cajaId,
+      movimientoId: recargaId,
+      tipo: "ingreso",
+      mime,
+      tamano: archivo.size,
+      fecha: opciones.fecha,
+      referencia: "Ingreso",
+      monto: opciones.monto,
+    });
+    if (!sesion.ok) throw new Error(sesion.error);
+    const r = await fetch(sesion.url, { method: "PUT", headers: { "Content-Type": mime }, body: archivo });
+    if (!r.ok) throw new Error(`No se pudo subir la foto a Google Drive (${r.status})`);
+    const { id } = (await r.json()) as { id: string };
+    return { storagePath: `drive:${id}`, mime };
+  }
+  const ruta = `${cajaId}/ingresos/${nuevoUuid()}.${EXTENSION[mime] ?? "bin"}`; // nombre nuevo: sin pisar otra foto
+  if (almacen === "supabase") {
+    const { error } = await createClient()
+      .storage.from("comprobantes")
+      .upload(ruta, archivo, { contentType: mime, upsert: false });
+    if (error) throw new Error(`No se pudo subir la foto: ${error.message}`);
+  }
+  return { storagePath: ruta, mime };
+}

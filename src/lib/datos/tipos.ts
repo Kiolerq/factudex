@@ -303,7 +303,22 @@ export interface Recarga {
   recibo: string | null;
   nota: string | null;
   folioRepuesto: string | null; // liquidación que repone (solo en reposición)
+  conFoto: boolean; // foto del depósito: se ve en /api/recargas/<id>/comprobante
 }
+
+/** Área de una caja: la sigla va en el código (SL-CAJA-MT-01). */
+export interface Area {
+  codigo: string; // MT
+  nombre: string; // Mantenimiento
+  descripcion: string | null;
+}
+
+/** Si aún no se corrió la migración de áreas. */
+export const AREAS_BASE: Area[] = [
+  { codigo: "MT", nombre: "Mantenimiento", descripcion: null },
+  { codigo: "AD", nombre: "Administración", descripcion: null },
+  { codigo: "OP", nombre: "Operaciones", descripcion: null },
+];
 
 export interface NuevaRecarga {
   cajaId: string;

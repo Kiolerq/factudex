@@ -215,11 +215,27 @@ export const EsquemaAbrirCaja = z
     fecha: z.iso.date("Fecha inválida"),
     forma: z.enum(["banco", "efectivo", "otros"]),
     banco: textoOpcional(60),
-    operacion: textoOpcional(40),
-    recibo: textoOpcional(40),
+    /** null = el siguiente de la empresa; al empezar se puede poner el que ya venían usando. */
+    numero: EsquemaCaja.shape.numero.nullable(),
   })
   .refine((a) => a.fecha <= fechaHoyLima(), { path: ["fecha"], message: "La fecha no puede ser futura" });
 export type EntradaAbrirCaja = z.input<typeof EsquemaAbrirCaja>;
+
+export const EsquemaArea = z.object({
+  codigo: EsquemaCaja.shape.area,
+  nombre: z.string().trim().min(2, "Escribe el nombre").max(40, "Máximo 40 caracteres"),
+  descripcion: textoOpcional(200),
+});
+export type EntradaArea = z.input<typeof EsquemaArea>;
+
+/** Foto del depósito de un ingreso: en Drive o en Storage bajo <caja_id>/ingresos/. */
+export const EsquemaFotoIngreso = z.object({
+  recargaId: z.uuid(),
+  storagePath: z
+    .string()
+    .regex(/^(drive:[\w-]{10,}|[0-9a-f-]{36}\/ingresos\/[0-9a-f-]{36}\.(jpg|png|webp|heic|pdf))$/, "Archivo inválido"),
+  mime: z.enum(MIME_PERMITIDOS),
+});
 
 /** Fecha de hoy en Lima, formato YYYY-MM-DD. */
 export function fechaHoyLima(): string {

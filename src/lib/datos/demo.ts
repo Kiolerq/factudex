@@ -4,6 +4,8 @@ import { fechaHoyLima } from "./esquemas";
 import {
   estadoEsperado,
   type AdjuntoSubido,
+  type Area,
+  AREAS_BASE,
   type CajaSaldo,
   type DetalleLiquidacion,
   type Empresa,
@@ -57,7 +59,8 @@ interface LiquidacionDemo {
   saldoFinal: number | null;
   observaciones: string | null;
 }
-interface RecargaDemo extends Omit<Recarga, "folioRepuesto"> {
+interface RecargaDemo extends Omit<Recarga, "folioRepuesto" | "conFoto"> {
+  comprobantePath?: string | null;
   liquidacionIngresoId: string;
   liquidacionRepuestaId: string | null;
 }
@@ -72,6 +75,7 @@ interface Almacen {
   liquidaciones: LiquidacionDemo[];
   recargas: RecargaDemo[];
   usuarios: UsuarioAdmin[];
+  areas?: Area[];
 }
 
 function sembrar(): Almacen {
@@ -380,8 +384,12 @@ function resumenLiquidacion(l: LiquidacionDemo): LiquidacionResumen {
 }
 
 function aRecarga(r: RecargaDemo): Recarga {
-  const { liquidacionIngresoId: _, liquidacionRepuestaId, ...resto } = r;
-  return { ...resto, folioRepuesto: db.liquidaciones.find((l) => l.id === liquidacionRepuestaId)?.folio ?? null };
+  const { liquidacionIngresoId: _, liquidacionRepuestaId, comprobantePath, ...resto } = r;
+  return {
+    ...resto,
+    folioRepuesto: db.liquidaciones.find((l) => l.id === liquidacionRepuestaId)?.folio ?? null,
+    conFoto: !!comprobantePath,
+  };
 }
 
 /** Como tg_movimiento_bloqueo: solo se edita en una liquidación abierta u observada. */
@@ -664,12 +672,30 @@ export const repositorioDemo: Repositorio = {
       l.estado = "repuesta";
     }
     const { liquidacionRepuestaId, ...resto } = r;
+    const id = randomUUID();
     db.recargas.push({
       ...resto,
-      id: randomUUID(),
+      id,
       liquidacionIngresoId: liquidacionAbierta(r.cajaId).id,
       liquidacionRepuestaId,
     });
+    return id;
+  },
+
+  async adjuntarComprobanteRecarga(id, path) {
+    const r = db.recargas.find((x) => x.id === id);
+    if (!r) throw new ErrorDeNegocio("Ingreso no encontrado");
+    r.comprobantePath = path;
+  },
+
+  async listarAreas() {
+    return [...(db.areas ??= [...AREAS_BASE])].sort((a, b) => a.codigo.localeCompare(b.codigo));
+  },
+
+  async crearArea(a) {
+    const areas = (db.areas ??= [...AREAS_BASE]);
+    if (areas.some((x) => x.codigo === a.codigo)) throw new ErrorDeNegocio(`Ya existe el área ${a.codigo}`);
+    areas.push(a);
   },
 
   async listarUsuarios() {

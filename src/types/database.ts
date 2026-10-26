@@ -56,6 +56,27 @@ export type Database = {
           },
         ]
       }
+      areas: {
+        Row: {
+          codigo: string
+          created_at: string
+          descripcion: string | null
+          nombre: string
+        }
+        Insert: {
+          codigo: string
+          created_at?: string
+          descripcion?: string | null
+          nombre: string
+        }
+        Update: {
+          codigo?: string
+          created_at?: string
+          descripcion?: string | null
+          nombre?: string
+        }
+        Relationships: []
+      }
       adjuntos: {
         Row: {
           almacen: string
@@ -690,6 +711,8 @@ export type Database = {
       }
       recargas: {
         Row: {
+          comprobante_mime: string | null
+          comprobante_path: string | null
           banco: string | null
           caja_id: string
           created_at: string
@@ -707,6 +730,8 @@ export type Database = {
           tipo: Database["public"]["Enums"]["tipo_recarga"]
         }
         Insert: {
+          comprobante_mime?: string | null
+          comprobante_path?: string | null
           banco?: string | null
           caja_id: string
           created_at?: string
@@ -724,6 +749,8 @@ export type Database = {
           tipo?: Database["public"]["Enums"]["tipo_recarga"]
         }
         Update: {
+          comprobante_mime?: string | null
+          comprobante_path?: string | null
           banco?: string | null
           caja_id?: string
           created_at?: string
@@ -1049,6 +1076,10 @@ export type Database = {
       }
     }
     Functions: {
+      adjuntar_comprobante_recarga: {
+        Args: { p_mime: string; p_path: string; p_recarga: string }
+        Returns: undefined
+      }
       cerrar_liquidacion: {
         Args: { p_fecha_cierre?: string; p_liquidacion: string }
         Returns: {
