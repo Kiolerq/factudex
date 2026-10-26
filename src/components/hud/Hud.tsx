@@ -8,16 +8,16 @@ import { SelectorCaja } from "./SelectorCaja";
 interface Props {
   empresas: Empresa[];
   cajas: CajaSaldo[];
-  cajaActiva: CajaSaldo;
+  cajaActiva: CajaSaldo | null; // null: tesorería o admin sin ninguna caja abierta todavía
   usuario: Usuario;
   demo: boolean;
 }
 
 /** HUD superior: logo, empresa/caja activa, saldos de las cajas y navegación. */
 export function Hud({ empresas, cajas, cajaActiva, usuario, demo }: Props) {
-  const empresa = empresas.find((e) => e.id === cajaActiva.empresaId);
+  const empresa = empresas.find((e) => e.id === cajaActiva?.empresaId);
   const pendientesEmpresa = cajas
-    .filter((c) => c.empresaId === cajaActiva.empresaId)
+    .filter((c) => c.empresaId === cajaActiva?.empresaId)
     .reduce((s, c) => s + c.pendientes, 0);
 
   return (
@@ -33,8 +33,14 @@ export function Hud({ empresas, cajas, cajaActiva, usuario, demo }: Props) {
           <div className="min-w-0">
             <div className="font-display text-base font-bold tracking-[0.2px] md:text-xl">Factudex</div>
             <div className="hidden truncate text-xs text-white/45 md:block">
-              {empresa?.nombreCorto} <span className="text-white/30">›</span> Caja{" "}
-              {String(cajaActiva.numero).padStart(2, "0")} · {cajaActiva.nombre}
+              {cajaActiva ? (
+                <>
+                  {empresa?.nombreCorto} <span className="text-white/30">›</span> Caja{" "}
+                  {String(cajaActiva.numero).padStart(2, "0")} · {cajaActiva.nombre}
+                </>
+              ) : (
+                "Sin cajas abiertas"
+              )}
             </div>
           </div>
           {demo && (
@@ -48,6 +54,7 @@ export function Hud({ empresas, cajas, cajaActiva, usuario, demo }: Props) {
         </div>
 
         <div className="flex items-center gap-3">
+          {cajaActiva && (
           <div
             className={`flex items-center gap-2.5 rounded-full border px-2.5 py-[5px] md:px-4 md:py-2 ${
               cajaActiva.bajoUmbral
@@ -64,6 +71,7 @@ export function Hud({ empresas, cajas, cajaActiva, usuario, demo }: Props) {
               {formatoSoles(cajaActiva.saldo)}
             </span>
           </div>
+          )}
           <Link
             href="/cuenta"
             title={`${usuario.nombre} — mi cuenta`}
@@ -74,9 +82,19 @@ export function Hud({ empresas, cajas, cajaActiva, usuario, demo }: Props) {
         </div>
       </div>
 
-      <SelectorCaja empresas={empresas} cajas={cajas} cajaActivaId={cajaActiva.id} />
+      {cajaActiva ? (
+        <SelectorCaja empresas={empresas} cajas={cajas} cajaActivaId={cajaActiva.id} />
+      ) : (
+        <div className="fx-card px-4 py-3 text-[13px] text-white/60">
+          Aún no hay cajas. Ábrelas en{" "}
+          <Link href="/tesoreria?vista=ingresos" className="font-semibold text-fx-primary-light hover:underline">
+            Tesorería → Ingresos → ＋ Abrir caja nueva
+          </Link>
+          .
+        </div>
+      )}
 
-      {cajaActiva.bajoUmbral && (
+      {cajaActiva?.bajoUmbral && (
         <div
           role="status"
           className="rounded-xl border border-fx-pendiente/40 bg-fx-pendiente/10 px-4 py-2.5 text-[12.5px] text-fx-pendiente"

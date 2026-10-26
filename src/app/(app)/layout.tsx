@@ -21,7 +21,8 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
   const [empresas, cajas] = await Promise.all([repo.listarEmpresas(), repo.listarCajas()]);
   const cajaActiva = await leerCajaActiva(cajas);
 
-  if (!cajaActiva) {
+  // Tesorería y admin entran aunque no haya cajas: así abren la primera desde Tesorería.
+  if (!cajaActiva && !usuario.esTesoreria) {
     return (
       <main className="flex flex-1 items-center justify-center p-6">
         <div className="fx-card max-w-md p-8 text-center text-sm text-white/60">
@@ -33,7 +34,7 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
 
   return (
     <div
-      data-empresa={cajaActiva.empresaCodigo}
+      data-empresa={cajaActiva?.empresaCodigo ?? "SL"}
       className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col gap-5 px-5 pb-8 pt-[18px] md:gap-7 md:px-14 md:pb-16 md:pt-9"
     >
       <Hud
