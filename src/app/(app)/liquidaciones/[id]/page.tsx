@@ -5,7 +5,7 @@ import { CerrarLiquidacion } from "@/components/liquidaciones/CerrarLiquidacion"
 import { RevisarLiquidacion } from "@/components/liquidaciones/RevisarLiquidacion";
 import { Totales } from "@/components/liquidaciones/Totales";
 import { textoFalta } from "@/components/movimientos/textos";
-import { exigirModulo } from "@/lib/contexto";
+import { exigirDetalle } from "@/lib/contexto";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
 import { codigoCaja, ETIQUETA_DOCUMENTO, ETIQUETA_FORMA_INGRESO, ETIQUETA_TIPO_RECARGA } from "@/lib/datos/tipos";
 import { formatoFecha, formatoSoles } from "@/lib/formato";
@@ -13,7 +13,7 @@ import { formatoFecha, formatoSoles } from "@/lib/formato";
 export const metadata = { title: "Liquidación · Factudex" };
 
 export default async function PaginaLiquidacion({ params }: PageProps<"/liquidaciones/[id]">) {
-  await exigirModulo("liquidaciones");
+  const yo = await exigirDetalle("liquidaciones");
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const repo = await obtenerRepositorio();
@@ -24,8 +24,8 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
 
   return (
     <main className="flex flex-col gap-4 md:gap-5">
-      <Link prefetch={false} href="/liquidaciones" className="text-[13px] text-white/50 hover:text-white">
-        ← Liquidaciones
+      <Link prefetch={false} href={yo.esAdmin || !yo.esTesoreria ? "/liquidaciones" : "/tesoreria"} className="text-[13px] text-white/50 hover:text-white">
+        ← {yo.esAdmin || !yo.esTesoreria ? "Liquidaciones" : "Tesorería"}
       </Link>
 
       <section className="fx-card flex flex-col gap-4 p-4 md:p-6">

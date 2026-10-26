@@ -19,12 +19,16 @@ export const SECCIONES: { href: string; texto: string; acceso: Acceso }[] = [
 interface Props {
   pendientes: number;
   modulos: Modulo[];
+  esAdmin: boolean;
   esTesoreria: boolean;
 }
 
-export function Navegacion({ pendientes, modulos, esTesoreria }: Props) {
+export function Navegacion({ pendientes, modulos, esAdmin, esTesoreria }: Props) {
   const ruta = usePathname();
-  const visibles = SECCIONES.filter((s) => esTesoreria || (s.acceso !== "tesoreria" && modulos.includes(s.acceso)));
+  // Admin: todo. Tesorería: Panel, Tesorería y Usuarios. Registrador: sus módulos.
+  const visibles = SECCIONES.filter((s) =>
+    esAdmin || (esTesoreria ? s.acceso === "tesoreria" : s.acceso !== "tesoreria" && modulos.includes(s.acceso)),
+  );
   return (
     <nav aria-label="Secciones" className="fx-scroll-x -mx-5 flex gap-2 overflow-x-auto px-5 md:mx-0 md:px-0">
       {visibles.map((s) => {

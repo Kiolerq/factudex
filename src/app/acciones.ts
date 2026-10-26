@@ -28,7 +28,7 @@ import {
   type EntradaRecarga,
 } from "@/lib/datos/esquemas";
 import { ErrorDeNegocio, modoDemo, obtenerRepositorio, type Repositorio } from "@/lib/datos/repositorio";
-import { codigoCaja } from "@/lib/datos/tipos";
+import { codigoCaja, esSoloTesoreria } from "@/lib/datos/tipos";
 import type {
   AdjuntoSubido,
   EstadoMovimiento,
@@ -53,6 +53,15 @@ import { z } from "zod";
 async function repoAutenticado() {
   const repo = await obtenerRepositorio();
   if (!(await repo.usuarioActual())) throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
+  return repo;
+}
+
+/** Registrar, sustentar y liquidar gastos es del registrador (y del admin), no de tesorería. */
+async function repoRegistrador() {
+  const repo = await obtenerRepositorio();
+  const yo = await repo.usuarioActual();
+  if (!yo) throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
+  if (esSoloTesoreria(yo)) throw new Error("Tesorería no registra gastos ni genera liquidaciones: lo hace el registrador de la caja.");
   return repo;
 }
 
@@ -153,7 +162,7 @@ export async function registrarMovimiento(entrada: EntradaMovimiento): Promise<R
   const errorArchivos = await verificarAdjuntos(movimiento.cajaId, movimiento.id, movimiento.adjuntos);
   if (errorArchivos) return { ok: false, errores: { _: errorArchivos } };
 
-  const repo = await repoAutenticado();
+  const repo = await repoRegistrador();
   try {
     const r = await repo.registrarMovimiento(movimiento);
     revalidatePath("/", "layout");
@@ -184,7 +193,7 @@ export async function completarMovimiento(
 ): Promise<{ ok: true; estado: EstadoMovimiento } | { ok: false; errores: Record<string, string> }> {
   const datos = EsquemaCompletarMovimiento.safeParse(entrada);
   if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
-  const repo = await repoAutenticado();
+  const repo = await repoRegistrador();
   const actual = await repo.obtenerMovimiento(datos.data.id); // con RLS: si no lo ve, no existe
   if (!actual) return { ok: false, errores: { _: "El movimiento no existe" } };
   if (actual.anulado) return { ok: false, errores: { _: "El movimiento está anulado" } };
@@ -205,7 +214,7 @@ export async function completarMovimiento(
 export async function pendientesParaAdjuntar(cajaIds: string[]): Promise<MovimientoResumen[]> {
   const ids = z.array(z.uuid()).max(100).safeParse(cajaIds);
   if (!ids.success) return [];
-  const repo = await repoAutenticado();
+  const repo = await repoRegistrador();
   const { movimientos } = await repo.listarMovimientos({ cajaIds: ids.data, estado: "pendiente", texto: "", limite: 300 });
   return movimientos;
 }
@@ -220,7 +229,7 @@ export async function adjuntarCompartido(
   const datos = EsquemaAdjuntarCompartido.safeParse(entrada);
   if (!datos.success) return { ok: false, error: "Datos inválidos" };
   const { id, tipo, subtipo, adjunto, leido } = datos.data;
-  const repo = await repoAutenticado();
+  const repo = await repoRegistrador();
   const m = await repo.obtenerMovimiento(id); // con RLS: si no lo ve, no existe
   if (!m || m.anulado) return { ok: false, error: "El gasto no existe o está anulado" };
 
@@ -262,7 +271,7 @@ export async function anularMovimiento(entrada: { id: string; motivo: string }):
 
 export async function cerrarLiquidacion(id: string): Promise<Resultado> {
   if (!z.uuid().safeParse(id).success) return { ok: false, errores: { _: "Liquidación inválida" } };
-  const repo = await repoAutenticado();
+  const repo = await repoRegistrador();
   return ejecutar(() => repo.cerrarLiquidacion(id));
 }
 
@@ -275,7 +284,7 @@ export async function generarLiquidacion(entrada: {
 }): Promise<{ ok: true; folio: string } | { ok: false; errores: Record<string, string> }> {
   const datos = EsquemaGenerarLiquidacion.safeParse(entrada);
   if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
-  const repo = await repoAutenticado();
+  const repo = await repoRegistrador();
   const { cajaId, desde, hasta, excluir } = datos.data;
   try {
     const folio = await repo.generarLiquidacion(cajaId, desde, hasta, excluir);

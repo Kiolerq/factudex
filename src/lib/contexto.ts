@@ -2,7 +2,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
-import { MODULOS, type Modulo, type Usuario } from "@/lib/datos/tipos";
+import { esSoloTesoreria, MODULOS, type Modulo, type Usuario } from "@/lib/datos/tipos";
 import { leerCajaActiva } from "@/lib/seleccion";
 
 /** Usuario de la petición (una sola consulta aunque lo pidan el layout y la página). */
@@ -22,14 +22,23 @@ export function rutaInicio(u: Pick<Usuario, "esTesoreria" | "modulos">): string 
 }
 
 /**
- * La página solo se muestra si el usuario tiene alguno de estos módulos (o es tesorería, que ve
- * todo); si no, vuelve a su inicio. Es lo que ve en pantalla: qué datos puede tocar lo decide el RLS.
+ * Pantallas del registrador (Registro, Pendientes, Historial, Liquidaciones): solo si tiene alguno
+ * de estos módulos (el admin ve todo; tesorería no); si no, vuelve a su inicio. Es lo que ve en
+ * pantalla: qué datos puede tocar lo decide el RLS.
  */
 export async function exigirModulo(...modulos: Modulo[]) {
   const u = await usuarioPeticion();
   if (!u) redirect("/login");
-  if (!u.esTesoreria && !modulos.some((m) => u.modulos.includes(m))) redirect(rutaInicio(u));
+  if (!u.esAdmin && (u.esTesoreria || !modulos.some((m) => u.modulos.includes(m)))) redirect(rutaInicio(u));
   return u;
+}
+
+/** Detalle de un gasto o una liquidación: además lo abre tesorería desde su bandeja. */
+export async function exigirDetalle(...modulos: Modulo[]) {
+  const u = await usuarioPeticion();
+  if (!u) redirect("/login");
+  if (esSoloTesoreria(u)) return u;
+  return exigirModulo(...modulos);
 }
 
 /** Solo tesorería (o admin). */

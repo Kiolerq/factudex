@@ -348,6 +348,9 @@ export function nombreCaja(caja: Pick<CajaSaldo, "numero" | "nombre">) {
 }
 
 /** Código de la caja: SL-CAJA-MT-01 (empresa, área y número). */
+/** Tesorería sin ser admin: ve Panel, Tesorería y Usuarios, no las pantallas del registrador. */
+export const esSoloTesoreria = (u: Pick<Usuario, "esAdmin" | "esTesoreria">) => u.esTesoreria && !u.esAdmin;
+
 export function codigoCaja(caja: Pick<CajaSaldo, "empresaCodigo" | "area" | "numero">) {
   return `${caja.empresaCodigo}-CAJA-${caja.area}-${String(caja.numero).padStart(2, "0")}`;
 }

@@ -130,7 +130,7 @@ export default async function PaginaPanel({ searchParams }: PageProps<"/panel">)
           valor={formatoSoles(suma(pendientes.movimientos))}
           detalle={`${pendientes.total} pendiente${pendientes.total === 1 ? "" : "s"}`}
           tono={pendientes.total ? "pendiente" : undefined}
-          href="/pendientes"
+          href={yo.esAdmin ? "/pendientes" : undefined}
         />
       </div>
 

@@ -5,7 +5,7 @@ import { AutorizarGasto } from "@/components/movimientos/AutorizarGasto";
 import { CompletarPendiente } from "@/components/movimientos/CompletarPendiente";
 import { textoFalta } from "@/components/movimientos/textos";
 import { BadgeEstado } from "@/components/ui/BadgeEstado";
-import { exigirModulo } from "@/lib/contexto";
+import { exigirDetalle } from "@/lib/contexto";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
 import { ETIQUETA_DOCUMENTO, ETIQUETA_LIQUIDACION, ETIQUETA_MEDIO_PAGO } from "@/lib/datos/tipos";
 import { almacenActivo } from "@/lib/drive/estado";
@@ -14,7 +14,7 @@ import { formatoFecha, formatoSoles } from "@/lib/formato";
 export const metadata = { title: "Movimiento · Factudex" };
 
 export default async function PaginaMovimiento({ params }: PageProps<"/movimientos/[id]">) {
-  const yo = await exigirModulo("historial", "pendientes");
+  const yo = await exigirDetalle("historial", "pendientes");
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const repo = await obtenerRepositorio();
@@ -49,7 +49,7 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
 
   return (
     <main className="flex flex-col gap-4 md:gap-5">
-      <Link prefetch={false} href="/historial" className="text-[13px] text-white/50 hover:text-white">
+      <Link prefetch={false} href={yo.esAdmin || !yo.esTesoreria ? "/historial" : "/tesoreria"} className="text-[13px] text-white/50 hover:text-white">
         ← Historial
       </Link>
 
@@ -142,7 +142,7 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
       {pendiente && permisos.registrar && (
         <CompletarPendiente movimiento={m} almacen={almacen} medioEditable={liquidacionAbierta} />
       )}
-      {!m.anulado && liquidacionAbierta && permisos.registrar && <AnularMovimiento id={m.id} />}
+      {!m.anulado && liquidacionAbierta && (permisos.registrar || permisos.aprobar) && <AnularMovimiento id={m.id} />}
     </main>
   );
 }

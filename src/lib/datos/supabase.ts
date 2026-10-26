@@ -425,7 +425,8 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
     async permisosCaja(cajaId) {
       const yo = await usuarioActual();
       if (!yo?.activo) return { registrar: false, aprobar: false };
-      if (yo.esAdmin || yo.esTesoreria) return { registrar: true, aprobar: true };
+      if (yo.esAdmin) return { registrar: true, aprobar: true };
+      if (yo.esTesoreria) return { registrar: false, aprobar: true }; // revisa, no registra ni liquida
       const rol = (await misAccesos()).get(cajaId);
       return { registrar: rol === "registrador" || rol === "aprobador", aprobar: rol === "aprobador" };
     },
