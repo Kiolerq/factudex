@@ -727,6 +727,7 @@ export type Database = {
           operacion: string | null
           recibo: string | null
           registrado_por: string
+          traspaso_caja_id: string | null
           tipo: Database["public"]["Enums"]["tipo_recarga"]
         }
         Insert: {
@@ -746,6 +747,7 @@ export type Database = {
           operacion?: string | null
           recibo?: string | null
           registrado_por?: string
+          traspaso_caja_id?: string | null
           tipo?: Database["public"]["Enums"]["tipo_recarga"]
         }
         Update: {
@@ -765,6 +767,7 @@ export type Database = {
           operacion?: string | null
           recibo?: string | null
           registrado_por?: string
+          traspaso_caja_id?: string | null
           tipo?: Database["public"]["Enums"]["tipo_recarga"]
         }
         Relationships: [
@@ -1076,6 +1079,10 @@ export type Database = {
       }
     }
     Functions: {
+      traspasar_caja: {
+        Args: { p_anterior: string; p_nueva: string }
+        Returns: number
+      }
       adjuntar_comprobante_recarga: {
         Args: { p_mime: string; p_path: string; p_recarga: string }
         Returns: undefined

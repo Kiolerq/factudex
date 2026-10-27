@@ -706,6 +706,15 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       falloNegocio(error, "Foto del ingreso");
     },
 
+    async traspasarCaja(anteriorId, nuevaId) {
+      const { data, error } = await sb.rpc("traspasar_caja", { p_anterior: anteriorId, p_nueva: nuevaId });
+      if (error?.code === "PGRST202") throw new ErrorDeNegocio("Falta correr en Supabase la migración 20261027000000 (saldo de caja anterior)");
+      if (error?.code === "42501") throw new ErrorDeNegocio("Solo tesorería puede pasar el saldo de una caja");
+      if (error?.code === "22023" || error?.code === "P0002") throw new ErrorDeNegocio(error.message);
+      falloNegocio(error, "Pasar saldo de la caja anterior");
+      return Number(data);
+    },
+
     async listarAreas() {
       const { data, error } = await sb.from("areas").select("codigo, nombre, descripcion").order("codigo");
       if (error) return AREAS_BASE; // sin la migración 20261026: las tres de siempre

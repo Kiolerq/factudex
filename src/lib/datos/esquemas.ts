@@ -217,8 +217,21 @@ export const EsquemaAbrirCaja = z
     banco: textoOpcional(60),
     /** null = el siguiente de la empresa; al empezar se puede poner el que ya venían usando. */
     numero: EsquemaCaja.shape.numero.nullable(),
+    /** Caja anterior de la misma empresa y área: le pasa su saldo y sus gastos sin liquidar, y se cierra. */
+    cajaAnteriorId: z.uuid().nullable(),
+    /** Primera vez (sin caja anterior en la app): saldo que traían, a favor o en contra. */
+    saldoAnterior: z
+      .number("Monto inválido")
+      .refine((m) => Math.abs(m) <= 1000000, "Monto demasiado alto")
+      .refine((m) => Math.abs(m * 100 - Math.round(m * 100)) < 1e-6, "Máximo 2 decimales")
+      .nullable(),
+    saldoAnteriorNota: textoOpcional(80),
   })
-  .refine((a) => a.fecha <= fechaHoyLima(), { path: ["fecha"], message: "La fecha no puede ser futura" });
+  .refine((a) => a.fecha <= fechaHoyLima(), { path: ["fecha"], message: "La fecha no puede ser futura" })
+  .refine((a) => !(a.cajaAnteriorId && a.saldoAnterior), {
+    path: ["saldoAnterior"],
+    message: "El saldo ya viene de la caja anterior",
+  });
 export type EntradaAbrirCaja = z.input<typeof EsquemaAbrirCaja>;
 
 export const EsquemaArea = z.object({

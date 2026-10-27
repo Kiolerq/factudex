@@ -58,7 +58,16 @@ Cada vez que se liquida una caja y se necesita una nueva:
 5. **Monto de apertura** y **umbral de alerta** (cuando el saldo baje de ese monto, se avisa).
 6. Datos del depósito: **fecha**, **forma** (banco, efectivo, otros), **banco** y la **foto de la
    operación** (foto o PDF del voucher o Yape).
-7. **Abrir caja.**
+7. **Saldo de caja anterior** (aparece al elegir el área):
+   - Si hay una caja abierta de la **misma empresa y área** (ej. `SL-CAJA-MT-02`), viene marcada
+     **"Pasar el saldo de SL-CAJA-MT-02"**. Su saldo, a favor o en contra, se suma o descuenta a la nueva.
+     Los gastos que no entraron a ninguna liquidación (pendientes, por autorizar o sin rendir) **pasan a
+     la nueva caja**, la anterior **se cierra sola** y su registrador queda asignado a la nueva.
+   - Si no quieres pasarlo, marca *No pasar saldo* (la anterior sigue abierta).
+   - **Primera vez** (no hay caja anterior en la app porque venían en Excel o papel): escribe el
+     **saldo que traían** (en contra con signo menos, ej. `-50.00`) y de qué caja viene.
+   - Abajo ves el total: *Abono S/ 2,000.00 + saldo anterior S/ 150.00 = Arranca con S/ 2,150.00*.
+8. **Abrir caja.**
 
 El **código se arma solo** y lo ves arriba del formulario mientras escribes:
 `EMPRESA-CAJA-ÁREA-NN`, por ejemplo `SL-CAJA-MT-01`, `SIPE-CAJA-AD-02`.
@@ -67,7 +76,12 @@ El **código se arma solo** y lo ves arriba del formulario mientras escribes:
   aunque sea de otra área.
 - Las liquidaciones de la caja también se numeran solas: `SL-LIQ-MT-001`, `002`…
 
-**Después de abrirla:** ve a **Usuarios** y asígnala al registrador que la va a manejar.
+**Después de abrirla:** si pasó el saldo de una caja anterior, su registrador ya la tiene. Si es una caja
+nueva sin anterior, ve a **Usuarios** y asígnala al registrador que la va a manejar.
+
+En **Últimos ingresos** el traspaso sale como *"Saldo de SL-CAJA-MT-02"* en la nueva y *"Saldo pasado a
+SL-CAJA-MT-03"* en la anterior. Si pasaron gastos sin liquidar, el monto los incluye (dice cuánto era
+efectivo): esos gastos ahora se rinden en la caja nueva.
 
 ### Recargar caja (agregar dinero a una caja que ya existe)
 
@@ -117,8 +131,9 @@ gestiona el administrador.
 3. Los gastos sobre el tope esperan tu **autorización**.
 4. El registrador **genera la liquidación** de un rango de fechas → *En revisión*.
 5. Tesorería **aprueba** u **observa**.
-6. Cuando la caja se agota: se liquida hasta el último gasto, tesorería la **cierra** (Cajas → desmarcar
-   *activa*) y **abre una caja nueva** con su dinero.
+6. Cuando la caja se agota: el registrador liquida lo que tiene completo y tesorería **abre la caja
+   nueva** de la misma empresa y área. El saldo que quedó (a favor o en contra) y los gastos pendientes
+   pasan solos a la nueva, y la anterior se cierra.
 
 ## 8. Preguntas rápidas
 

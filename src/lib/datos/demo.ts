@@ -20,6 +20,7 @@ import {
   type UsuarioAdmin,
   MODULOS,
   claveCentro,
+  codigoCaja,
 } from "./tipos";
 
 // Modo demo: réplica en memoria de supabase/seed.sql + algunos movimientos para que los
@@ -686,6 +687,62 @@ export const repositorioDemo: Repositorio = {
     const r = db.recargas.find((x) => x.id === id);
     if (!r) throw new ErrorDeNegocio("Ingreso no encontrado");
     r.comprobantePath = path;
+  },
+
+  async traspasarCaja(anteriorId, nuevaId) {
+    const a = db.cajas.find((c) => c.id === anteriorId);
+    const n = db.cajas.find((c) => c.id === nuevaId);
+    if (!a || !n || a.id === n.id) throw new ErrorDeNegocio("Caja no encontrada");
+    if (a.empresaId !== n.empresaId || a.area !== n.area)
+      throw new ErrorDeNegocio("El saldo solo pasa entre cajas de la misma empresa y área");
+    if (!a.activa) throw new ErrorDeNegocio("La caja anterior ya está cerrada");
+    const codigo = (c: CajaDemo) =>
+      codigoCaja({ empresaCodigo: db.empresas.find((e) => e.id === c.empresaId)!.codigo, area: c.area, numero: c.numero });
+    const liqA = liquidacionAbierta(a.id);
+    const liqN = liquidacionAbierta(n.id);
+    const vivos = (m: MovimientoDemo) => !m.anulado;
+    const efectivo = redondear(
+      suma(db.recargas.filter((r) => r.cajaId === a.id), (r) => r.monto) -
+        suma(db.movimientos.filter((m) => m.cajaId === a.id && vivos(m)), (m) => m.monto),
+    );
+    let saldo = efectivo;
+    const movidos = db.movimientos.filter((x) => x.liquidacionId === liqA.id && vivos(x));
+    for (const m of movidos) {
+      saldo += m.monto;
+      m.cajaId = n.id;
+      m.liquidacionId = liqN.id;
+    }
+    saldo = redondear(saldo);
+    const hoy = fechaHoyLima();
+    const ajuste = (cajaId: string, monto: number, descripcion: string, liq: LiquidacionDemo): RecargaDemo => ({
+      id: randomUUID(),
+      cajaId,
+      tipo: "ajuste",
+      monto,
+      fecha: hoy,
+      descripcion,
+      forma: "otros",
+      banco: null,
+      operacion: null,
+      recibo: null,
+      nota: null,
+      liquidacionIngresoId: liq.id,
+      liquidacionRepuestaId: null,
+    });
+    const detalle = movidos.length
+      ? ` (efectivo S/ ${efectivo.toFixed(2)} + ${movidos.length} gasto${movidos.length === 1 ? "" : "s"} sin liquidar)`
+      : "";
+    if (saldo !== 0)
+      db.recargas.push(
+        ajuste(a.id, -saldo, `Saldo pasado a ${codigo(n)}${detalle}`, liqA),
+        ajuste(n.id, saldo, `Saldo de ${codigo(a)}${detalle}`, liqN),
+      );
+    for (const u of db.usuarios) {
+      const acceso = u.accesos.find((x) => x.cajaId === a.id);
+      if (acceso && !u.accesos.some((x) => x.cajaId === n.id)) u.accesos.push({ cajaId: n.id, rol: acceso.rol });
+    }
+    a.activa = false;
+    return saldo;
   },
 
   async listarAreas() {

@@ -5,6 +5,7 @@ import { AutorizarGasto } from "@/components/movimientos/AutorizarGasto";
 import {
   AdjuntarFotoIngreso,
   FormularioIngreso,
+  type CajaAnterior,
   type CajaIngreso,
   type EmpresaIngreso,
 } from "@/components/tesoreria/FormularioIngreso";
@@ -109,7 +110,10 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
               .sort((a, b) => Number(b.activa) - Number(a.activa) || codigoCaja(a).localeCompare(codigoCaja(b)))
               .map((c) => {
                 const saldo = cajaDe(c.id);
-                const suyas = liquidaciones.filter((l) => l.cajaId === c.id).sort((a, b) => b.correlativo - a.correlativo);
+                // De una caja cerrada no se muestra la abierta vacía que quedó tras pasar su saldo.
+                const suyas = liquidaciones
+                  .filter((l) => l.cajaId === c.id && (c.activa || l.estado !== "abierta" || l.numMovimientos > 0))
+                  .sort((a, b) => b.correlativo - a.correlativo);
                 const liquidado = suyas.filter((l) => l.estado !== "abierta").reduce((t, l) => t + l.egresos, 0);
                 return (
                   <details key={c.id} className="fx-card group overflow-hidden">
@@ -212,6 +216,15 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
 
   async function Ingresos() {
     const [recargas, areas, almacen] = await Promise.all([repo.listarRecargas(ids), repo.listarAreas(), almacenActivo()]);
+    const anteriores: CajaAnterior[] = cajas.map((c) => ({
+      id: c.id,
+      empresaId: c.empresaId,
+      area: c.area,
+      numero: c.numero,
+      codigo: codigoCaja(c),
+      saldo: c.saldo,
+      sinLiquidar: liquidaciones.find((l) => l.cajaId === c.id && l.estado === "abierta")?.numMovimientos ?? 0,
+    }));
     const empresasIngreso: EmpresaIngreso[] = empresas.map((e) => ({
       id: e.id,
       codigo: e.codigo,
@@ -227,7 +240,7 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
     }));
     return (
       <>
-        <FormularioIngreso cajas={cajasIngreso} empresas={empresasIngreso} areas={areas} almacen={almacen} />
+        <FormularioIngreso cajas={cajasIngreso} empresas={empresasIngreso} areas={areas} anteriores={anteriores} almacen={almacen} />
         <Seccion titulo="Últimos ingresos" vacio="Aún no hay ingresos registrados.">
           {recargas.length > 0 && (
           <div className="fx-card overflow-hidden">

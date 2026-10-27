@@ -35,6 +35,18 @@ export interface EmpresaIngreso {
   numeros: number[];
 }
 
+/** Caja abierta que puede pasar su saldo a la nueva (misma empresa y área). */
+export interface CajaAnterior {
+  id: string;
+  empresaId: string;
+  area: string;
+  numero: number;
+  codigo: string;
+  saldo: number;
+  /** Gastos que no entraron a ninguna liquidación: pasan a la nueva. */
+  sinLiquidar: number;
+}
+
 const OTROS: TipoRecarga[] = ["extraordinaria", "apertura", "ajuste"];
 
 /** Sube la foto del depósito y la registra en el ingreso. Devuelve el error, o null si fue bien. */
@@ -57,11 +69,13 @@ export function FormularioIngreso({
   cajas,
   empresas,
   areas,
+  anteriores,
   almacen,
 }: {
   cajas: CajaIngreso[];
   empresas: EmpresaIngreso[];
   areas: Area[];
+  anteriores: CajaAnterior[];
   almacen: Almacen;
 }) {
   const [modo, setModo] = useState<"recargar" | "abrir">(cajas.length ? "recargar" : "abrir");
@@ -91,7 +105,7 @@ export function FormularioIngreso({
       {modo === "recargar" ? (
         <RecargarCaja cajas={cajas} almacen={almacen} />
       ) : (
-        <AbrirCaja empresas={empresas} areas={areas} almacen={almacen} />
+        <AbrirCaja empresas={empresas} areas={areas} anteriores={anteriores} almacen={almacen} />
       )}
     </div>
   );
@@ -258,7 +272,17 @@ function RecargarCaja({ cajas, almacen }: { cajas: CajaIngreso[]; almacen: Almac
 }
 
 /** Abrir una caja nueva: empresa, área de la lista y nombre; el número sale solo (o se pone el que ya usaban). */
-function AbrirCaja({ empresas, areas, almacen }: { empresas: EmpresaIngreso[]; areas: Area[]; almacen: Almacen }) {
+function AbrirCaja({
+  empresas,
+  areas,
+  anteriores,
+  almacen,
+}: {
+  empresas: EmpresaIngreso[];
+  areas: Area[];
+  anteriores: CajaAnterior[];
+  almacen: Almacen;
+}) {
   const router = useRouter();
   const [empresaId, setEmpresaId] = useState(empresas[0]?.id ?? "");
   const [area, setArea] = useState("");
@@ -270,11 +294,25 @@ function AbrirCaja({ empresas, areas, almacen }: { empresas: EmpresaIngreso[]; a
   const [forma, setForma] = useState<FormaIngreso>("banco");
   const [banco, setBanco] = useState("");
   const [foto, setFoto] = useState<File | null>(null);
+  // Saldo que viene de antes: la caja anterior elegida (null = la más reciente; "ninguna" = no pasar) o, la
+  // primera vez, el monto que traían.
+  const [anteriorElegida, setAnteriorElegida] = useState<string | null>(null);
+  const [saldoTexto, setSaldoTexto] = useState("");
+  const [saldoNota, setSaldoNota] = useState("");
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [listo, setListo] = useState("");
   const [guardando, iniciar] = useTransition();
 
   const empresa = empresas.find((e) => e.id === empresaId);
+  const candidatas = anteriores
+    .filter((c) => c.empresaId === empresaId && c.area === area)
+    .sort((a, b) => b.numero - a.numero);
+  const anterior =
+    anteriorElegida === "ninguna" ? null : (candidatas.find((c) => c.id === anteriorElegida) ?? candidatas[0] ?? null);
+  const saldoManual = !candidatas.length && saldoTexto.trim() ? leerMonto(saldoTexto.replace(/^-/, "")) * (saldoTexto.trim().startsWith("-") ? -1 : 1) : 0;
+  const saldoPrevio = anterior ? anterior.saldo : Number.isFinite(saldoManual) ? saldoManual : 0;
+  const montoNum = leerMonto(montoTexto);
+  const arranca = (Number.isFinite(montoNum) ? montoNum : 0) + saldoPrevio;
   const siguiente = Math.max(0, ...(empresa?.numeros ?? [])) + 1;
   const numeroElegido = numeroTexto.trim() ? Number(numeroTexto) : null;
   const numero = numeroElegido ?? siguiente;
@@ -305,6 +343,9 @@ function AbrirCaja({ empresas, areas, almacen }: { empresas: EmpresaIngreso[]; a
         forma,
         banco: forma === "banco" ? banco || null : null,
         numero: numeroElegido,
+        cajaAnteriorId: anterior?.id ?? null,
+        saldoAnterior: anterior || !saldoManual ? null : saldoManual,
+        saldoAnteriorNota: anterior ? null : saldoNota || null,
       });
       if (!r.ok) {
         setErrores(r.errores);
@@ -314,7 +355,16 @@ function AbrirCaja({ empresas, areas, almacen }: { empresas: EmpresaIngreso[]; a
         ? await guardarFoto({ almacen, cajaId: r.cajaId, recargaId: r.recargaId, archivo: foto, fecha, monto })
         : null;
       setErrores(errorFoto ? { _: `La caja se abrió, pero la foto no: ${errorFoto}. Adjúntala desde la lista.` } : {});
-      setListo(`Caja ${r.codigo} abierta con ${formatoSoles(monto)}. Asígnala a su registrador en Usuarios.`);
+      setListo(
+        anterior
+          ? `Caja ${r.codigo} abierta con ${formatoSoles(monto + anterior.saldo)} (abono ${formatoSoles(monto)} ${anterior.saldo < 0 ? "−" : "+"} saldo de ${anterior.codigo} ${formatoSoles(Math.abs(anterior.saldo))})${anterior.sinLiquidar ? ` y sus ${anterior.sinLiquidar} gastos sin liquidar` : ""}. ${anterior.codigo} quedó cerrada y quien la manejaba ya tiene la nueva.`
+          : r.saldoAnterior
+            ? `Caja ${r.codigo} abierta con ${formatoSoles(monto + r.saldoAnterior)} (abono ${formatoSoles(monto)} ${r.saldoAnterior < 0 ? "−" : "+"} saldo anterior ${formatoSoles(Math.abs(r.saldoAnterior))}). Asígnala a su registrador en Usuarios.`
+            : `Caja ${r.codigo} abierta con ${formatoSoles(monto)}. Asígnala a su registrador en Usuarios.`,
+      );
+      setAnteriorElegida(null);
+      setSaldoTexto("");
+      setSaldoNota("");
       setArea("");
       setNombre("");
       setNumeroTexto("");
@@ -411,6 +461,78 @@ function AbrirCaja({ empresas, areas, almacen }: { empresas: EmpresaIngreso[]; a
           />
           {errores.monto && <p className="mt-1.5 text-xs text-fx-error">{errores.monto}</p>}
         </div>
+        {area && (
+          <div className="flex flex-col gap-2.5 rounded-xl border border-white/10 bg-white/3 p-3.5 md:col-span-2">
+            <span className="fx-label mb-0!">Saldo de caja anterior</span>
+            {candidatas.length > 0 ? (
+              <>
+                {candidatas.map((c) => (
+                  <label key={c.id} className="flex items-start gap-2.5 text-[13px]">
+                    <input type="radio" name="anterior" className="mt-1" checked={anterior?.id === c.id} onChange={() => setAnteriorElegida(c.id)} />
+                    <span>
+                      Pasar el saldo de <strong className="font-display">{c.codigo}</strong>:{" "}
+                      <span className={c.saldo < 0 ? "text-fx-error" : "text-fx-completo"}>{formatoSoles(c.saldo)}</span>
+                      <span className="block text-[11.5px] text-white/45">
+                        {c.sinLiquidar
+                          ? `${c.sinLiquidar} gasto${c.sinLiquidar === 1 ? "" : "s"} sin liquidar (pendientes o sin rendir) pasan a la nueva. `
+                          : ""}
+                        {c.codigo} se cierra.
+                      </span>
+                    </span>
+                  </label>
+                ))}
+                <label className="flex items-center gap-2.5 text-[13px] text-white/60">
+                  <input type="radio" name="anterior" checked={!anterior} onChange={() => setAnteriorElegida("ninguna")} />
+                  No pasar saldo (la anterior sigue abierta)
+                </label>
+              </>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <label htmlFor="nueva-saldo" className="fx-label">
+                    Saldo que traían (S/)
+                  </label>
+                  <input
+                    id="nueva-saldo"
+                    className="fx-input"
+                    inputMode="decimal"
+                    placeholder="0.00 · en contra: -50.00"
+                    value={saldoTexto}
+                    aria-invalid={!!errores.saldoAnterior}
+                    onChange={(e) => setSaldoTexto(e.target.value)}
+                  />
+                  {errores.saldoAnterior && <p className="mt-1.5 text-xs text-fx-error">{errores.saldoAnterior}</p>}
+                </div>
+                <div>
+                  <label htmlFor="nueva-saldo-nota" className="fx-label">
+                    ¿De qué caja viene?
+                  </label>
+                  <input
+                    id="nueva-saldo-nota"
+                    className="fx-input"
+                    placeholder="Ej. Caja 02 (Excel)"
+                    value={saldoNota}
+                    onChange={(e) => setSaldoNota(e.target.value)}
+                  />
+                </div>
+                <p className="text-[11.5px] text-white/45 md:col-span-2">
+                  No hay otra caja abierta de esta empresa y área en la app. Si venían trabajando con una (en Excel o papel) y
+                  quedó saldo, ponlo aquí; si no, déjalo vacío.
+                </p>
+              </div>
+            )}
+            {errores.cajaAnteriorId && <p className="text-xs text-fx-error">{errores.cajaAnteriorId}</p>}
+            <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-white/8 pt-2.5 text-[13px]">
+              <span className="text-white/55">
+                Abono {formatoSoles(Number.isFinite(montoNum) ? montoNum : 0)} {saldoPrevio < 0 ? "−" : "+"} saldo anterior{" "}
+                {formatoSoles(Math.abs(saldoPrevio))}
+              </span>
+              <span>
+                Arranca con <strong className="font-display text-base text-fx-primary-light">{formatoSoles(arranca)}</strong>
+              </span>
+            </div>
+          </div>
+        )}
         <div>
           <label htmlFor="nueva-umbral" className="fx-label">
             Avisar cuando el saldo baje de (S/)

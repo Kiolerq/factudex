@@ -372,7 +372,9 @@ export async function guardarCaja(entrada: EntradaCaja): Promise<Resultado> {
  */
 export async function abrirCaja(
   entrada: EntradaAbrirCaja,
-): Promise<{ ok: true; codigo: string; cajaId: string; recargaId: string } | { ok: false; errores: Record<string, string> }> {
+): Promise<
+  { ok: true; codigo: string; cajaId: string; recargaId: string; saldoAnterior: number } | { ok: false; errores: Record<string, string> }
+> {
   const datos = EsquemaAbrirCaja.safeParse(entrada);
   if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
   const repo = await repoTesoreria();
@@ -386,6 +388,9 @@ export async function abrirCaja(
   if (usados.includes(numero))
     return { ok: false, errores: { numero: `${empresa.codigo} ya tiene la caja N° ${String(numero).padStart(2, "0")}` } };
   const codigo = codigoCaja({ empresaCodigo: empresa.codigo, area: d.area, numero });
+  const anterior = d.cajaAnteriorId ? cajas.find((c) => c.id === d.cajaAnteriorId) : null;
+  if (anterior && (!anterior.activa || anterior.empresaId !== d.empresaId || anterior.area !== d.area))
+    return { ok: false, errores: { cajaAnteriorId: "La caja anterior debe ser de la misma empresa y área, y estar abierta" } };
   try {
     const cajaId = await repo.guardarCaja({
       id: null,
@@ -416,8 +421,35 @@ export async function abrirCaja(
         return { ok: false, errores: { _: `Se creó ${codigo}, pero no se pudo registrar la apertura: ${e.message}. Regístrala en "Recargar caja".` } };
       throw e;
     }
+    // Saldo que viene de antes: de la caja anterior en la app, o el que traían (primera vez).
+    let saldoAnterior = 0;
+    try {
+      if (anterior) saldoAnterior = await repo.traspasarCaja(anterior.id, cajaId);
+      else if (d.saldoAnterior) {
+        await repo.registrarRecarga({
+          cajaId,
+          tipo: "ajuste",
+          liquidacionRepuestaId: null,
+          monto: d.saldoAnterior,
+          fecha: d.fecha,
+          descripcion: d.saldoAnteriorNota ? `Saldo anterior · ${d.saldoAnteriorNota}` : "Saldo anterior",
+          forma: "otros",
+          banco: null,
+          operacion: null,
+          recibo: null,
+          nota: null,
+        });
+        saldoAnterior = d.saldoAnterior;
+      }
+    } catch (e) {
+      if (e instanceof ErrorDeNegocio) {
+        revalidatePath("/", "layout");
+        return { ok: false, errores: { _: `Se abrió ${codigo}, pero no se pasó el saldo anterior: ${e.message}` } };
+      }
+      throw e;
+    }
     revalidatePath("/", "layout");
-    return { ok: true, codigo, cajaId, recargaId };
+    return { ok: true, codigo, cajaId, recargaId, saldoAnterior };
   } catch (e) {
     if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
     throw e;

@@ -133,8 +133,13 @@ sistema. La liquidación pasa a **En revisión** y tú sigues registrando gastos
 
 En el detalle de cada liquidación puedes descargar el **Excel** con el formato de contabilidad.
 
-**Cuando la caja se termina:** tesorería la cierra y abre una **caja nueva** (con otro código). Te la
-asignan y la ves arriba junto a las demás.
+**Cuando la caja se termina:** liquida todo lo que tengas completo. Tesorería abre la **caja nueva**
+(ej. de `SL-CAJA-MT-02` a `SL-CAJA-MT-03`) y pasa a ella:
+
+- El **saldo** que quedó: si sobró, se suma; si te pasaste, se descuenta.
+- Tus gastos **pendientes o sin liquidar**: los sigues completando y los liquidas en la caja nueva.
+
+La caja anterior se cierra y la nueva te aparece arriba automáticamente.
 
 ## 8. Preguntas rápidas
 

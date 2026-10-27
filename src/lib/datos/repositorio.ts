@@ -62,6 +62,8 @@ export interface Repositorio {
   registrarRecarga(r: NuevaRecarga): Promise<string>;
   adjuntarComprobanteRecarga(id: string, path: string, mime: string): Promise<void>;
   listarAreas(): Promise<Area[]>;
+  /** Pasa el saldo y los gastos sin liquidar de una caja a la nueva (misma empresa y área) y cierra la anterior. */
+  traspasarCaja(anteriorId: string, nuevaId: string): Promise<number>;
   crearArea(a: Area): Promise<void>;
 
   // Tesorería (quien llama ya fue verificado como tesorería o admin).
