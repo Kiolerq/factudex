@@ -7,6 +7,7 @@ import {
   EsquemaAdjuntarCompartido,
   EsquemaAnular,
   EsquemaAbrirCaja,
+  EsquemaDevolucion,
   EsquemaArea,
   EsquemaFotoIngreso,
   EsquemaCaja,
@@ -22,6 +23,7 @@ import {
   erroresPorCampo,
   type EntradaAdjuntarCompartido,
   type EntradaAbrirCaja,
+  type EntradaDevolucion,
   type EntradaArea,
   type EntradaCaja,
   type EntradaCambiosUsuario,
@@ -40,6 +42,7 @@ import type {
   NuevoProveedor,
   Opcion,
   Proveedor,
+  Pago,
   TipoDocumento,
   Usuario,
 } from "@/lib/datos/tipos";
@@ -154,7 +157,7 @@ export async function crearCentroCosto(entrada: {
 }
 
 export type ResultadoMovimiento =
-  | { ok: true; id: string; estado: EstadoMovimiento }
+  | { ok: true; id: string; estado: EstadoMovimiento; pago: Pago | null }
   | { ok: false; errores: Record<string, string> };
 
 export async function registrarMovimiento(entrada: EntradaMovimiento): Promise<ResultadoMovimiento> {
@@ -169,7 +172,10 @@ export async function registrarMovimiento(entrada: EntradaMovimiento): Promise<R
   try {
     const r = await repo.registrarMovimiento(movimiento);
     revalidatePath("/", "layout");
-    return { ok: true, ...r };
+    // Parte de un pago con varias salidas: cuánto falta, para ofrecer la siguiente salida.
+    const pago = movimiento.pago ? await repo.obtenerPago(movimiento.pago.id) : null;
+    const estado = pago?.salidas.find((s) => s.id === r.id)?.estado ?? r.estado;
+    return { ok: true, id: r.id, estado, pago };
   } catch (e) {
     if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
     throw e;
@@ -324,6 +330,25 @@ export async function registrarRecarga(
     if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
     throw e;
   }
+}
+
+/** Pago con varias salidas (para seguir agregando salidas desde Registro). */
+export async function leerPago(id: string): Promise<Pago | null> {
+  if (!z.uuid().safeParse(id).success) return null;
+  const repo = await repoAutenticado();
+  return repo.obtenerPago(id);
+}
+
+/** Devolución de lo que sobró de un pago: la foto ya la subió el navegador. */
+export async function registrarDevolucion(entrada: EntradaDevolucion): Promise<Resultado> {
+  const datos = EsquemaDevolucion.safeParse(entrada);
+  if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
+  const repo = await repoRegistrador();
+  const pago = await repo.obtenerPago(datos.data.pagoId);
+  if (!pago) return { ok: false, errores: { _: "El pago no existe" } };
+  if (datos.data.monto - pago.falta > 0.001)
+    return { ok: false, errores: { monto: `Solo falta cuadrar S/ ${pago.falta.toFixed(2)}` } };
+  return ejecutar(() => repo.registrarDevolucion(datos.data));
 }
 
 /** Foto del depósito de un ingreso (el navegador ya la subió a Drive o Storage). */
@@ -524,8 +549,8 @@ export async function cambiarContrasenaUsuario(entrada: { id: string; password: 
 
 const EsquemaSubidaDrive = z.object({
   cajaId: z.uuid(),
-  movimientoId: z.uuid(), // o el id del ingreso, si tipo = "ingreso"
-  tipo: z.enum(["documento", "pago", "otro", "ingreso"]),
+  movimientoId: z.uuid(), // o el id del ingreso / del pago, si tipo = "ingreso" / "devolucion"
+  tipo: z.enum(["documento", "pago", "otro", "ingreso", "devolucion"]),
   mime: z.enum(MIME_PERMITIDOS),
   tamano: z.number().int().positive().max(TAMANO_MAXIMO),
   fecha: z.iso.date(),
@@ -557,7 +582,7 @@ export async function iniciarSubidaDrive(
   const empresa = empresas.find((e) => e.id === caja?.empresaId);
   if (!caja || !empresa) return { ok: false, error: "Caja no encontrada" };
 
-  const tipo: TipoAdjunto | "ingreso" = d.data.tipo;
+  const tipo: TipoAdjunto | "ingreso" | "devolucion" = d.data.tipo;
   const monto = d.data.monto !== null ? `S-${d.data.monto.toFixed(2)}` : "";
   const nombre = [d.data.fecha, d.data.referencia, monto, tipo].filter(Boolean).join("_") + `.${EXTENSION[d.data.mime]}`;
   try {

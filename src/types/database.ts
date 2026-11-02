@@ -56,6 +56,65 @@ export type Database = {
           },
         ]
       }
+      devoluciones: {
+        Row: {
+          comprobante_mime: string | null
+          comprobante_path: string | null
+          created_at: string
+          creado_por: string
+          fecha: string
+          id: string
+          monto: number
+          motivo: string
+          pago_id: string
+        }
+        Insert: {
+          comprobante_mime?: string | null
+          comprobante_path?: string | null
+          created_at?: string
+          creado_por?: string
+          fecha?: string
+          id?: string
+          monto: number
+          motivo: string
+          pago_id: string
+        }
+        Update: {
+          comprobante_mime?: string | null
+          comprobante_path?: string | null
+          monto?: number
+          motivo?: string
+        }
+        Relationships: []
+      }
+      pagos: {
+        Row: {
+          caja_id: string
+          created_at: string
+          creado_por: string
+          fecha: string
+          id: string
+          medio_pago: Database["public"]["Enums"]["medio_pago"] | null
+          monto: number
+          operacion: string | null
+        }
+        Insert: {
+          caja_id: string
+          created_at?: string
+          creado_por?: string
+          fecha: string
+          id?: string
+          medio_pago?: Database["public"]["Enums"]["medio_pago"] | null
+          monto: number
+          operacion?: string | null
+        }
+        Update: {
+          caja_id?: string
+          monto?: number
+          operacion?: string | null
+        }
+        Relationships: []
+      }
       areas: {
         Row: {
           codigo: string
@@ -512,6 +571,7 @@ export type Database = {
           motivo_anulacion: string | null
           operacion_pago: string | null
           origen: Database["public"]["Enums"]["origen_movimiento"]
+          pago_id: string | null
           proveedor_id: string | null
           serie_numero: string | null
           solicitante: string | null
@@ -538,6 +598,7 @@ export type Database = {
           motivo_anulacion?: string | null
           operacion_pago?: string | null
           origen?: Database["public"]["Enums"]["origen_movimiento"]
+          pago_id?: string | null
           proveedor_id?: string | null
           serie_numero?: string | null
           solicitante?: string | null
@@ -564,6 +625,7 @@ export type Database = {
           motivo_anulacion?: string | null
           operacion_pago?: string | null
           origen?: Database["public"]["Enums"]["origen_movimiento"]
+          pago_id?: string | null
           proveedor_id?: string | null
           serie_numero?: string | null
           solicitante?: string | null
@@ -859,6 +921,22 @@ export type Database = {
       }
     }
     Views: {
+      v_pagos: {
+        Row: {
+          caja_id: string | null
+          devuelto: number | null
+          falta: number | null
+          fecha: string | null
+          id: string | null
+          medio_pago: Database["public"]["Enums"]["medio_pago"] | null
+          monto: number | null
+          operacion: string | null
+          salidas: number | null
+          sustentado: number | null
+          tiene_constancia: boolean | null
+        }
+        Relationships: []
+      }
       v_liquidaciones: {
         Row: {
           aprobada_en: string | null

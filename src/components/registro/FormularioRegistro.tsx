@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { crearCentroCosto, crearProveedor, registrarMovimiento } from "@/app/acciones";
 import { BadgeEstado } from "@/components/ui/BadgeEstado";
@@ -17,6 +18,7 @@ import {
   type EstadoMovimiento,
   type MedioPago,
   type Opcion,
+  type Pago,
   type Proveedor,
   type TipoAdjunto,
   type TipoDocumento,
@@ -44,6 +46,8 @@ interface Props {
   almacen: Almacen;
   ocr: boolean; // lectura con IA activada (hay API key en el servidor)
   compartido: boolean; // llegaron archivos desde "Compartir" del celular
+  /** Registro de la siguiente salida de un pago con varias salidas (/registro?pago=…). */
+  pagoInicial?: Pago | null;
 }
 
 type Archivos = Record<"documento" | "pago", File | null>;
@@ -60,7 +64,7 @@ export interface ListasEmpresa {
 const generalDe = (centros: Opcion[]) => centros.find((c) => c.codigo === "GEN" || c.nombre === "General")?.id ?? "";
 
 
-export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr, compartido }: Props) {
+export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr, compartido, pagoInicial }: Props) {
   const [cajaId, setCajaId] = useState(cajaInicialId);
   const caja = cajas.find((c) => c.id === cajaId) ?? cajas[0]!;
   const lista = listas.find((l) => l.empresaId === caja.empresaId)!;
@@ -74,7 +78,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
   const centroGeneral = generalDe(centrosCosto);
 
   const [movimientoId, setMovimientoId] = useState(() => nuevoUuid());
-  const [fecha, setFecha] = useState(fechaHoyLima);
+  const [fecha, setFecha] = useState(() => pagoInicial?.fecha ?? fechaHoyLima());
   const [solicitante, setSolicitante] = useState("");
   const [proveedor, setProveedor] = useState<Proveedor | null>(null);
   const [categoriaId, setCategoriaId] = useState("");
@@ -83,18 +87,25 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
   const [montoTexto, setMontoTexto] = useState("");
   const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento | null>(null);
   const [serieNumero, setSerieNumero] = useState("");
-  const [medioPago, setMedioPago] = useState<MedioPago | null>(null);
-  const [operacionPago, setOperacionPago] = useState("");
+  const [medioPago, setMedioPago] = useState<MedioPago | null>(pagoInicial?.medioPago ?? null);
+  const [operacionPago, setOperacionPago] = useState(pagoInicial?.operacion ?? "");
   const [sinDocumento, setSinDocumento] = useState(false);
   const [archivos, setArchivos] = useState<Archivos>({ documento: null, pago: null });
 
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [guardado, setGuardado] = useState<{
+    id: string;
     estado: EstadoMovimiento;
     detalle: string;
     monto: number;
     porAutorizar: boolean;
+    pago: Pago | null;
   } | null>(null);
+  // Pago con varias salidas: uno ya registrado (esta es otra salida) o uno nuevo con su monto total.
+  const [pagoActual, setPagoActual] = useState<Pago | null>(pagoInicial ?? null);
+  const [variasSalidas, setVariasSalidas] = useState(false);
+  const [montoPagoTexto, setMontoPagoTexto] = useState("");
+  const [pagoNuevoId, setPagoNuevoId] = useState(() => nuevoUuid());
   const [guardando, iniciar] = useTransition();
   const [paso, setPaso] = useState("");
   const camaraRapida = useRef<HTMLInputElement>(null);
@@ -113,11 +124,25 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
 
   const monto = leerMonto(montoTexto);
   const esEfectivo = medioPago === "efectivo";
-  const estado = estadoEsperado(!!archivos.documento, !!archivos.pago, medioPago);
+  const constanciaDelPago = !!pagoActual?.tieneConstancia; // ya la subió otra salida del mismo pago
+  const estado = estadoEsperado(!!archivos.documento, !!archivos.pago || constanciaDelPago, medioPago);
   const faltantes = [
     !archivos.documento && "documento",
-    !esEfectivo && !archivos.pago && "constancia de pago",
+    !esEfectivo && !archivos.pago && !constanciaDelPago && "constancia de pago",
   ].filter(Boolean);
+
+  /** Pasa a registrar otra salida de un pago (después de guardar una, o desde ?pago=…). */
+  function continuarPago(p: Pago) {
+    setPagoActual(p);
+    setVariasSalidas(false);
+    setCajaId(p.cajaId);
+    setMedioPago(p.medioPago);
+    setOperacionPago(p.operacion ?? "");
+    setFecha(p.fecha);
+    setGuardado(null);
+    inicio.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
 
   const quitarError = (campo: string) =>
     setErrores((e) => {
@@ -190,7 +215,10 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
     }
 
     // "Llenó: …" solo nombra lo que de verdad estaba vacío (nunca se pisa lo que ya hay).
-    if (d.monto !== null) {
+    if (d.monto !== null && esPago && (variasSalidas || pagoActual)) {
+      // Pago con varias salidas: lo que dice el Yape es el total del pago, no el de esta salida.
+      if (variasSalidas) setMontoPagoTexto((p) => (p.trim() ? p : d.monto!.toFixed(2)));
+    } else if (d.monto !== null) {
       setMontoTexto((p) => (p.trim() ? p : d.monto!.toFixed(2)));
       if (!montoTexto.trim()) campos.push("monto");
     }
@@ -373,6 +401,10 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
     setLectura(null);
     origenFecha.current = null;
     montosLeidos.current = {};
+    setPagoActual(null);
+    setVariasSalidas(false);
+    setMontoPagoTexto("");
+    setPagoNuevoId(nuevoUuid());
   }
 
   function guardar(e: React.FormEvent) {
@@ -391,11 +423,20 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
       monto,
       tipoDocumento,
       serieNumero: sinDocumento ? null : serieNumero || null,
-      medioPago,
+      medioPago: pagoActual ? pagoActual.medioPago : medioPago,
       operacionPago: medioPago && medioPago !== "efectivo" ? operacionPago || null : null,
+      pago: pagoActual
+        ? { id: pagoActual.id, monto: pagoActual.monto, nuevo: false }
+        : variasSalidas
+          ? { id: pagoNuevoId, monto: leerMonto(montoPagoTexto), nuevo: true }
+          : null,
       sinDocumento,
       adjuntos: [],
     };
+    if (entrada.pago?.nuevo && entrada.pago.monto + 0.001 < monto) {
+      setErrores({ "pago.monto": "El pago total no puede ser menor que esta salida" });
+      return;
+    }
     const validacion = EsquemaNuevoMovimiento.safeParse(entrada);
     if (!validacion.success) {
       setErrores(erroresPorCampo(validacion.error));
@@ -407,7 +448,8 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
       try {
         const adjuntos: AdjuntoSubido[] = [];
         const porSubir = (Object.entries(archivos) as [TipoAdjunto, File | null][]).filter(
-          ([tipo, f]) => f && !(tipo === "documento" && sinDocumento) && !(tipo === "pago" && esEfectivo),
+          ([tipo, f]) =>
+            f && !(tipo === "documento" && sinDocumento) && !(tipo === "pago" && (esEfectivo || constanciaDelPago)),
         );
         for (const [i, [tipo, archivo]] of porSubir.entries()) {
           setPaso(`Subiendo archivo ${i + 1} de ${porSubir.length}…`);
@@ -427,7 +469,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
         setPaso("Guardando…");
         const r = await registrarMovimiento({ ...entrada, adjuntos });
         if (r.ok) {
-          setGuardado({ estado: r.estado, detalle, monto, porAutorizar: monto > topeGasto });
+          setGuardado({ id: r.id, estado: r.estado, detalle, monto, porAutorizar: monto > topeGasto, pago: r.pago });
           reiniciar(true);
         } else {
           setErrores(r.errores);
@@ -477,6 +519,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
               </span>
             </div>
             {guardado.porAutorizar ? <BadgePorAutorizar /> : <BadgeEstado estado={guardado.estado} />}
+            {guardado.pago && <ResumenPago pago={guardado.pago} movimientoId={guardado.id} onSiguiente={continuarPago} />}
           </div>
         )}
         {errores._ && (
@@ -493,7 +536,33 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
             hayCentro={!!centroCostoId && centroCostoId !== centroGeneral}
             onCrearCentro={crearCentroLeido}
             onCerrar={() => setLectura(null)}
+            onVariasSalidas={
+              !pagoActual && !variasSalidas
+                ? (total) => {
+                    setVariasSalidas(true);
+                    setMontoPagoTexto(total.toFixed(2));
+                    if (montosLeidos.current.documento !== undefined) setMontoTexto(montosLeidos.current.documento.toFixed(2));
+                  }
+                : undefined
+            }
           />
+        )}
+        {pagoActual && (
+          <div className="fx-card mb-4 flex flex-col gap-2 border-fx-primary-line! px-4 py-3.5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-fx-md font-semibold">Otra salida del mismo pago</div>
+                <div className="text-fx-sm text-white/75">
+                  {pagoActual.medioPago ? ETIQUETA_MEDIO_PAGO[pagoActual.medioPago] : "Pago"}
+                  {pagoActual.operacion && ` · Op. ${pagoActual.operacion}`} · total {formatoSoles(pagoActual.monto)}
+                </div>
+              </div>
+              <button type="button" onClick={() => reiniciar(true)} className="fx-btn text-fx-sm text-white/68 hover:text-white">
+                Salir
+              </button>
+            </div>
+            <BarraPago pago={pagoActual} />
+          </div>
         )}
 
         {/* Móvil: acción principal = foto del documento */}
@@ -707,6 +776,12 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
 
             <fieldset className="order-8">
               <legend className="fx-label">Medio de pago</legend>
+              {pagoActual ? (
+                <p className="text-fx-sm text-white/75">
+                  {pagoActual.medioPago ? ETIQUETA_MEDIO_PAGO[pagoActual.medioPago] : "Sin indicar"} — es el mismo pago de las
+                  otras salidas.
+                </p>
+              ) : (
               <div className="flex flex-wrap gap-2">
                 {MEDIOS_PAGO.map((m) => (
                   <Chip key={m} activo={medioPago === m} onClick={() => setMedioPago(medioPago === m ? null : m)}>
@@ -714,6 +789,44 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
                   </Chip>
                 ))}
               </div>
+              )}
+              {medioPago && !pagoActual && (
+                <div className="mt-3 flex flex-col gap-2.5 rounded-xl border border-white/12 bg-white/3 px-3.5 py-3">
+                  <label className="flex cursor-pointer items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-5 w-5 shrink-0 accent-[var(--fx-primary)]"
+                      checked={variasSalidas}
+                      onChange={(e) => setVariasSalidas(e.target.checked)}
+                    />
+                    <span>
+                      <span className="block text-fx-sm font-semibold">Este pago cubre varios comprobantes</span>
+                      <span className="block text-fx-xs text-white/68">
+                        Ej. un Yape de S/ 90 para dos peajes y una planilla. Después de guardar, agregas las demás salidas.
+                      </span>
+                    </span>
+                  </label>
+                  {variasSalidas && (
+                    <div className="max-w-xs">
+                      <label htmlFor="monto-pago" className="fx-label">
+                        Monto total del pago (S/) *
+                      </label>
+                      <input
+                        id="monto-pago"
+                        className="fx-input font-display font-bold"
+                        inputMode="decimal"
+                        placeholder="Ej. 90.00"
+                        value={montoPagoTexto}
+                        aria-invalid={!!(errores["pago.monto"] ?? errores.pago)}
+                        onChange={(e) => setMontoPagoTexto(e.target.value)}
+                      />
+                      {(errores["pago.monto"] ?? errores.pago) && (
+                        <p className="mt-1.5 text-xs text-fx-error">{errores["pago.monto"] ?? errores.pago}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               {esEfectivo && (
                 <p className="mt-1.5 text-fx-2xs text-white/60">
                   En efectivo basta el documento (boleta física, comprobante de egreso…).
@@ -773,9 +886,14 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
                   onQuitar={() => setArchivos((a) => ({ ...a, documento: null }))}
                 />
               )}
-              {!esEfectivo && (
+              {constanciaDelPago && !esEfectivo && (
+                <p className="rounded-xl border border-fx-completo/40 bg-fx-completo/8 px-4 py-3 text-fx-sm text-white/82">
+                  ✓ La constancia del pago ya está subida en otra salida. No hace falta subirla de nuevo.
+                </p>
+              )}
+              {!esEfectivo && !constanciaDelPago && (
                 <CampoAdjunto
-                  etiqueta="Constancia de pago (Yape/Plin, transferencia…)"
+                  etiqueta={variasSalidas ? "Constancia del pago (una sola vez para todas las salidas)" : "Constancia de pago (Yape/Plin, transferencia…)"}
                   ayuda="Captura del Yape/Plin o voucher de la transferencia"
                   archivo={archivos.pago}
                   error={errores.pago}
@@ -839,6 +957,66 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
         <BotonesAccion guardando={guardando} paso={paso} onCancelar={() => reiniciar(false)} movil />
       </div>
     </form>
+  );
+}
+
+/** Barra de avance de un pago con varias salidas: sustentado, devuelto y lo que falta. */
+export function BarraPago({ pago }: { pago: Pago }) {
+  const hecho = Math.min(100, ((pago.sustentado + pago.devuelto) / pago.monto) * 100);
+  const cuadrado = Math.abs(pago.falta) < 0.005;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="h-2.5 overflow-hidden rounded-full bg-white/10" aria-hidden>
+        <div className={`h-full rounded-full ${cuadrado ? "bg-fx-completo" : "bg-fx-primary"}`} style={{ width: `${hecho}%` }} />
+      </div>
+      <div className="flex flex-wrap justify-between gap-x-3 text-fx-sm">
+        <span className="text-white/75">
+          Sustentado {formatoSoles(pago.sustentado)}
+          {pago.devuelto > 0 && ` · devuelto ${formatoSoles(pago.devuelto)}`}
+        </span>
+        <span className={`font-semibold ${cuadrado ? "text-fx-completo" : pago.falta < 0 ? "text-fx-error" : "text-fx-pendiente"}`}>
+          {cuadrado ? "✓ Pago cuadrado" : pago.falta > 0 ? `Falta ${formatoSoles(pago.falta)}` : `Se pasa por ${formatoSoles(-pago.falta)}`}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** Después de guardar una salida: cuánto falta del pago y cómo seguir. */
+function ResumenPago({ pago, movimientoId, onSiguiente }: { pago: Pago; movimientoId: string; onSiguiente: (p: Pago) => void }) {
+  const cuadrado = Math.abs(pago.falta) < 0.005;
+  return (
+    <div className="flex w-full flex-col gap-3 border-t border-white/10 pt-3">
+      <div className="text-fx-sm font-semibold">
+        Pago de {formatoSoles(pago.monto)} · {pago.salidas.filter((s) => !s.anulado).length} salida
+        {pago.salidas.filter((s) => !s.anulado).length === 1 ? "" : "s"}
+      </div>
+      <BarraPago pago={pago} />
+      {!cuadrado && (
+        <p className="text-fx-xs text-white/75">
+          Mientras falte, las salidas quedan pendientes. Agrega la siguiente salida o, si sobró dinero y volvió a la caja,
+          registra la devolución.
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {pago.falta > 0.005 && (
+          <button
+            type="button"
+            onClick={() => onSiguiente(pago)}
+            className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2.5 text-fx-sm font-semibold text-blanco"
+          >
+            ＋ Agregar la siguiente salida
+          </button>
+        )}
+        <Link
+          prefetch={false}
+          href={`/movimientos/${movimientoId}#pago`}
+          className="fx-btn rounded-[10px] border border-white/20 px-4 py-2.5 text-fx-sm font-semibold text-white/82"
+        >
+          {pago.falta > 0.005 ? "↩ Registrar devolución" : "Ver el pago"}
+        </Link>
+      </div>
+    </div>
   );
 }
 

@@ -10,7 +10,7 @@ const TEMA: Opcion = { clave: "tema", valor: "oscuro", guardado: "fx_tema" };
 const oyentes = new Set<() => void>();
 const suscribir = (f: () => void) => (oyentes.add(f), () => oyentes.delete(f));
 
-function usarOpcion(o: Opcion) {
+function useOpcion(o: Opcion) {
   const activa = useSyncExternalStore(
     suscribir,
     () => document.documentElement.dataset[o.clave] === o.valor,
@@ -30,8 +30,8 @@ function usarOpcion(o: Opcion) {
 
 /** Mi cuenta → Pantalla: letra extra grande y tema oscuro (se guardan en este equipo). */
 export function LetraGrande() {
-  const [grande, setGrande] = usarOpcion(LETRA);
-  const [oscuro, setOscuro] = usarOpcion(TEMA);
+  const [grande, setGrande] = useOpcion(LETRA);
+  const [oscuro, setOscuro] = useOpcion(TEMA);
   return (
     <section className="fx-card flex flex-col gap-4 p-5 md:p-7">
       <div className="text-xs uppercase tracking-[1px] text-white/75">Pantalla</div>

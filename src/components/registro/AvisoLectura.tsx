@@ -28,10 +28,12 @@ interface Props {
   hayCentro: boolean; // ya eligió un centro de costo distinto de "General"
   onCrearCentro: () => Promise<void>;
   onCerrar: () => void;
+  /** Montos distintos: ofrecer "es un pago con varias salidas" con el total del pago. */
+  onVariasSalidas?: (totalPago: number) => void;
 }
 
 /** Resultado de la lectura con IA: qué se llenó y qué revisar. Nunca guarda nada solo. */
-export function AvisoLectura({ lectura, hayProveedor, onCrearProveedor, hayCentro, onCrearCentro, onCerrar }: Props) {
+export function AvisoLectura({ lectura, hayProveedor, onCrearProveedor, hayCentro, onCrearCentro, onCerrar, onVariasSalidas }: Props) {
   const [creando, setCreando] = useState(false);
   const [creandoCentro, setCreandoCentro] = useState(false);
 
@@ -104,10 +106,21 @@ export function AvisoLectura({ lectura, hayProveedor, onCrearProveedor, hayCentr
         </p>
       )}
       {diferenciaMonto && (
-        <p className="text-fx-pendiente">
-          Ojo: el documento dice {formatoSoles(diferenciaMonto.documento)} y la constancia de pago{" "}
-          {formatoSoles(diferenciaMonto.pago)}. Revisa el monto.
-        </p>
+        <div className="flex flex-col gap-2">
+          <p className="text-fx-pendiente">
+            Ojo: el documento dice {formatoSoles(diferenciaMonto.documento)} y la constancia de pago{" "}
+            {formatoSoles(diferenciaMonto.pago)}. Revisa el monto.
+          </p>
+          {onVariasSalidas && diferenciaMonto.pago > diferenciaMonto.documento && (
+            <button
+              type="button"
+              onClick={() => onVariasSalidas(diferenciaMonto.pago)}
+              className="fx-btn self-start rounded-lg bg-fx-primary px-3.5 py-2 text-fx-sm font-semibold text-blanco"
+            >
+              Es un pago con varias salidas ({formatoSoles(diferenciaMonto.pago)})
+            </button>
+          )}
+        </div>
       )}
       {centroNuevo && !hayCentro && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-white/5 px-3 py-2">

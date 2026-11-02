@@ -10,7 +10,7 @@ export const metadata = { title: "Registro · Factudex" };
 
 export default async function PaginaRegistro({ searchParams }: PageProps<"/registro">) {
   await exigirModulo("registro");
-  const { compartido } = await searchParams;
+  const { compartido, pago: pagoParam } = await searchParams;
   const repo = await obtenerRepositorio();
   const [empresas, cajas] = await Promise.all([repo.listarEmpresas(), repo.listarCajas()]);
   const activa = await leerCajaActiva(cajas);
@@ -26,7 +26,12 @@ export default async function PaginaRegistro({ searchParams }: PageProps<"/regis
       </div>
     );
   }
-  const cajaInicial = cajasRegistro.find((c) => c.id === activa.id) ?? cajasRegistro[0]!;
+  // Otra salida de un pago con varias salidas: se registra en la caja del pago.
+  const pago =
+    typeof pagoParam === "string" && /^[0-9a-f-]{36}$/i.test(pagoParam) ? await repo.obtenerPago(pagoParam) : null;
+  const pagoValido = pago && cajasRegistro.some((c) => c.id === pago.cajaId) ? pago : null;
+  const cajaInicial =
+    cajasRegistro.find((c) => c.id === (pagoValido?.cajaId ?? activa.id)) ?? cajasRegistro[0]!;
 
   const empresasConCajas = empresas.filter((e) => cajasRegistro.some((c) => c.empresaId === e.id));
   const [listas, almacen] = await Promise.all([
@@ -55,13 +60,14 @@ export default async function PaginaRegistro({ searchParams }: PageProps<"/regis
       )}
       <FormularioRegistro
         // Al cambiar la caja activa del HUD el formulario se reinicia con esa caja.
-        key={activa.id}
+        key={`${activa.id}-${pagoValido?.id ?? ""}`}
         cajas={cajasRegistro}
         cajaInicialId={cajaInicial.id}
         listas={listas}
         almacen={almacen}
         ocr={ocrConfigurado()}
         compartido={compartido === "1"}
+        pagoInicial={pagoValido}
       />
     </>
   );

@@ -72,10 +72,15 @@ interface FilaMovimiento {
   categorias: { nombre: string } | null;
   centros_costo: { nombre: string } | null;
   adjuntos: { tipo: TipoAdjunto }[];
+  pago_id?: string | null; // solo con la migración 20261102000000
 }
 
-function aMovimiento(m: FilaMovimiento): MovimientoResumen {
+/** Lo que importa de un pago con varias salidas al mostrar cada una. */
+type InfoPago = { falta: number; tieneConstancia: boolean };
+
+function aMovimiento(m: FilaMovimiento, pagos?: Map<string, InfoPago>): MovimientoResumen {
   const tiene = (t: TipoAdjunto) => m.adjuntos.some((a) => a.tipo === t);
+  const pago = m.pago_id ? pagos?.get(m.pago_id) : undefined;
   return {
     id: m.id,
     cajaId: m.caja_id,
@@ -95,8 +100,10 @@ function aMovimiento(m: FilaMovimiento): MovimientoResumen {
     estado: m.estado,
     anulado: m.anulado,
     faltaDocumento: !tiene("documento"),
-    faltaPago: m.medio_pago !== "efectivo" && !tiene("pago"),
+    faltaPago: m.medio_pago !== "efectivo" && !tiene("pago") && !pago?.tieneConstancia,
     porAutorizar: m.requiere_autorizacion && !m.autorizado_por && !m.anulado,
+    pagoId: m.pago_id ?? null,
+    pagoFalta: pago ? Math.round(pago.falta * 100) / 100 : 0,
   };
 }
 
@@ -220,6 +227,17 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
     fallo(error, "Accesos");
     return new Map(data.map((a) => [a.caja_id, a.rol as RolCaja]));
   });
+
+  // Pagos con varias salidas (migración 20261102000000). Sin la migración, todo sigue como antes.
+  const hayPagos = memo(async () => !(await sb.from("pagos").select("id").limit(1)).error);
+  const columnasMovimiento = async () => (await hayPagos() ? `${COLUMNAS_MOVIMIENTO}, pago_id` : COLUMNAS_MOVIMIENTO);
+  async function infoPagos(filas: { pago_id?: string | null }[]): Promise<Map<string, InfoPago>> {
+    const ids = [...new Set(filas.flatMap((f) => (f.pago_id ? [f.pago_id] : [])))];
+    if (!ids.length) return new Map();
+    const { data, error } = await sb.from("v_pagos").select("id, falta, tiene_constancia").in("id", ids);
+    fallo(error, "Pagos");
+    return new Map(data.map((p) => [p.id!, { falta: Number(p.falta), tieneConstancia: !!p.tiene_constancia }]));
+  }
 
   /** Perfil (nombre, rol global, módulos, activo) y accesos por caja, con la sesión del admin (RLS). */
   async function guardarDatosUsuario(id: string, d: DatosUsuario, activo?: boolean) {
@@ -394,6 +412,22 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         medio_pago: m.medioPago,
         operacion_pago: m.operacionPago,
       } as TablesInsert<"movimientos">;
+      if (m.pago) {
+        if (!(await hayPagos())) throw new ErrorDeNegocio("Falta correr en Supabase la migración 20261102000000 (pagos con varias salidas)");
+        if (m.pago.nuevo) {
+          const { error: errPago } = await sb.from("pagos").insert({
+            id: m.pago.id,
+            caja_id: m.cajaId,
+            monto: m.pago.monto,
+            medio_pago: m.medioPago,
+            operacion: m.operacionPago,
+            fecha: m.fecha,
+          });
+          if (errPago?.code === "23505") throw new ErrorDeNegocio("Ese pago ya se registró");
+          fallo(errPago, "Registrar pago");
+        }
+        fila.pago_id = m.pago.id;
+      }
       const { error } = await sb.from("movimientos").insert(fila);
       if (error?.code === "P0001") throw new ErrorDeNegocio(error.message); // raise exception de triggers
       fallo(error, "Registrar movimiento");
@@ -436,7 +470,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       if (!f.cajaIds.length) return { movimientos: [], total: 0 };
       let q = sb
         .from("movimientos")
-        .select(COLUMNAS_MOVIMIENTO, { count: "exact" })
+        .select(await columnasMovimiento(), { count: "exact" })
         .in("caja_id", f.cajaIds)
         .eq("anulado", f.estado === "anulado");
       if (f.estado === "pendiente" || f.estado === "completo") q = q.eq("estado", f.estado);
@@ -463,14 +497,15 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         .limit(f.limite)
         .overrideTypes<FilaMovimiento[], { merge: false }>();
       fallo(error, "Movimientos");
-      return { movimientos: data.map(aMovimiento), total: count ?? data.length };
+      const pagos = await infoPagos(data);
+      return { movimientos: data.map((m) => aMovimiento(m, pagos)), total: count ?? data.length };
     },
 
     async obtenerMovimiento(id) {
       const { data, error } = await sb
         .from("movimientos")
         .select(
-          `${COLUMNAS_MOVIMIENTO}, proveedor_id, motivo_anulacion, liquidaciones(id, folio, estado), ` +
+          `${await columnasMovimiento()}, proveedor_id, motivo_anulacion, liquidaciones(id, folio, estado), ` +
             "archivos:adjuntos(id, tipo, mime_type, nombre_archivo, created_at)",
         )
         .eq("id", id)
@@ -490,7 +525,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         .sort((a, b) => a.created_at.localeCompare(b.created_at))
         .map((a) => ({ id: a.id, tipo: a.tipo, mimeType: a.mime_type, nombreArchivo: a.nombre_archivo, url: `/api/archivos/${a.id}` }));
       return {
-        ...aMovimiento(data),
+        ...aMovimiento(data, await infoPagos([data])),
         proveedorId: data.proveedor_id,
         motivoAnulacion: data.motivo_anulacion,
         liquidacion: data.liquidaciones,
@@ -560,10 +595,11 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       fallo(error, "Liquidación");
       if (!l) return null;
       const liq = aLiquidacion(l);
+      const columnas = await columnasMovimiento();
       const [movs, recs, anterior] = await Promise.all([
         sb
           .from("movimientos")
-          .select(COLUMNAS_MOVIMIENTO)
+          .select(columnas)
           .eq("liquidacion_id", id)
           .eq("anulado", false)
           .order("fecha")
@@ -584,10 +620,11 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       ]);
       fallo(movs.error, "Movimientos de la liquidación");
       fallo(recs.error, "Ingresos de la liquidación");
+      const pagosLiq = await infoPagos(movs.data);
       return {
         ...liq,
         folioAnterior: anterior.data?.folio ?? null,
-        movimientos: movs.data.map(aMovimiento),
+        movimientos: movs.data.map((m) => aMovimiento(m, pagosLiq)),
         recargas: recs.data.map(aRecarga),
       };
     },
@@ -713,6 +750,59 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       if (error?.code === "22023" || error?.code === "P0002") throw new ErrorDeNegocio(error.message);
       falloNegocio(error, "Pasar saldo de la caja anterior");
       return Number(data);
+    },
+
+    async obtenerPago(id) {
+      if (!(await hayPagos())) return null;
+      const [pago, salidas, devs] = await Promise.all([
+        sb.from("v_pagos").select("*").eq("id", id).maybeSingle(),
+        sb
+          .from("movimientos")
+          .select(await columnasMovimiento())
+          .eq("pago_id", id)
+          .order("created_at")
+          .overrideTypes<FilaMovimiento[], { merge: false }>(),
+        sb.from("devoluciones").select("id, pago_id, monto, motivo, fecha, comprobante_path").eq("pago_id", id).order("created_at"),
+      ]);
+      fallo(pago.error, "Pago");
+      fallo(salidas.error, "Salidas del pago");
+      fallo(devs.error, "Devoluciones");
+      const p = pago.data;
+      if (!p) return null;
+      const info = new Map([[id, { falta: Number(p.falta), tieneConstancia: !!p.tiene_constancia }]]);
+      return {
+        id,
+        cajaId: p.caja_id!,
+        monto: Number(p.monto),
+        medioPago: p.medio_pago,
+        operacion: p.operacion,
+        fecha: p.fecha!,
+        sustentado: Number(p.sustentado),
+        devuelto: Number(p.devuelto),
+        falta: Number(p.falta),
+        tieneConstancia: !!p.tiene_constancia,
+        salidas: salidas.data.map((m) => aMovimiento(m, info)),
+        devoluciones: devs.data.map((d) => ({
+          id: d.id,
+          pagoId: d.pago_id,
+          monto: Number(d.monto),
+          motivo: d.motivo,
+          fecha: d.fecha,
+          conFoto: !!d.comprobante_path,
+        })),
+      };
+    },
+
+    async registrarDevolucion(d) {
+      const { error } = await sb.from("devoluciones").insert({
+        pago_id: d.pagoId,
+        monto: d.monto,
+        motivo: d.motivo,
+        comprobante_path: d.comprobantePath,
+        comprobante_mime: d.comprobanteMime,
+      });
+      if (error?.code === "42501") throw new ErrorDeNegocio("No tienes permiso para registrar devoluciones en esta caja");
+      falloNegocio(error, "Registrar devolución");
     },
 
     async listarAreas() {

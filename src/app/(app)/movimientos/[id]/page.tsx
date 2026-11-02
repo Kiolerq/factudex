@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AnularMovimiento } from "@/components/movimientos/AnularMovimiento";
 import { AutorizarGasto } from "@/components/movimientos/AutorizarGasto";
 import { CompletarPendiente } from "@/components/movimientos/CompletarPendiente";
+import { PagoVariasSalidas } from "@/components/movimientos/PagoVariasSalidas";
 import { textoFalta } from "@/components/movimientos/textos";
 import { BadgeEstado } from "@/components/ui/BadgeEstado";
 import { exigirDetalle } from "@/lib/contexto";
@@ -20,7 +21,11 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
   const repo = await obtenerRepositorio();
   const m = await repo.obtenerMovimiento(id);
   if (!m) notFound();
-  const [permisos, almacen] = await Promise.all([repo.permisosCaja(m.cajaId), almacenActivo()]);
+  const [permisos, almacen, pago] = await Promise.all([
+    repo.permisosCaja(m.cajaId),
+    almacenActivo(),
+    m.pagoId ? repo.obtenerPago(m.pagoId) : null,
+  ]);
 
   const liquidacionAbierta = m.liquidacion.estado === "abierta" || m.liquidacion.estado === "observada";
   const pendiente = m.estado === "pendiente" && !m.anulado;
@@ -139,7 +144,8 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
         </section>
       </div>
 
-      {pendiente && permisos.registrar && (
+      {pago && <PagoVariasSalidas pago={pago} actualId={m.id} puedeRegistrar={permisos.registrar} almacen={almacen} />}
+      {pendiente && (m.faltaDocumento || m.faltaPago) && permisos.registrar && (
         <CompletarPendiente movimiento={m} almacen={almacen} medioEditable={liquidacionAbierta} />
       )}
       {!m.anulado && liquidacionAbierta && (permisos.registrar || permisos.aprobar) && <AnularMovimiento id={m.id} />}

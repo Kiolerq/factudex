@@ -38,6 +38,17 @@ export const EsquemaNuevoMovimiento = z
     serieNumero: textoOpcional(40),
     medioPago: z.enum(MEDIOS_PAGO).nullable(),
     operacionPago: textoOpcional(40),
+    pago: z
+      .object({
+        id: z.uuid(),
+        monto: z
+          .number("Ingresa el monto total del pago")
+          .positive("El monto del pago debe ser mayor a 0")
+          .max(100000, "Monto demasiado alto")
+          .refine((m) => Math.abs(m * 100 - Math.round(m * 100)) < 1e-6, "Máximo 2 decimales"),
+        nuevo: z.boolean(),
+      })
+      .nullable(),
     sinDocumento: z.boolean(),
     adjuntos: z.array(EsquemaAdjunto).max(6),
   })
@@ -59,6 +70,23 @@ export const EsquemaNuevoMovimiento = z
   });
 
 export type EntradaMovimiento = z.input<typeof EsquemaNuevoMovimiento>;
+
+/** Devolución de lo que sobró de un pago (volvió a la caja): monto, motivo y foto. */
+export const EsquemaDevolucion = z.object({
+  pagoId: z.uuid(),
+  monto: z
+    .number("Ingresa el monto devuelto")
+    .positive("El monto debe ser mayor a 0")
+    .max(100000, "Monto demasiado alto")
+    .refine((m) => Math.abs(m * 100 - Math.round(m * 100)) < 1e-6, "Máximo 2 decimales"),
+  motivo: z.string().trim().min(3, "Escribe el motivo").max(200),
+  comprobantePath: z
+    .string()
+    .regex(/^(drive:[\w-]{10,}|[0-9a-f-]{36}\/devoluciones\/[0-9a-f-]{36}\.(jpg|png|webp|heic|pdf))$/, "Archivo inválido")
+    .nullable(),
+  comprobanteMime: z.enum(MIME_PERMITIDOS).nullable(),
+});
+export type EntradaDevolucion = z.input<typeof EsquemaDevolucion>;
 
 export const EsquemaNuevoProveedor = z
   .object({

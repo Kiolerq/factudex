@@ -62,25 +62,38 @@ export async function subirAdjunto(opciones: {
 }
 
 /** Foto del depósito de un ingreso: misma carpeta de la caja en Drive, o <caja_id>/ingresos/ en Storage. */
-export async function subirFotoIngreso(opciones: {
+export function subirFotoIngreso(o: { almacen: Almacen; cajaId: string; recargaId: string; archivo: File; fecha: string; monto: number }) {
+  return subirFotoSuelta({ ...o, id: o.recargaId, tipo: "ingreso", carpeta: "ingresos", referencia: "Ingreso" });
+}
+
+/** Foto de una devolución (lo que sobró de un pago y volvió a la caja). */
+export function subirFotoDevolucion(o: { almacen: Almacen; cajaId: string; pagoId: string; archivo: File; fecha: string; monto: number }) {
+  return subirFotoSuelta({ ...o, id: o.pagoId, tipo: "devolucion", carpeta: "devoluciones", referencia: "Devolucion" });
+}
+
+/** Una foto que no es de un gasto (ingreso, devolución): Drive o <caja_id>/<carpeta>/<uuid>.<ext>. */
+async function subirFotoSuelta(opciones: {
   almacen: Almacen;
   cajaId: string;
-  recargaId: string;
+  id: string;
+  tipo: "ingreso" | "devolucion";
+  carpeta: "ingresos" | "devoluciones";
+  referencia: string;
   archivo: File;
   fecha: string;
   monto: number;
 }): Promise<{ storagePath: string; mime: MimePermitido }> {
-  const { almacen, cajaId, recargaId, archivo } = opciones;
+  const { almacen, cajaId, archivo } = opciones;
   const mime = archivo.type as MimePermitido;
   if (almacen === "drive") {
     const sesion = await iniciarSubidaDrive({
       cajaId,
-      movimientoId: recargaId,
-      tipo: "ingreso",
+      movimientoId: opciones.id,
+      tipo: opciones.tipo,
       mime,
       tamano: archivo.size,
       fecha: opciones.fecha,
-      referencia: "Ingreso",
+      referencia: opciones.referencia,
       monto: opciones.monto,
     });
     if (!sesion.ok) throw new Error(sesion.error);
@@ -89,7 +102,7 @@ export async function subirFotoIngreso(opciones: {
     const { id } = (await r.json()) as { id: string };
     return { storagePath: `drive:${id}`, mime };
   }
-  const ruta = `${cajaId}/ingresos/${nuevoUuid()}.${EXTENSION[mime] ?? "bin"}`; // nombre nuevo: sin pisar otra foto
+  const ruta = `${cajaId}/${opciones.carpeta}/${nuevoUuid()}.${EXTENSION[mime] ?? "bin"}`; // nombre nuevo: sin pisar otra foto
   if (almacen === "supabase") {
     const { error } = await createClient()
       .storage.from("comprobantes")

@@ -1,6 +1,8 @@
 import { cache } from "react";
 import type {
   Area,
+  NuevaDevolucion,
+  Pago,
   CajaAdmin,
   DatosCaja,
   CambiosUsuario,
@@ -62,6 +64,9 @@ export interface Repositorio {
   registrarRecarga(r: NuevaRecarga): Promise<string>;
   adjuntarComprobanteRecarga(id: string, path: string, mime: string): Promise<void>;
   listarAreas(): Promise<Area[]>;
+  /** Pago con varias salidas: sus salidas, devoluciones y cuánto falta cuadrar. */
+  obtenerPago(id: string): Promise<Pago | null>;
+  registrarDevolucion(d: NuevaDevolucion): Promise<void>;
   /** Pasa el saldo y los gastos sin liquidar de una caja a la nueva (misma empresa y área) y cierra la anterior. */
   traspasarCaja(anteriorId: string, nuevaId: string): Promise<number>;
   crearArea(a: Area): Promise<void>;

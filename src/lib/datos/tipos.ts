@@ -164,7 +164,42 @@ export interface NuevoMovimiento {
   serieNumero: string | null;
   medioPago: MedioPago | null;
   operacionPago: string | null; // N° de operación Yape/Plin/transferencia
+  /** Parte de un pago con varias salidas: uno nuevo (con su monto total) o uno ya registrado. */
+  pago: { id: string; monto: number; nuevo: boolean } | null;
   adjuntos: AdjuntoSubido[];
+}
+
+/** Un pago (Yape, transferencia, efectivo entregado) que se sustenta con varios documentos. */
+export interface Pago {
+  id: string;
+  cajaId: string;
+  monto: number;
+  medioPago: MedioPago | null;
+  operacion: string | null;
+  fecha: string;
+  sustentado: number; // suma de las salidas no anuladas
+  devuelto: number;
+  falta: number; // monto − sustentado − devuelto (negativo: se pasó)
+  tieneConstancia: boolean;
+  salidas: MovimientoResumen[];
+  devoluciones: Devolucion[];
+}
+
+export interface Devolucion {
+  id: string;
+  pagoId: string;
+  monto: number;
+  motivo: string;
+  fecha: string;
+  conFoto: boolean; // se ve en /api/devoluciones/<id>/foto
+}
+
+export interface NuevaDevolucion {
+  pagoId: string;
+  monto: number;
+  motivo: string;
+  comprobantePath: string | null;
+  comprobanteMime: string | null;
 }
 
 export interface NuevoProveedor {
@@ -211,8 +246,10 @@ export interface MovimientoResumen {
   estado: EstadoMovimiento;
   anulado: boolean;
   faltaDocumento: boolean;
-  faltaPago: boolean; // en efectivo nunca falta
+  faltaPago: boolean; // en efectivo nunca falta; en un pago con varias salidas basta una constancia
   porAutorizar: boolean; // supera el tope de la empresa y tesorería aún no lo autoriza
+  pagoId: string | null; // parte de un pago con varias salidas
+  pagoFalta: number; // lo que falta cuadrar de ese pago (0 = cuadrado o sin pago)
 }
 
 export interface PaginaMovimientos {

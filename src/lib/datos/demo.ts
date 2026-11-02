@@ -12,6 +12,7 @@ import {
   type EstadoLiquidacion,
   type EstadoMovimiento,
   type LiquidacionResumen,
+  type MedioPago,
   type MovimientoResumen,
   type NuevoMovimiento,
   type Opcion,
@@ -35,7 +36,24 @@ interface CajaDemo {
   umbralAlerta: number;
   activa: boolean;
 }
-interface MovimientoDemo extends Omit<NuevoMovimiento, "adjuntos"> {
+interface PagoDemo {
+  id: string;
+  cajaId: string;
+  monto: number;
+  medioPago: MedioPago | null;
+  operacion: string | null;
+  fecha: string;
+}
+interface DevolucionDemo {
+  id: string;
+  pagoId: string;
+  monto: number;
+  motivo: string;
+  fecha: string;
+  comprobantePath: string | null;
+}
+interface MovimientoDemo extends Omit<NuevoMovimiento, "adjuntos" | "pago"> {
+  pagoId: string | null;
   estado: EstadoMovimiento;
   liquidacionId: string;
   anulado: boolean;
@@ -77,6 +95,8 @@ interface Almacen {
   recargas: RecargaDemo[];
   usuarios: UsuarioAdmin[];
   areas?: Area[];
+  pagos?: PagoDemo[];
+  devoluciones?: DevolucionDemo[];
 }
 
 function sembrar(): Almacen {
@@ -157,6 +177,7 @@ function sembrar(): Almacen {
     creado: Date.now(),
     requiereAutorizacion: false,
     autorizado: false,
+    pagoId: null,
     fecha,
     detalle,
     monto,
@@ -322,12 +343,38 @@ function liquidacionAbierta(cajaId: string): LiquidacionDemo {
 /** Como fx_liquidable(): completo, no anulado y, si pasa el tope, autorizado. */
 const liquidable = (m: MovimientoDemo) => !m.anulado && m.estado === "completo" && (!m.requiereAutorizacion || m.autorizado);
 
-const estadoDe = (m: MovimientoDemo) =>
-  estadoEsperado(
+/** Como v_pagos: lo sustentado, lo devuelto, lo que falta y si alguna salida tiene la constancia. */
+function infoPago(pagoId: string) {
+  const p = (db.pagos ??= []).find((x) => x.id === pagoId)!;
+  const salidas = db.movimientos.filter((m) => m.pagoId === pagoId);
+  const sustentado = redondear(suma(salidas.filter((m) => !m.anulado), (m) => m.monto));
+  const devuelto = redondear(suma((db.devoluciones ??= []).filter((d) => d.pagoId === pagoId), (d) => d.monto));
+  return {
+    pago: p,
+    salidas,
+    sustentado,
+    devuelto,
+    falta: redondear(p.monto - sustentado - devuelto),
+    tieneConstancia: salidas.some((m) => m.adjuntos.some((a) => a.tipo === "pago")),
+  };
+}
+
+/** Como fx_estado_movimiento(): documento + constancia (la suya o la del pago) + pago cuadrado. */
+const estadoDe = (m: MovimientoDemo) => {
+  const info = m.pagoId ? infoPago(m.pagoId) : null;
+  const estado = estadoEsperado(
     m.adjuntos.some((a) => a.tipo === "documento"),
-    m.adjuntos.some((a) => a.tipo === "pago"),
+    m.adjuntos.some((a) => a.tipo === "pago") || !!info?.tieneConstancia,
     m.medioPago,
   );
+  return info && info.falta !== 0 ? "pendiente" : estado;
+};
+
+/** Como fx_recalcular_pago(): el estado de todas las salidas de un pago. */
+function recalcularPago(pagoId: string | null) {
+  if (!pagoId) return;
+  for (const m of db.movimientos.filter((x) => x.pagoId === pagoId)) m.estado = estadoDe(m);
+}
 
 function resumen(m: MovimientoDemo): MovimientoResumen {
   const prov = db.proveedores.find((p) => p.id === m.proveedorId);
@@ -350,8 +397,13 @@ function resumen(m: MovimientoDemo): MovimientoResumen {
     estado: m.estado,
     anulado: m.anulado,
     faltaDocumento: !m.adjuntos.some((a) => a.tipo === "documento"),
-    faltaPago: m.medioPago !== "efectivo" && !m.adjuntos.some((a) => a.tipo === "pago"),
+    faltaPago:
+      m.medioPago !== "efectivo" &&
+      !m.adjuntos.some((a) => a.tipo === "pago") &&
+      !(m.pagoId && infoPago(m.pagoId).tieneConstancia),
     porAutorizar: m.requiereAutorizacion && !m.autorizado && !m.anulado,
+    pagoId: m.pagoId,
+    pagoFalta: m.pagoId ? infoPago(m.pagoId).falta : 0,
   };
 }
 
@@ -472,9 +524,17 @@ export const repositorioDemo: Repositorio = {
     if (m.centroCostoId && !db.centrosCosto.some((c) => c.id === m.centroCostoId && c.empresaId === empresaId))
       throw new ErrorDeNegocio("El centro de costo no pertenece a la empresa de la caja");
     if (db.movimientos.some((x) => x.id === m.id)) throw new ErrorDeNegocio("Movimiento duplicado");
+    const { pago, ...datos } = m;
+    if (pago?.nuevo) {
+      if ((db.pagos ??= []).some((p) => p.id === pago.id)) throw new ErrorDeNegocio("Ese pago ya se registró");
+      db.pagos.push({ id: pago.id, cajaId: m.cajaId, monto: pago.monto, medioPago: m.medioPago, operacion: m.operacionPago, fecha: m.fecha });
+    } else if (pago && !(db.pagos ??= []).some((p) => p.id === pago.id && p.cajaId === m.cajaId)) {
+      throw new ErrorDeNegocio("El pago es de otra caja");
+    }
 
     const nuevo: MovimientoDemo = {
-      ...m,
+      ...datos,
+      pagoId: pago?.id ?? null,
       adjuntos: m.adjuntos.map((a) => ({ ...a, id: randomUUID() })),
       estado: "pendiente",
       liquidacionId: liquidacionAbierta(m.cajaId).id,
@@ -484,8 +544,9 @@ export const repositorioDemo: Repositorio = {
       requiereAutorizacion: m.monto > db.empresas.find((e) => e.id === empresaId)!.topeGasto,
       autorizado: false,
     };
-    nuevo.estado = estadoDe(nuevo);
     db.movimientos.push(nuevo);
+    nuevo.estado = estadoDe(nuevo);
+    recalcularPago(nuevo.pagoId);
     return { id: m.id, estado: nuevo.estado };
   },
 
@@ -545,6 +606,7 @@ export const repositorioDemo: Repositorio = {
     });
     m.adjuntos.push(...c.adjuntos.map((a) => ({ ...a, id: randomUUID() })));
     m.estado = estadoDe(m);
+    recalcularPago(m.pagoId);
     return m.estado;
   },
 
@@ -554,6 +616,7 @@ export const repositorioDemo: Repositorio = {
     editable(m);
     m.anulado = true;
     m.motivoAnulacion = motivo;
+    recalcularPago(m.pagoId);
   },
 
   async listarLiquidaciones(cajaIds) {
@@ -743,6 +806,40 @@ export const repositorioDemo: Repositorio = {
     }
     a.activa = false;
     return saldo;
+  },
+
+  async obtenerPago(id) {
+    if (!(db.pagos ??= []).some((p) => p.id === id)) return null;
+    const i = infoPago(id);
+    return {
+      id,
+      cajaId: i.pago.cajaId,
+      monto: i.pago.monto,
+      medioPago: i.pago.medioPago,
+      operacion: i.pago.operacion,
+      fecha: i.pago.fecha,
+      sustentado: i.sustentado,
+      devuelto: i.devuelto,
+      falta: i.falta,
+      tieneConstancia: i.tieneConstancia,
+      salidas: [...i.salidas].sort((a, b) => a.creado - b.creado).map(resumen),
+      devoluciones: (db.devoluciones ??= [])
+        .filter((d) => d.pagoId === id)
+        .map((d) => ({ id: d.id, pagoId: d.pagoId, monto: d.monto, motivo: d.motivo, fecha: d.fecha, conFoto: !!d.comprobantePath })),
+    };
+  },
+
+  async registrarDevolucion(d) {
+    if (!(db.pagos ??= []).some((p) => p.id === d.pagoId)) throw new ErrorDeNegocio("El pago no existe");
+    (db.devoluciones ??= []).push({
+      id: randomUUID(),
+      pagoId: d.pagoId,
+      monto: d.monto,
+      motivo: d.motivo,
+      fecha: fechaHoyLima(),
+      comprobantePath: d.comprobantePath,
+    });
+    recalcularPago(d.pagoId);
   },
 
   async listarAreas() {
