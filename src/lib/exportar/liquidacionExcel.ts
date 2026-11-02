@@ -13,6 +13,7 @@ export interface IngresoExcel {
   forma: "banco" | "efectivo" | "otros";
   banco: string | null;
   monto: number;
+  urlFoto?: string | null; // foto del depósito (Drive)
 }
 
 export interface EgresoExcel {
@@ -27,6 +28,9 @@ export interface EgresoExcel {
   operacionPago: string | null;
   monto: number;
   centroCosto: string | null; // área, placa u otro destino del gasto
+  urlDocumento?: string | null; // link a la foto/PDF del comprobante (Drive)
+  urlPago?: string | null; // link a la constancia de pago
+  notaPago?: string | null; // pago con varias salidas: "pago S/ 90.00 · 3 salidas · devolución S/ 10.00"
 }
 
 export interface DatosLiquidacionExcel {
@@ -103,8 +107,17 @@ export async function generarLiquidacionExcel(d: DatosLiquidacionExcel): Promise
   // Anchos de columna, fuente y posiciones copiados del formato original (pruebaliquidacion.xlsx).
   const anchos: Record<string, number> = {
     A: 4.3, B: 20, C: 20.4, D: 33.1, E: 20.3, F: 35.7, G: 23.4, H: 18.3, I: 14.3, J: 21, K: 19.9, L: 19.1, M: 23.9,
+    N: 17, O: 17, // links a los archivos (pedido de contabilidad: después de las columnas del formato)
   };
   for (const [col, ancho] of Object.entries(anchos)) hoja.getColumn(col).width = ancho;
+
+  /** Link clicable "Ver" (abre la foto o el PDF en Drive). */
+  const enlace = (celda: ExcelJS.Cell, url: string) => {
+    celda.value = { text: "Ver", hyperlink: url, tooltip: url };
+    celda.font = { name: FUENTE, size: 14, color: { argb: "FF1F5FBF" }, underline: true };
+    celda.alignment = { horizontal: "center", vertical: "top" };
+    celda.border = BORDE;
+  };
 
   const estilo = (celda: ExcelJS.Cell, opciones: { negrita?: boolean; tam?: number; formato?: string } = {}) => {
     celda.font = { name: FUENTE, size: opciones.tam ?? 14, bold: opciones.negrita ?? false };
@@ -146,13 +159,13 @@ export async function generarLiquidacionExcel(d: DatosLiquidacionExcel): Promise
   hoja.mergeCells(`E${fila}:F${fila}`);
   cabeceras(fila, [
     ["B", "FECHA DEPOSITO"], ["C", "DESCRIPCION BANCO"], ["E", "RECIBO"], ["G", "OPERACIÓN"],
-    ["H", "BANCO"], ["I", "EFECTIVO"], ["J", "OTROS"], ["K", "TOTAL INGRESO"],
+    ["H", "BANCO"], ["I", "EFECTIVO"], ["J", "OTROS"], ["K", "TOTAL INGRESO"], ["L", "FOTO"],
   ]);
   const primeraIngreso = fila + 1;
 
   const filaIngreso = (valores: {
     fecha: string | null; descripcion: string; recibo?: string | null; operacion?: string | null;
-    banco?: string | null; efectivo?: number | null; otros?: number | null; total: number;
+    banco?: string | null; efectivo?: number | null; otros?: number | null; total: number; urlFoto?: string | null;
   }) => {
     fila += 1;
     hoja.mergeCells(`C${fila}:D${fila}`);
@@ -171,6 +184,7 @@ export async function generarLiquidacionExcel(d: DatosLiquidacionExcel): Promise
     set("I", valores.efectivo ?? null, CONTABLE);
     set("J", valores.otros ?? null, CONTABLE);
     set("K", valores.total, CONTABLE);
+    if (valores.urlFoto) enlace(hoja.getCell(`L${fila}`), valores.urlFoto);
   };
 
   filaIngreso({
@@ -188,6 +202,7 @@ export async function generarLiquidacionExcel(d: DatosLiquidacionExcel): Promise
       efectivo: i.forma === "efectivo" ? i.monto : null,
       otros: i.forma === "otros" ? i.monto : null,
       total: i.monto,
+      urlFoto: i.urlFoto,
     });
   }
   const ultimaIngreso = fila;
@@ -207,6 +222,7 @@ export async function generarLiquidacionExcel(d: DatosLiquidacionExcel): Promise
     ["B", "FECHA"], ["C", "SOLICITANTE"], ["D", "RAZON SOCIAL"], ["E", "RUC / DNI"],
     ["F", "DETALLE COMPRA"], ["G", "FACTURA"], ["H", "BOL. VTA"], ["I", "REC X HON."],
     ["J", "OTROS"], ["K", "YAPE/PLIN"], ["L", "IMPORTE"], ["M", "CENTRO COSTO"],
+    ["N", "COMPROBANTE"], ["O", "CONSTANCIA PAGO"],
   ]);
   const primeraEgreso = fila + 1;
 
@@ -230,9 +246,14 @@ export async function generarLiquidacionExcel(d: DatosLiquidacionExcel): Promise
       const numero = e.serieNumero ?? (e.tipoDocumento === "otro" ? "Otro" : "S/N");
       set(COLUMNA_DOCUMENTO[e.tipoDocumento], prefijo ? `${prefijo} ${numero}` : numero);
     }
-    set("K", textoYape(e));
+    set("K", [textoYape(e), e.notaPago].filter(Boolean).join(" · ") || null);
     set("L", e.monto, CONTABLE);
     set("M", e.centroCosto);
+    set("N", null);
+    set("O", null);
+    if (e.urlDocumento) enlace(hoja.getCell(`N${fila}`), e.urlDocumento);
+    if (e.urlPago) enlace(hoja.getCell(`O${fila}`), e.urlPago);
+    hoja.getCell(`K${fila}`).alignment = { vertical: "top", wrapText: true };
   }
   if (d.egresos.length === 0) fila += 1; // deja una fila vacía para que el SUM tenga rango
   const ultimaEgreso = fila;

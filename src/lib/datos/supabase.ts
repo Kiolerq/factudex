@@ -931,6 +931,51 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       falloNegocio(error, "Adjuntar archivo");
     },
 
+    async archivosParaExcel(movimientoIds, recargaIds) {
+      if (!movimientoIds.length && !recargaIds.length) return { adjuntos: [], recargas: [] };
+      const conPagos = await hayPagos();
+      const [propios, recs] = await Promise.all([
+        movimientoIds.length
+          ? sb
+              .from("adjuntos")
+              .select(conPagos ? "id, movimiento_id, tipo, storage_path, movimientos(pago_id)" : "id, movimiento_id, tipo, storage_path")
+              .in("movimiento_id", movimientoIds)
+              .overrideTypes<{ id: string; movimiento_id: string; tipo: TipoAdjunto; storage_path: string; movimientos?: { pago_id: string | null } }[], { merge: false }>()
+          : { data: [], error: null },
+        recargaIds.length
+          ? sb.from("recargas").select("id, comprobante_path").in("id", recargaIds).not("comprobante_path", "is", null)
+          : { data: [], error: null },
+      ]);
+      fallo(propios.error, "Archivos");
+      const adjuntos = (propios.data ?? []).map((a) => ({
+        id: a.id,
+        movimientoId: a.movimiento_id,
+        pagoId: a.movimientos?.pago_id ?? null,
+        tipo: a.tipo,
+        storagePath: a.storage_path,
+      }));
+      // La constancia de un pago con varias salidas puede estar en otra salida.
+      if (conPagos) {
+        const { data: movs } = await sb.from("movimientos").select("pago_id").in("id", movimientoIds).not("pago_id", "is", null);
+        const pagoIds = [...new Set((movs ?? []).map((m) => m.pago_id!))];
+        if (pagoIds.length) {
+          const { data: hermanos } = await sb
+            .from("adjuntos")
+            .select("id, movimiento_id, tipo, storage_path, movimientos!inner(pago_id)")
+            .eq("tipo", "pago")
+            .in("movimientos.pago_id", pagoIds)
+            .overrideTypes<{ id: string; movimiento_id: string; tipo: TipoAdjunto; storage_path: string; movimientos: { pago_id: string } }[], { merge: false }>();
+          for (const a of hermanos ?? [])
+            if (!adjuntos.some((x) => x.id === a.id))
+              adjuntos.push({ id: a.id, movimientoId: a.movimiento_id, pagoId: a.movimientos.pago_id, tipo: a.tipo, storagePath: a.storage_path });
+        }
+      }
+      return {
+        adjuntos,
+        recargas: ((recs.data ?? []) as { id: string; comprobante_path: string | null }[]).map((r) => ({ id: r.id, storagePath: r.comprobante_path! })),
+      };
+    },
+
     async listarAreas() {
       const { data, error } = await sb.from("areas").select("codigo, nombre, descripcion").order("codigo");
       if (error) return AREAS_BASE; // sin la migración 20261026: las tres de siempre

@@ -957,6 +957,22 @@ export const repositorioDemo: Repositorio = {
     recalcularPago(m.pagoId);
   },
 
+  async archivosParaExcel(movimientoIds, recargaIds) {
+    const movs = db.movimientos.filter((m) => movimientoIds.includes(m.id));
+    const pagoIds = new Set(movs.flatMap((m) => (m.pagoId ? [m.pagoId] : [])));
+    const adjuntos = db.movimientos
+      .filter((m) => movimientoIds.includes(m.id) || (m.pagoId && pagoIds.has(m.pagoId)))
+      .flatMap((m) =>
+        m.adjuntos
+          .filter((a) => movimientoIds.includes(m.id) || a.tipo === "pago")
+          .map((a) => ({ id: a.id, movimientoId: m.id, pagoId: m.pagoId, tipo: a.tipo, storagePath: a.storagePath })),
+      );
+    const recargas = db.recargas
+      .filter((r) => recargaIds.includes(r.id) && r.comprobantePath)
+      .map((r) => ({ id: r.id, storagePath: r.comprobantePath! }));
+    return { adjuntos, recargas };
+  },
+
   async listarAreas() {
     return [...(db.areas ??= [...AREAS_BASE])].sort((a, b) => a.codigo.localeCompare(b.codigo));
   },

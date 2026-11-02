@@ -94,6 +94,44 @@ los datos a mano.
 En Xiaomi o Redmi, dale a Chrome el permiso *Accesos directos de la pantalla de inicio*. En iPhone
 no hay "Compartir": usa el botón de foto o elige el archivo.
 
+## 4b. Un pago con varias salidas (un Yape para varios comprobantes)
+
+Ejemplo: pagaste **un Yape de S/ 90** y eso se sustenta con un peaje de S/ 40, otro peaje de S/ 40
+y una planilla de S/ 10 (alimentación del chofer).
+
+1. Registra el **primer comprobante** (el peaje de S/ 40) como siempre.
+2. En **Medio de pago** elige Yape y marca **"Este pago cubre varios comprobantes"**. Escribe el
+   **monto total del pago: 90.00**. Sube la captura del Yape **una sola vez**.
+   - Si la IA ve que el Yape dice más que la factura, te ofrece el botón *"Es un pago con varias salidas"*.
+3. Guarda. Verás: *Pago S/ 90.00 · sustentado S/ 40.00 · **falta S/ 50.00***.
+4. Toca **"＋ Agregar la siguiente salida"**: ya viene el Yape, la fecha y la caja; solo sube el
+   siguiente comprobante. La constancia no se vuelve a pedir.
+5. Para la planilla: **"📝 Hacer planilla de movilidad"** (ver abajo); queda como otra salida del pago.
+6. **Si sobró dinero y volvió a la caja**: abre el gasto → **"↩ Registrar devolución"** con el monto,
+   el motivo y la foto.
+
+**Mientras falte sustentar, todas las salidas de ese pago quedan Pendientes** y no entran a la
+liquidación. Cuando cuadra (salidas + devoluciones = monto del pago) pasan a **Completo**, y cada
+salida va como una línea propia en la liquidación.
+
+## 4c. Planilla de movilidad (y alimentación)
+
+En **Registro** toca **"📝 Hacer planilla de movilidad"**.
+
+1. **Serie y N°**: vienen solos (San Lorenzo: serie 10, el siguiente número). En SIPE, la primera
+   vez escribe tu serie y número; después la app propone el siguiente.
+2. **Fecha de emisión**, categoría (Movilidad) y centro de costo.
+3. Por cada fila: **fecha**, **trabajador** y **DNI** (la app los recuerda), **motivo**
+   (*Movilidad* o *Alimentación*), **origen**, **destino**, **importe** y **tipo** (Taxi, Bus,
+   Colectivo, Combi). Usa **"⧉ Copiar la fila anterior"** para no repetir.
+4. **Tope: S/ 40 por trabajador y por día**, sumando todas sus planillas. En una planilla pueden ir
+   varios trabajadores, cada uno con su tope. Si alguien se pasa, la app lo marca en rojo y no deja
+   guardar.
+5. **Guardar planilla** → **🖨 Imprimir PDF** para que firmen. **Sin firma igual vale para la
+   liquidación**: el PDF ya queda adjunto como documento.
+
+En la liquidación sale en la columna **OTROS** como *"Planilla mov. 10-157"*.
+
 ## 5. Completar pendientes
 
 1. Ve a **Pendientes**. Cada gasto dice qué le falta (comprobante o pago).

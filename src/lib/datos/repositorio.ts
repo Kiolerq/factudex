@@ -1,6 +1,7 @@
 import { cache } from "react";
 import type {
   Area,
+  TipoAdjunto,
   AdjuntoSubido,
   GastoPlanillaDia,
   NuevaPlanilla,
@@ -38,6 +39,11 @@ import type {
  *  - Demo (sin variables de Supabase): datos de ejemplo en memoria del servidor.
  * Solo se usa desde el servidor (Server Components y Server Actions).
  */
+export interface ArchivosExcel {
+  adjuntos: { id: string; movimientoId: string; pagoId: string | null; tipo: TipoAdjunto; storagePath: string }[];
+  recargas: { id: string; storagePath: string }[];
+}
+
 export interface Repositorio {
   usuarioActual(): Promise<Usuario | null>;
   listarEmpresas(): Promise<Empresa[]>;
@@ -83,6 +89,8 @@ export interface Repositorio {
   obtenerPlanillaDeMovimiento(movimientoId: string): Promise<Planilla | null>;
   /** Adjunta archivos ya subidos a un gasto (ej. el PDF de la planilla). */
   agregarAdjuntos(movimientoId: string, adjuntos: AdjuntoSubido[]): Promise<void>;
+  /** Rutas de los archivos de unos gastos (y de las constancias de sus pagos) e ingresos, para el Excel. */
+  archivosParaExcel(movimientoIds: string[], recargaIds: string[]): Promise<ArchivosExcel>;
   /** Pasa el saldo y los gastos sin liquidar de una caja a la nueva (misma empresa y área) y cierra la anterior. */
   traspasarCaja(anteriorId: string, nuevaId: string): Promise<number>;
   crearArea(a: Area): Promise<void>;
