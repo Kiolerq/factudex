@@ -41,7 +41,30 @@ export function LetraGrande() {
         activo={grande}
         onCambiar={setGrande}
       />
-      <Interruptor texto="Tema oscuro" ayuda="Fondo oscuro en vez de claro." activo={oscuro} onCambiar={setOscuro} />
+      <div className="flex flex-col gap-2">
+        <span className="text-fx-md font-semibold">Modo</span>
+        <div role="radiogroup" aria-label="Modo de pantalla" className="grid grid-cols-2 gap-2">
+          {(
+            [
+              [false, "☀ Claro"],
+              [true, "☾ Oscuro"],
+            ] as const
+          ).map(([valor, texto]) => (
+            <button
+              key={texto}
+              type="button"
+              role="radio"
+              aria-checked={oscuro === valor}
+              onClick={() => setOscuro(valor)}
+              className={`fx-btn rounded-[12px] border px-4 py-3 text-fx-md font-semibold ${
+                oscuro === valor ? "border-fx-primary bg-fx-primary-soft text-fx-primary-light" : "border-white/20 text-white/75"
+              }`}
+            >
+              {texto}
+            </button>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }
