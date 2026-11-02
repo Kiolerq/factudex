@@ -579,6 +579,13 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
           }}
         />
         <h1 className="mt-1.5 font-display text-[19px] font-bold md:hidden">Nuevo registro</h1>
+        <Link
+          prefetch={false}
+          href={pagoActual ? `/registro/planilla?pago=${pagoActual.id}` : "/registro/planilla"}
+          className="fx-btn mb-1 flex w-full items-center justify-center gap-2 rounded-[14px] border-2 border-fx-primary-line px-4 py-3 text-fx-md font-semibold text-fx-primary-light md:mb-4 md:w-auto md:self-start"
+        >
+          <span aria-hidden>📝</span> Hacer planilla de movilidad
+        </Link>
         <button
           type="button"
           onClick={() => camaraRapida.current?.click()}

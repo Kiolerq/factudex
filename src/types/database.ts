@@ -115,6 +115,105 @@ export type Database = {
         }
         Relationships: []
       }
+      planilla_filas: {
+        Row: {
+          destino: string
+          dni: string | null
+          fecha: string
+          id: string
+          importe: number
+          motivo: string
+          orden: number
+          origen: string
+          planilla_id: string
+          tipo: string | null
+          trabajador: string
+        }
+        Insert: {
+          destino: string
+          dni?: string | null
+          fecha: string
+          id?: string
+          importe: number
+          motivo: string
+          orden: number
+          origen: string
+          planilla_id: string
+          tipo?: string | null
+          trabajador: string
+        }
+        Update: {
+          importe?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planilla_filas_planilla_id_fkey"
+            columns: ["planilla_id"]
+            isOneToOne: false
+            referencedRelation: "planillas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planillas: {
+        Row: {
+          created_at: string
+          creado_por: string
+          empresa_id: string
+          fecha_emision: string
+          id: string
+          movimiento_id: string
+          numero: number
+          serie: string
+        }
+        Insert: {
+          created_at?: string
+          creado_por?: string
+          empresa_id: string
+          fecha_emision: string
+          id?: string
+          movimiento_id: string
+          numero: number
+          serie: string
+        }
+        Update: {
+          numero?: number
+          serie?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planillas_movimiento_id_fkey"
+            columns: ["movimiento_id"]
+            isOneToOne: true
+            referencedRelation: "movimientos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trabajadores: {
+        Row: {
+          activo: boolean
+          created_at: string
+          dni: string | null
+          empresa_id: string
+          id: string
+          nombre: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          dni?: string | null
+          empresa_id: string
+          id?: string
+          nombre: string
+        }
+        Update: {
+          activo?: boolean
+          dni?: string | null
+          nombre?: string
+        }
+        Relationships: []
+      }
       areas: {
         Row: {
           codigo: string
@@ -1157,6 +1256,21 @@ export type Database = {
       }
     }
     Functions: {
+      crear_planilla: {
+        Args: {
+          p_caja: string
+          p_categoria: string
+          p_centro_costo: string
+          p_fecha_emision: string
+          p_filas: Json
+          p_movimiento: string
+          p_numero: number
+          p_pago: string
+          p_serie: string
+          p_solicitante: string
+        }
+        Returns: string
+      }
       traspasar_caja: {
         Args: { p_anterior: string; p_nueva: string }
         Returns: number

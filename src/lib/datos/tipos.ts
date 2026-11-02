@@ -113,6 +113,71 @@ export interface Empresa {
   razonSocial: string;
   ciudad: string; // pie de la liquidación: "TRUJILLO 24.09.2026"
   topeGasto: number; // máximo por gasto; más que esto queda "por autorizar" (tesorería)
+  ruc: string | null; // sale en el encabezado de la planilla de movilidad
+  topePlanillaDia: number; // máximo por trabajador y día en planillas de movilidad (S/ 40)
+}
+
+// --- Planilla de movilidad (también para alimentación) ---
+
+export const MOTIVOS_PLANILLA = ["MOVILIDAD", "ALIMENTACION"] as const;
+export type MotivoPlanilla = (typeof MOTIVOS_PLANILLA)[number];
+export const ETIQUETA_MOTIVO_PLANILLA: Record<MotivoPlanilla, string> = { MOVILIDAD: "Movilidad", ALIMENTACION: "Alimentación" };
+
+export const TIPOS_TRANSPORTE = ["T", "B", "C", "COMBI"] as const;
+export type TipoTransporte = (typeof TIPOS_TRANSPORTE)[number];
+export const ETIQUETA_TRANSPORTE: Record<TipoTransporte, string> = { T: "Taxi", B: "Bus", C: "Colectivo", COMBI: "Combi" };
+
+export interface FilaPlanilla {
+  fecha: string;
+  trabajador: string;
+  dni: string | null;
+  motivo: MotivoPlanilla;
+  origen: string;
+  destino: string;
+  importe: number;
+  tipo: TipoTransporte | null;
+}
+
+export interface NuevaPlanilla {
+  movimientoId: string;
+  cajaId: string;
+  categoriaId: string | null;
+  centroCostoId: string | null;
+  solicitante: string | null;
+  serie: string;
+  numero: number;
+  fechaEmision: string;
+  pagoId: string | null; // otra salida de un pago con varias salidas
+  filas: FilaPlanilla[];
+}
+
+export interface Planilla {
+  id: string;
+  empresaId: string;
+  movimientoId: string;
+  cajaId: string;
+  serie: string;
+  numero: number;
+  fechaEmision: string;
+  filas: FilaPlanilla[];
+  total: number;
+}
+
+export interface Trabajador {
+  nombre: string;
+  dni: string | null;
+}
+
+/** Lo ya gastado por trabajador y día en planillas (para avisar antes de pasar el tope). */
+export interface GastoPlanillaDia {
+  clave: string; // DNI o nombre en mayúsculas (como fx_clave_trabajador)
+  fecha: string;
+  total: number;
+}
+
+/** Igual que fx_clave_trabajador() en la BD. */
+export function claveTrabajador(nombre: string, dni: string | null): string {
+  return dni?.trim() || nombre.trim().replace(/\s+/g, " ").toUpperCase();
 }
 
 export interface CajaSaldo {

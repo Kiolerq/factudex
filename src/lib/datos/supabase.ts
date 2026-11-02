@@ -1,9 +1,9 @@
 import { crearClienteAdmin } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import type { TablesInsert, TablesUpdate } from "@/types/database";
+import type { Json, TablesInsert, TablesUpdate } from "@/types/database";
 import { ErrorDeNegocio, type Repositorio } from "./repositorio";
 import { MODULOS, type DatosUsuario, type Modulo, type RolCaja, type UsuarioAdmin } from "./tipos";
-import { AREAS_BASE, claveCentro } from "./tipos";
+import { AREAS_BASE, claveCentro, claveTrabajador, type FilaPlanilla, type GastoPlanillaDia, type Planilla } from "./tipos";
 import type {
   AdjuntoGuardado,
   CajaSaldo,
@@ -239,6 +239,38 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
     return new Map(data.map((p) => [p.id!, { falta: Number(p.falta), tieneConstancia: !!p.tiene_constancia }]));
   }
 
+  async function leerPlanilla(campo: "id" | "movimiento_id", valor: string): Promise<Planilla | null> {
+    const { data, error } = await sb
+      .from("planillas")
+      .select("id, empresa_id, movimiento_id, serie, numero, fecha_emision, movimientos(caja_id), planilla_filas(*)")
+      .eq(campo, valor)
+      .maybeSingle();
+    if (error || !data) return null;
+    const filas = [...data.planilla_filas]
+      .sort((a, b) => a.orden - b.orden)
+      .map((f) => ({
+        fecha: f.fecha,
+        trabajador: f.trabajador,
+        dni: f.dni,
+        motivo: f.motivo as FilaPlanilla["motivo"],
+        origen: f.origen,
+        destino: f.destino,
+        importe: Number(f.importe),
+        tipo: f.tipo as FilaPlanilla["tipo"],
+      }));
+    return {
+      id: data.id,
+      empresaId: data.empresa_id,
+      movimientoId: data.movimiento_id,
+      cajaId: (data.movimientos as unknown as { caja_id: string }).caja_id,
+      serie: data.serie,
+      numero: data.numero,
+      fechaEmision: data.fecha_emision,
+      filas,
+      total: Math.round(filas.reduce((t, f) => t + f.importe, 0) * 100) / 100,
+    };
+  }
+
   /** Perfil (nombre, rol global, módulos, activo) y accesos por caja, con la sesión del admin (RLS). */
   async function guardarDatosUsuario(id: string, d: DatosUsuario, activo?: boolean) {
     const { data: actual } = await sb.from("perfiles").select("*").eq("id", id).maybeSingle();
@@ -270,7 +302,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
     listarEmpresas: memo(async (): Promise<Empresa[]> => {
       const { data, error } = await sb
         .from("empresas")
-        .select("id, codigo, sigla, nombre_corto, razon_social, ciudad, tope_gasto")
+        .select("*") // ruc y tope_planilla_dia solo existen con la migración 20261103000000
         .eq("activa", true)
         .order("codigo", { ascending: false }); // SL antes que SIPE
       fallo(error, "Empresas");
@@ -282,6 +314,8 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         razonSocial: e.razon_social,
         ciudad: e.ciudad,
         topeGasto: Number(e.tope_gasto),
+        ruc: e.ruc ?? null,
+        topePlanillaDia: Number((e as { tope_planilla_dia?: number | null }).tope_planilla_dia ?? 40),
       }));
     }),
 
@@ -803,6 +837,98 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       });
       if (error?.code === "42501") throw new ErrorDeNegocio("No tienes permiso para registrar devoluciones en esta caja");
       falloNegocio(error, "Registrar devolución");
+    },
+
+    async listarTrabajadores(empresaId) {
+      const { data, error } = await sb
+        .from("trabajadores")
+        .select("nombre, dni")
+        .eq("empresa_id", empresaId)
+        .eq("activo", true)
+        .order("nombre");
+      if (error) return []; // sin la migración 20261103000000
+      return data;
+    },
+
+    async siguientePlanilla(empresaId) {
+      const { data, error } = await sb
+        .from("planillas")
+        .select("serie, numero")
+        .eq("empresa_id", empresaId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (error || !data.length) return null;
+      const { serie } = data[0]!;
+      const { data: max } = await sb
+        .from("planillas")
+        .select("numero")
+        .eq("empresa_id", empresaId)
+        .eq("serie", serie)
+        .order("numero", { ascending: false })
+        .limit(1);
+      return { serie, numero: (max?.[0]?.numero ?? 0) + 1 };
+    },
+
+    async gastosPlanillaDia(empresaId, desde) {
+      const { data, error } = await sb
+        .from("planilla_filas")
+        .select("fecha, trabajador, dni, importe, planillas!inner(empresa_id, movimientos!inner(anulado))")
+        .eq("planillas.empresa_id", empresaId)
+        .eq("planillas.movimientos.anulado", false)
+        .gte("fecha", desde);
+      if (error) return [];
+      const sumas = new Map<string, GastoPlanillaDia>();
+      for (const f of data) {
+        const clave = claveTrabajador(f.trabajador, f.dni);
+        const k = `${clave}|${f.fecha}`;
+        const s = sumas.get(k) ?? { clave, fecha: f.fecha, total: 0 };
+        s.total = Math.round((s.total + Number(f.importe)) * 100) / 100;
+        sumas.set(k, s);
+      }
+      return [...sumas.values()];
+    },
+
+    async crearPlanilla(p) {
+      const { data, error } = await sb.rpc("crear_planilla", {
+        p_movimiento: p.movimientoId,
+        p_caja: p.cajaId,
+        p_categoria: p.categoriaId as string,
+        p_centro_costo: p.centroCostoId as string,
+        p_solicitante: p.solicitante as string,
+        p_serie: p.serie,
+        p_numero: p.numero,
+        p_fecha_emision: p.fechaEmision,
+        p_pago: p.pagoId as string,
+        p_filas: p.filas as unknown as Json,
+      });
+      if (error?.code === "PGRST202") throw new ErrorDeNegocio("Falta correr en Supabase la migración 20261103000000 (planillas de movilidad)");
+      if (error?.code === "P0001") throw new ErrorDeNegocio(error.message);
+      if (error?.code === "42501") throw new ErrorDeNegocio("No tienes permiso para registrar en esta caja");
+      falloNegocio(error, "Crear planilla");
+      return data as string;
+    },
+
+    async obtenerPlanilla(id) {
+      return leerPlanilla("id", id);
+    },
+
+    async obtenerPlanillaDeMovimiento(movimientoId) {
+      return leerPlanilla("movimiento_id", movimientoId);
+    },
+
+    async agregarAdjuntos(movimientoId, adjuntos) {
+      const { error } = await sb.from("adjuntos").insert(
+        adjuntos.map((a) => ({
+          movimiento_id: movimientoId,
+          tipo: a.tipo,
+          storage_path: a.storagePath,
+          mime_type: a.mimeType,
+          tamano_bytes: a.tamanoBytes,
+          almacen: a.storagePath.startsWith("drive:") ? "drive" : "supabase",
+          nombre_archivo: a.nombreArchivo ?? null,
+        })),
+      );
+      falloNegocio(error, "Adjuntar archivo");
     },
 
     async listarAreas() {

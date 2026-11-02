@@ -4,6 +4,7 @@ import { AnularMovimiento } from "@/components/movimientos/AnularMovimiento";
 import { AutorizarGasto } from "@/components/movimientos/AutorizarGasto";
 import { CompletarPendiente } from "@/components/movimientos/CompletarPendiente";
 import { PagoVariasSalidas } from "@/components/movimientos/PagoVariasSalidas";
+import { AccionesPlanilla } from "@/components/movimientos/AccionesPlanilla";
 import { textoFalta } from "@/components/movimientos/textos";
 import { BadgeEstado } from "@/components/ui/BadgeEstado";
 import { exigirDetalle } from "@/lib/contexto";
@@ -21,10 +22,11 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
   const repo = await obtenerRepositorio();
   const m = await repo.obtenerMovimiento(id);
   if (!m) notFound();
-  const [permisos, almacen, pago] = await Promise.all([
+  const [permisos, almacen, pago, planilla] = await Promise.all([
     repo.permisosCaja(m.cajaId),
     almacenActivo(),
     m.pagoId ? repo.obtenerPago(m.pagoId) : null,
+    m.tipoDocumento === "planilla_movilidad" ? repo.obtenerPlanillaDeMovimiento(m.id) : null,
   ]);
 
   const liquidacionAbierta = m.liquidacion.estado === "abierta" || m.liquidacion.estado === "observada";
@@ -144,6 +146,13 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
         </section>
       </div>
 
+      {planilla && (
+        <AccionesPlanilla
+          planilla={planilla}
+          sinPdf={!m.adjuntos.some((a) => a.tipo === "documento")}
+          puedeRegistrar={permisos.registrar && !m.anulado}
+        />
+      )}
       {pago && <PagoVariasSalidas pago={pago} actualId={m.id} puedeRegistrar={permisos.registrar} almacen={almacen} />}
       {pendiente && (m.faltaDocumento || m.faltaPago) && permisos.registrar && (
         <CompletarPendiente movimiento={m} almacen={almacen} medioEditable={liquidacionAbierta} />

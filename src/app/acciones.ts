@@ -8,6 +8,7 @@ import {
   EsquemaAnular,
   EsquemaAbrirCaja,
   EsquemaDevolucion,
+  EsquemaPlanilla,
   EsquemaArea,
   EsquemaFotoIngreso,
   EsquemaCaja,
@@ -24,6 +25,7 @@ import {
   type EntradaAdjuntarCompartido,
   type EntradaAbrirCaja,
   type EntradaDevolucion,
+  type EntradaPlanilla,
   type EntradaArea,
   type EntradaCaja,
   type EntradaCambiosUsuario,
@@ -54,6 +56,9 @@ import type { TipoAdjunto } from "@/lib/datos/tipos";
 import { MIME_PERMITIDOS } from "@/lib/datos/tipos";
 import { TAMANO_MAXIMO } from "@/lib/datos/esquemas";
 import { z } from "zod";
+import { almacenActivo } from "@/lib/drive/estado";
+import { planillaPdf } from "@/lib/exportar/planillaPdf";
+import { nuevoUuid } from "@/lib/uuid";
 
 // Toda acción verifica sesión: las Server Actions son invocables por POST directo.
 async function repoAutenticado() {
@@ -349,6 +354,102 @@ export async function registrarDevolucion(entrada: EntradaDevolucion): Promise<R
   if (datos.data.monto - pago.falta > 0.001)
     return { ok: false, errores: { monto: `Solo falta cuadrar S/ ${pago.falta.toFixed(2)}` } };
   return ejecutar(() => repo.registrarDevolucion(datos.data));
+}
+
+// --- Planilla de movilidad ---
+
+/**
+ * Crea la planilla (gasto + planilla + filas, todo o nada) y le adjunta su PDF, generado en el
+ * servidor. Si el PDF no se pudo subir, la planilla igual queda guardada (pendiente de documento).
+ */
+export async function crearPlanilla(
+  entrada: EntradaPlanilla,
+): Promise<
+  | { ok: true; planillaId: string; movimientoId: string; estado: EstadoMovimiento; aviso: string | null; pago: Pago | null }
+  | { ok: false; errores: Record<string, string> }
+> {
+  const datos = EsquemaPlanilla.safeParse(entrada);
+  if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
+  const repo = await repoRegistrador();
+  const d = datos.data;
+  if (d.pagoId) {
+    const pago = await repo.obtenerPago(d.pagoId);
+    if (!pago || pago.cajaId !== d.cajaId) return { ok: false, errores: { _: "El pago es de otra caja" } };
+  }
+  let planillaId: string;
+  try {
+    planillaId = await repo.crearPlanilla(d);
+  } catch (e) {
+    if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
+    throw e;
+  }
+  const aviso = await adjuntarPdf(repo, planillaId);
+  revalidatePath("/", "layout");
+  const [mov, pago] = await Promise.all([
+    repo.obtenerMovimiento(d.movimientoId),
+    d.pagoId ? repo.obtenerPago(d.pagoId) : null,
+  ]);
+  return { ok: true, planillaId, movimientoId: d.movimientoId, estado: mov?.estado ?? "pendiente", aviso, pago };
+}
+
+/** Vuelve a generar y adjuntar el PDF de una planilla (si la primera vez falló la subida). */
+export async function readjuntarPdfPlanilla(planillaId: string): Promise<Resultado> {
+  if (!z.uuid().safeParse(planillaId).success) return { ok: false, errores: { _: "Planilla inválida" } };
+  const repo = await repoRegistrador();
+  const aviso = await adjuntarPdf(repo, planillaId);
+  revalidatePath("/", "layout");
+  return aviso ? { ok: false, errores: { _: aviso } } : { ok: true };
+}
+
+/** Genera el PDF de la planilla y lo sube (Drive o Storage) como documento del gasto. Devuelve el error, si hubo. */
+async function adjuntarPdf(repo: Repositorio, planillaId: string): Promise<string | null> {
+  try {
+    const p = await repo.obtenerPlanilla(planillaId);
+    if (!p) return "No se encontró la planilla";
+    const [empresas, cajas] = await Promise.all([repo.listarEmpresas(), repo.listarCajas()]);
+    const empresa = empresas.find((e) => e.id === p.empresaId);
+    const caja = cajas.find((c) => c.id === p.cajaId);
+    if (!empresa || !caja) return "No se encontró la caja de la planilla";
+    const bytes = await planillaPdf(p, empresa);
+    const nombre = `${p.fechaEmision}_Planilla movilidad ${p.serie}-${p.numero}_S-${p.total.toFixed(2)}.pdf`;
+    const almacen = await almacenActivo();
+    let storagePath: string;
+    if (almacen === "drive") {
+      const carpetaId = await asegurarCarpeta([
+        empresa.nombreCorto,
+        `Caja ${String(caja.numero).padStart(2, "0")} - ${caja.nombre}`,
+        p.fechaEmision.slice(0, 7),
+      ]);
+      const h = await headers();
+      const url = await iniciarSubida({
+        nombre,
+        mime: "application/pdf",
+        tamano: bytes.length,
+        carpetaId,
+        origen: h.get("origin") ?? `https://${h.get("host")}`,
+        propiedades: { movimientoId: p.movimientoId, cajaId: p.cajaId, tipo: "documento" },
+      });
+      const r = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/pdf" }, body: Buffer.from(bytes) });
+      if (!r.ok) return `No se pudo subir el PDF a Google Drive (${r.status})`;
+      storagePath = `drive:${((await r.json()) as { id: string }).id}`;
+    } else {
+      storagePath = `${p.cajaId}/${p.movimientoId}/${nuevoUuid()}.pdf`;
+      if (almacen === "supabase") {
+        const sb = await createClient();
+        const { error } = await sb.storage
+          .from("comprobantes")
+          .upload(storagePath, bytes, { contentType: "application/pdf", upsert: false });
+        if (error) return `No se pudo guardar el PDF: ${error.message}`;
+      }
+    }
+    await repo.agregarAdjuntos(p.movimientoId, [
+      { tipo: "documento", storagePath, mimeType: "application/pdf", tamanoBytes: bytes.length, nombreArchivo: nombre },
+    ]);
+    return null;
+  } catch (e) {
+    console.error("PDF de planilla:", e);
+    return e instanceof ErrorDeNegocio ? e.message : "No se pudo adjuntar el PDF de la planilla";
+  }
 }
 
 /** Foto del depósito de un ingreso (el navegador ya la subió a Drive o Storage). */

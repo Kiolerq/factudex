@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MEDIOS_PAGO, MIME_PERMITIDOS, MODULOS, TIPOS_DOCUMENTO } from "./tipos";
+import { MEDIOS_PAGO, MIME_PERMITIDOS, MODULOS, MOTIVOS_PLANILLA, TIPOS_DOCUMENTO, TIPOS_TRANSPORTE } from "./tipos";
 
 export const TAMANO_MAXIMO = 10 * 1024 * 1024; // 10 MB, igual que el bucket
 
@@ -87,6 +87,52 @@ export const EsquemaDevolucion = z.object({
   comprobanteMime: z.enum(MIME_PERMITIDOS).nullable(),
 });
 export type EntradaDevolucion = z.input<typeof EsquemaDevolucion>;
+
+const EsquemaFilaPlanilla = z.object({
+  fecha: z.iso.date("Fecha inválida"),
+  trabajador: z.string().trim().min(3, "Escribe el nombre del trabajador").max(120),
+  dni: z
+    .string()
+    .trim()
+    .regex(/^\d{8}$/, "El DNI tiene 8 dígitos")
+    .nullable(),
+  motivo: z.enum(MOTIVOS_PLANILLA),
+  origen: z.string().trim().min(2, "Escribe el origen").max(80),
+  destino: z.string().trim().min(2, "Escribe el destino").max(80),
+  importe: z
+    .number("Ingresa el importe")
+    .positive("Mayor a 0")
+    .max(1000)
+    .refine((m) => Math.abs(m * 100 - Math.round(m * 100)) < 1e-6, "Máximo 2 decimales"),
+  tipo: z.enum(TIPOS_TRANSPORTE).nullable(),
+});
+
+/** Planilla de movilidad (también alimentación): serie, número, fecha de emisión y sus filas. */
+export const EsquemaPlanilla = z
+  .object({
+    movimientoId: z.uuid(),
+    cajaId: z.uuid(),
+    categoriaId: z.uuid("Elige una categoría").nullable(),
+    centroCostoId: z.uuid().nullable(),
+    solicitante: textoOpcional(120),
+    serie: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9-]{1,10}$/, "Serie inválida (ej. 10)"),
+    numero: z.number("Ingresa el número").int("Número inválido").positive("Número inválido").max(99999999),
+    fechaEmision: z.iso.date("Fecha inválida"),
+    pagoId: z.uuid().nullable(),
+    filas: z.array(EsquemaFilaPlanilla).min(1, "Agrega al menos una fila").max(60),
+  })
+  .superRefine((p, ctx) => {
+    if (p.fechaEmision > fechaHoyLima())
+      ctx.addIssue({ code: "custom", path: ["fechaEmision"], message: "La fecha no puede ser futura" });
+    p.filas.forEach((f, i) => {
+      if (f.fecha > fechaHoyLima())
+        ctx.addIssue({ code: "custom", path: ["filas", i, "fecha"], message: "La fecha no puede ser futura" });
+    });
+  });
+export type EntradaPlanilla = z.input<typeof EsquemaPlanilla>;
 
 export const EsquemaNuevoProveedor = z
   .object({
@@ -289,6 +335,8 @@ export function erroresPorCampo(error: z.ZodError): Record<string, string> {
   for (const issue of error.issues) {
     const campo = String(issue.path[0] ?? "_");
     salida[campo] ??= issue.message;
+    // También la ruta completa (ej. "filas.2.importe") para marcar el campo exacto en listas.
+    if (issue.path.length > 1) salida[issue.path.map(String).join(".")] ??= issue.message;
   }
   return salida;
 }

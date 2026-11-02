@@ -4,6 +4,10 @@ import { fechaHoyLima } from "./esquemas";
 import {
   estadoEsperado,
   type AdjuntoSubido,
+  type GastoPlanillaDia,
+  type Planilla,
+  type Trabajador,
+  claveTrabajador,
   type Area,
   AREAS_BASE,
   type CajaSaldo,
@@ -97,6 +101,8 @@ interface Almacen {
   areas?: Area[];
   pagos?: PagoDemo[];
   devoluciones?: DevolucionDemo[];
+  planillas?: (Planilla & { anulada?: never })[];
+  trabajadores?: (Trabajador & { empresaId: string })[];
 }
 
 function sembrar(): Almacen {
@@ -108,6 +114,8 @@ function sembrar(): Almacen {
     razonSocial: "Compañía San Lorenzo S.A.C.",
     ciudad: "TRUJILLO",
     topeGasto: 300,
+    ruc: "20606424087",
+    topePlanillaDia: 40,
   };
   const sipe: Empresa = {
     id: randomUUID(),
@@ -117,6 +125,8 @@ function sembrar(): Almacen {
     razonSocial: "SIPE",
     ciudad: "TRUJILLO",
     topeGasto: 300,
+    ruc: null,
+    topePlanillaDia: 40,
   };
   const caja = (empresaId: string, numero: number, area: string, nombre: string): CajaDemo => ({
     id: randomUUID(),
@@ -450,6 +460,22 @@ function editable(m: MovimientoDemo) {
   const estado = db.liquidaciones.find((l) => l.id === m.liquidacionId)?.estado;
   if (estado !== "abierta" && estado !== "observada")
     throw new ErrorDeNegocio(`La liquidación está ${estado} y el movimiento ya no puede modificarse`);
+}
+
+/** Lo gastado por trabajador y día en planillas no anuladas de la empresa. */
+function gastosPlanilla(empresaId: string): GastoPlanillaDia[] {
+  const sumas = new Map<string, GastoPlanillaDia>();
+  for (const p of (db.planillas ??= []).filter((x) => x.empresaId === empresaId)) {
+    if (db.movimientos.find((m) => m.id === p.movimientoId)?.anulado) continue;
+    for (const f of p.filas) {
+      const clave = claveTrabajador(f.trabajador, f.dni);
+      const k = `${clave}|${f.fecha}`;
+      const g = sumas.get(k) ?? { clave, fecha: f.fecha, total: 0 };
+      g.total = redondear(g.total + f.importe);
+      sumas.set(k, g);
+    }
+  }
+  return [...sumas.values()];
 }
 
 export const repositorioDemo: Repositorio = {
@@ -840,6 +866,95 @@ export const repositorioDemo: Repositorio = {
       comprobantePath: d.comprobantePath,
     });
     recalcularPago(d.pagoId);
+  },
+
+  async listarTrabajadores(empresaId) {
+    return (db.trabajadores ??= [])
+      .filter((t) => t.empresaId === empresaId)
+      .map(({ nombre, dni }) => ({ nombre, dni }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  },
+
+  async siguientePlanilla(empresaId) {
+    const suyas = (db.planillas ??= []).filter((p) => p.empresaId === empresaId);
+    const ultima = suyas.at(-1);
+    if (!ultima) return null;
+    return { serie: ultima.serie, numero: Math.max(...suyas.filter((p) => p.serie === ultima.serie).map((p) => p.numero)) + 1 };
+  },
+
+  async gastosPlanillaDia(empresaId, desde) {
+    return gastosPlanilla(empresaId).filter((g) => g.fecha >= desde);
+  },
+
+  async crearPlanilla(p) {
+    const caja = db.cajas.find((c) => c.id === p.cajaId);
+    if (!caja) throw new ErrorDeNegocio("La caja no existe");
+    const empresa = db.empresas.find((e) => e.id === caja.empresaId)!;
+    if ((db.planillas ??= []).some((x) => x.empresaId === empresa.id && x.serie === p.serie && x.numero === p.numero))
+      throw new ErrorDeNegocio(`Ya existe la planilla ${p.serie}-${p.numero} en esta empresa`);
+    // Tope por trabajador y día (como tg_planilla_tope).
+    const usados = new Map(gastosPlanilla(empresa.id).map((g) => [`${g.clave}|${g.fecha}`, g.total]));
+    for (const f of p.filas) {
+      const k = `${claveTrabajador(f.trabajador, f.dni)}|${f.fecha}`;
+      const antes = usados.get(k) ?? 0;
+      if (antes + f.importe > empresa.topePlanillaDia + 0.001)
+        throw new ErrorDeNegocio(
+          `${f.trabajador} ya suma S/ ${antes.toFixed(2)} el ${f.fecha.split("-").reverse().join("/")}: el tope es S/ ${empresa.topePlanillaDia.toFixed(2)} por trabajador y día`,
+        );
+      usados.set(k, antes + f.importe);
+    }
+    const total = redondear(suma(p.filas, (f) => f.importe));
+    const pago = p.pagoId ? (db.pagos ??= []).find((x) => x.id === p.pagoId) : undefined;
+    const nombres = [...new Set(p.filas.map((f) => f.trabajador.trim()))];
+    await repositorioDemo.registrarMovimiento({
+      id: p.movimientoId,
+      cajaId: p.cajaId,
+      fecha: p.fechaEmision,
+      solicitante: p.solicitante,
+      proveedorId: null,
+      categoriaId: p.categoriaId ?? "",
+      centroCostoId: p.centroCostoId,
+      detalle: `Planilla de movilidad ${p.serie}-${p.numero} · ${nombres.length === 1 ? nombres[0] : "Varios"}`,
+      monto: total,
+      tipoDocumento: "planilla_movilidad",
+      serieNumero: `${p.serie}-${p.numero}`,
+      medioPago: pago?.medioPago ?? "efectivo",
+      operacionPago: pago?.operacion ?? null,
+      pago: pago ? { id: pago.id, monto: pago.monto, nuevo: false } : null,
+      adjuntos: [],
+    });
+    const id = randomUUID();
+    db.planillas.push({
+      id,
+      empresaId: empresa.id,
+      movimientoId: p.movimientoId,
+      cajaId: p.cajaId,
+      serie: p.serie,
+      numero: p.numero,
+      fechaEmision: p.fechaEmision,
+      filas: p.filas,
+      total,
+    });
+    for (const f of p.filas)
+      if (f.dni && !(db.trabajadores ??= []).some((t) => t.empresaId === empresa.id && t.dni === f.dni))
+        db.trabajadores.push({ empresaId: empresa.id, nombre: f.trabajador.trim(), dni: f.dni });
+    return id;
+  },
+
+  async obtenerPlanilla(id) {
+    return (db.planillas ??= []).find((p) => p.id === id) ?? null;
+  },
+
+  async obtenerPlanillaDeMovimiento(movimientoId) {
+    return (db.planillas ??= []).find((p) => p.movimientoId === movimientoId) ?? null;
+  },
+
+  async agregarAdjuntos(movimientoId, adjuntos) {
+    const m = db.movimientos.find((x) => x.id === movimientoId);
+    if (!m) throw new ErrorDeNegocio("El movimiento no existe");
+    m.adjuntos.push(...adjuntos.map((a) => ({ ...a, id: randomUUID() })));
+    m.estado = estadoDe(m);
+    recalcularPago(m.pagoId);
   },
 
   async listarAreas() {

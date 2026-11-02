@@ -95,6 +95,13 @@ export function PagoVariasSalidas({
           >
             ＋ Agregar otra salida
           </Link>
+          <Link
+            prefetch={false}
+            href={`/registro/planilla?pago=${pago.id}`}
+            className="fx-btn self-start rounded-[10px] border border-fx-primary-line px-4 py-2.5 text-fx-sm font-semibold text-fx-primary-light"
+          >
+            📝 Agregar planilla de movilidad
+          </Link>
           <RegistrarDevolucion pago={pago} almacen={almacen} />
         </div>
       )}

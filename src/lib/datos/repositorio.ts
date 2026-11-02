@@ -1,6 +1,11 @@
 import { cache } from "react";
 import type {
   Area,
+  AdjuntoSubido,
+  GastoPlanillaDia,
+  NuevaPlanilla,
+  Planilla,
+  Trabajador,
   NuevaDevolucion,
   Pago,
   CajaAdmin,
@@ -67,6 +72,17 @@ export interface Repositorio {
   /** Pago con varias salidas: sus salidas, devoluciones y cuánto falta cuadrar. */
   obtenerPago(id: string): Promise<Pago | null>;
   registrarDevolucion(d: NuevaDevolucion): Promise<void>;
+  // Planillas de movilidad
+  listarTrabajadores(empresaId: string): Promise<Trabajador[]>;
+  /** La siguiente serie y número de planilla de la empresa (null si aún no hay ninguna). */
+  siguientePlanilla(empresaId: string): Promise<{ serie: string; numero: number } | null>;
+  gastosPlanillaDia(empresaId: string, desde: string): Promise<GastoPlanillaDia[]>;
+  /** Crea el gasto, la planilla y sus filas de una vez (falla entera si alguien pasa el tope). */
+  crearPlanilla(p: NuevaPlanilla): Promise<string>;
+  obtenerPlanilla(id: string): Promise<Planilla | null>;
+  obtenerPlanillaDeMovimiento(movimientoId: string): Promise<Planilla | null>;
+  /** Adjunta archivos ya subidos a un gasto (ej. el PDF de la planilla). */
+  agregarAdjuntos(movimientoId: string, adjuntos: AdjuntoSubido[]): Promise<void>;
   /** Pasa el saldo y los gastos sin liquidar de una caja a la nueva (misma empresa y área) y cierra la anterior. */
   traspasarCaja(anteriorId: string, nuevaId: string): Promise<number>;
   crearArea(a: Area): Promise<void>;
