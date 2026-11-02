@@ -52,9 +52,9 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-lg font-bold md:text-xl">Tesorería</h1>
-          <p className="text-xs text-white/45">Todas las cajas de {empresas.map((e) => e.nombreCorto).join(" y ")}.</p>
+          <p className="text-xs text-white/68">Todas las cajas de {empresas.map((e) => e.nombreCorto).join(" y ")}.</p>
         </div>
-        <Link prefetch={false} href="/panel" className="text-[13px] font-semibold text-fx-primary-light hover:underline">
+        <Link prefetch={false} href="/panel" className="text-fx-sm font-semibold text-fx-primary-light hover:underline">
           Ver panel →
         </Link>
       </div>
@@ -65,8 +65,8 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
             key={x.id}
             href={`/tesoreria?vista=${x.id}`}
             aria-current={x.id === vista ? "page" : undefined}
-            className={`shrink-0 rounded-full border px-4 py-2 text-[12.5px] font-semibold ${
-              x.id === vista ? "border-fx-primary bg-fx-primary-soft text-fx-primary-light" : "border-white/12 text-white/55 hover:text-white"
+            className={`shrink-0 rounded-full border px-4 py-2 text-fx-sm font-semibold ${
+              x.id === vista ? "border-fx-primary bg-fx-primary-soft text-fx-primary-light" : "border-white/12 text-white/75 hover:text-white"
             }`}
           >
             {x.texto}
@@ -86,13 +86,13 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
                     <Link prefetch={false} href={`/liquidaciones/${l.id}`} className="font-display text-base font-bold hover:underline">
                       {l.folio}
                     </Link>
-                    <div className="text-xs text-white/45">
+                    <div className="text-xs text-white/68">
                       {c && `${codigoCaja(c)} · ${c.nombre} · `}del {formatoFecha(l.fechaInicio)} al {l.fechaCierre && formatoFecha(l.fechaCierre)} ·{" "}
                       {l.numMovimientos} gasto{l.numMovimientos === 1 ? "" : "s"} · <strong className="text-white/80">{formatoSoles(l.egresos)}</strong>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <a href={`/api/liquidaciones/${l.id}/excel`} className="fx-btn rounded-[10px] border border-white/12 px-3.5 py-2 text-[13px] text-white/75">
+                    <a href={`/api/liquidaciones/${l.id}/excel`} className="fx-btn rounded-[10px] border border-white/12 px-3.5 py-2 text-fx-sm text-white/75">
                       Excel
                     </a>
                     <RevisarLiquidacion id={l.id} />
@@ -122,12 +122,12 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
                         <div className="font-display text-base font-bold">
                           {codigoCaja(c)}{" "}
                           {!c.activa && (
-                            <span className="ml-1 rounded-full border border-white/15 px-2 py-0.5 align-middle font-sans text-[11px] font-semibold text-white/50">
+                            <span className="ml-1 rounded-full border border-white/15 px-2 py-0.5 align-middle font-sans text-fx-2xs font-semibold text-white/68">
                               Cerrada
                             </span>
                           )}
                         </div>
-                        <div className="truncate text-xs text-white/45">
+                        <div className="truncate text-xs text-white/68">
                           {empresaDe(c)} · {c.nombre} · {suyas.length} liquidaci{suyas.length === 1 ? "ón" : "ones"}
                           {liquidado > 0 && ` · liquidado ${formatoSoles(liquidado)}`}
                         </div>
@@ -136,24 +136,24 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
                         {saldo && (
                           <div className="text-right">
                             <div className={`font-display text-base font-bold ${saldo.bajoUmbral ? "text-fx-error" : ""}`}>{formatoSoles(saldo.saldo)}</div>
-                            <div className="text-[11px] text-white/40">saldo</div>
+                            <div className="text-fx-2xs text-white/60">saldo</div>
                           </div>
                         )}
-                        <span className="text-white/40 transition-transform group-open:rotate-90">›</span>
+                        <span className="text-white/60 transition-transform group-open:rotate-90">›</span>
                       </div>
                     </summary>
                     <div className="border-t border-white/5">
-                      {suyas.length === 0 && <p className="px-5 py-4 text-[13px] text-white/50">Sin liquidaciones todavía.</p>}
+                      {suyas.length === 0 && <p className="px-5 py-4 text-fx-sm text-white/68">Sin liquidaciones todavía.</p>}
                       {suyas.map((l) => (
                         <Link
                           prefetch={false}
                           key={l.id}
                           href={`/liquidaciones/${l.id}`}
-                          className="flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-[13px] last:border-b-0 hover:bg-white/[0.03] md:px-5"
+                          className="flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-fx-sm last:border-b-0 hover:bg-white/[0.03] md:px-5"
                         >
                           <div className="min-w-0">
                             <div className="font-semibold">{l.folio}</div>
-                            <div className="text-[11.5px] text-white/45">
+                            <div className="text-fx-xs text-white/68">
                               del {formatoFecha(l.fechaInicio)} al {l.fechaCierre ? formatoFecha(l.fechaCierre) : "hoy"} · {l.numMovimientos} gasto
                               {l.numMovimientos === 1 ? "" : "s"} · {formatoSoles(l.egresos)}
                             </div>
@@ -181,10 +181,10 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
             return (
               <div key={m.id} className="fx-card flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between md:px-5">
                 <div className="min-w-0">
-                  <Link prefetch={false} href={`/movimientos/${m.id}`} className="text-[14px] font-semibold hover:underline">
+                  <Link prefetch={false} href={`/movimientos/${m.id}`} className="text-fx-md font-semibold hover:underline">
                     {m.detalle}
                   </Link>
-                  <div className="text-xs text-white/45">
+                  <div className="text-xs text-white/68">
                     {m.proveedor ?? "Proveedor por definir"} · {formatoFecha(m.fecha)} · {c && `${codigoCaja(c)} · `}
                     {m.solicitante && `pidió ${m.solicitante} · `}
                     {m.estado === "pendiente" ? "falta sustento" : "sustentado"}
@@ -193,7 +193,7 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <div className="font-display text-lg font-bold text-fx-pendiente">{formatoSoles(m.monto)}</div>
-                    {tope !== undefined && <div className="text-[11px] text-white/40">tope {formatoSoles(tope)}</div>}
+                    {tope !== undefined && <div className="text-fx-2xs text-white/60">tope {formatoSoles(tope)}</div>}
                   </div>
                   <AutorizarGasto id={m.id} />
                 </div>
@@ -247,12 +247,12 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
             {recargas.slice(0, 50).map((r) => {
               const c = cajaDe(r.cajaId);
               return (
-                <div key={r.id} className="flex items-center justify-between gap-4 border-b border-white/5 px-4 py-3 text-[13px] last:border-b-0 md:px-5">
+                <div key={r.id} className="flex items-center justify-between gap-4 border-b border-white/5 px-4 py-3 text-fx-sm last:border-b-0 md:px-5">
                   <div className="min-w-0">
                     <div className="truncate">
                       {formatoFecha(r.fecha)} · {c ? codigoCaja(c) : ""} · {r.descripcion ?? ETIQUETA_TIPO_RECARGA[r.tipo]}
                     </div>
-                    <div className="truncate text-[11.5px] text-white/45">
+                    <div className="truncate text-fx-xs text-white/68">
                       {[ETIQUETA_TIPO_RECARGA[r.tipo], r.folioRepuesto && `repone ${r.folioRepuesto}`, ETIQUETA_FORMA_INGRESO[r.forma], r.banco, r.operacion && `Op. ${r.operacion}`]
                         .filter(Boolean)
                         .join(" · ")}
@@ -285,9 +285,9 @@ function Seccion({ titulo, vacio, ayuda, children }: { titulo: string; vacio: st
   const hay = Array.isArray(children) ? children.length > 0 : !!children;
   return (
     <section className="flex flex-col gap-2.5">
-      <h2 className="text-xs uppercase tracking-[1.2px] text-white/40">{titulo}</h2>
-      {ayuda && <p className="-mt-1 text-[12px] text-white/45">{ayuda}</p>}
-      {hay ? children : <div className="fx-card px-5 py-7 text-center text-sm text-white/50">{vacio}</div>}
+      <h2 className="text-xs uppercase tracking-[1.2px] text-white/60">{titulo}</h2>
+      {ayuda && <p className="-mt-1 text-fx-xs text-white/68">{ayuda}</p>}
+      {hay ? children : <div className="fx-card px-5 py-7 text-center text-sm text-white/68">{vacio}</div>}
     </section>
   );
 }

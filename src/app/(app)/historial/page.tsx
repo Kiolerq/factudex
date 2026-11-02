@@ -67,7 +67,7 @@ export default async function PaginaHistorial({ searchParams }: PageProps<"/hist
         vacio={texto || estado !== "todos" ? "Ningún movimiento coincide con el filtro." : "Todavía no hay movimientos en esta caja."}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-white/35">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-white/60">
         <span>
           Mostrando {pagina.movimientos.length} de {pagina.total} movimiento{pagina.total === 1 ? "" : "s"}
           {pendientes.total > 0 && ` · ${pendientes.total} pendiente${pendientes.total === 1 ? "" : "s"} de sustento`}

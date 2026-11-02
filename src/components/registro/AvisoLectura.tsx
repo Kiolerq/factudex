@@ -37,7 +37,7 @@ export function AvisoLectura({ lectura, hayProveedor, onCrearProveedor, hayCentr
 
   if (lectura.estado === "leyendo") {
     return (
-      <div role="status" className="fx-card mb-4 flex items-center gap-3 border-fx-primary-line! px-4 py-3 text-[13px]">
+      <div role="status" className="fx-card mb-4 flex items-center gap-3 border-fx-primary-line! px-4 py-3 text-fx-sm">
         <span aria-hidden className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-fx-primary border-t-transparent" />
         <span className="text-white/75">Leyendo el comprobante con IA…</span>
       </div>
@@ -45,14 +45,14 @@ export function AvisoLectura({ lectura, hayProveedor, onCrearProveedor, hayCentr
   }
 
   const cerrar = (
-    <button type="button" onClick={onCerrar} aria-label="Cerrar aviso" className="fx-btn shrink-0 px-1 text-white/40 hover:text-white">
+    <button type="button" onClick={onCerrar} aria-label="Cerrar aviso" className="fx-btn shrink-0 px-1 text-white/60 hover:text-white">
       ✕
     </button>
   );
 
   if (lectura.estado === "error") {
     return (
-      <div role="status" className="fx-card mb-4 flex items-start justify-between gap-3 px-4 py-3 text-[12.5px] text-white/60">
+      <div role="status" className="fx-card mb-4 flex items-start justify-between gap-3 px-4 py-3 text-fx-sm text-white/75">
         <span>No se pudo leer con IA: {lectura.mensaje} Llena los datos a mano.</span>
         {cerrar}
       </div>
@@ -64,8 +64,8 @@ export function AvisoLectura({ lectura, hayProveedor, onCrearProveedor, hayCentr
 
   if (!datos.es_comprobante) {
     return (
-      <div role="status" className="fx-card mb-4 flex items-start justify-between gap-3 border-fx-pendiente/50! px-4 py-3 text-[12.5px]">
-        <span className="text-white/70">La imagen no parece un comprobante ni una constancia de pago. Llena los datos a mano.</span>
+      <div role="status" className="fx-card mb-4 flex items-start justify-between gap-3 border-fx-pendiente/50! px-4 py-3 text-fx-sm">
+        <span className="text-white/82">La imagen no parece un comprobante ni una constancia de pago. Llena los datos a mano.</span>
         {cerrar}
       </div>
     );
@@ -74,16 +74,16 @@ export function AvisoLectura({ lectura, hayProveedor, onCrearProveedor, hayCentr
   return (
     <div
       role="status"
-      className={`fx-card mb-4 flex flex-col gap-2 px-4 py-3 text-[12.5px] ${dudosa ? "border-fx-pendiente/50!" : "border-fx-primary-line!"}`}
+      className={`fx-card mb-4 flex flex-col gap-2 px-4 py-3 text-fx-sm ${dudosa ? "border-fx-pendiente/50!" : "border-fx-primary-line!"}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[13px] font-semibold">
+          <div className="text-fx-sm font-semibold">
             <span aria-hidden>✨ </span>
             {campos.length ? "Datos leídos con IA" : "La IA no encontró datos nuevos"}
           </div>
           {campos.length > 0 && (
-            <p className="mt-0.5 text-white/60">
+            <p className="mt-0.5 text-white/75">
               Llenó: {campos.join(", ")}. <span className="text-white/80">Revísalos antes de guardar.</span>
             </p>
           )}
@@ -93,7 +93,7 @@ export function AvisoLectura({ lectura, hayProveedor, onCrearProveedor, hayCentr
       {dudosa && (
         <p className="text-fx-pendiente">La imagen no se leyó con claridad: revisa cada dato con cuidado.</p>
       )}
-      {movido && <p className="text-white/60">Es una captura de pago: la pasé a &ldquo;Constancia de pago&rdquo;.</p>}
+      {movido && <p className="text-white/75">Es una captura de pago: la pasé a &ldquo;Constancia de pago&rdquo;.</p>}
       {duplicado && (
         <p className="rounded-lg border border-fx-error/40 bg-fx-error/10 px-3 py-2 text-fx-error">
           Este comprobante ya parece registrado: {duplicado.detalle} · {formatoFecha(duplicado.fecha)} ·{" "}
@@ -111,7 +111,7 @@ export function AvisoLectura({ lectura, hayProveedor, onCrearProveedor, hayCentr
       )}
       {centroNuevo && !hayCentro && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-white/5 px-3 py-2">
-          <span className="min-w-0 flex-1 text-white/70">
+          <span className="min-w-0 flex-1 text-white/82">
             Centro de costo leído: <span className="font-mono font-medium text-white">{centroNuevo}</span> (no está en la lista)
           </span>
           <button
@@ -131,9 +131,9 @@ export function AvisoLectura({ lectura, hayProveedor, onCrearProveedor, hayCentr
       )}
       {proveedorNuevo && !hayProveedor && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-white/5 px-3 py-2">
-          <span className="min-w-0 flex-1 text-white/70">
+          <span className="min-w-0 flex-1 text-white/82">
             Proveedor nuevo: <span className="font-medium text-white">{proveedorNuevo.razonSocial}</span>{" "}
-            <span className="font-mono text-white/50">
+            <span className="font-mono font-semibold text-white/85">
               {proveedorNuevo.numDoc.length === 11 ? "RUC" : "DNI"} {proveedorNuevo.numDoc}
             </span>
           </span>

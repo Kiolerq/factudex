@@ -16,7 +16,7 @@ export default async function PaginaAdmin() {
     <main className="flex flex-col gap-4 md:gap-5">
       <div>
         <h1 className="text-lg font-bold md:text-xl">Usuarios</h1>
-        <p className="text-xs text-white/45">
+        <p className="text-xs text-white/68">
           {yo.esAdmin
             ? "Crea cuentas y define qué tipo de usuario es cada persona y qué cajas maneja."
             : "Crea registradores y asígnales o quítales cajas."}

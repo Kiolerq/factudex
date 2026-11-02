@@ -17,11 +17,11 @@ export default async function PaginaLogin({ searchParams }: PageProps<"/login">)
           <Logo tamano={40} />
           <div>
             <h1 className="text-xl font-bold">Factudex</h1>
-            <p className="text-xs text-white/45">Control de cajas chicas</p>
+            <p className="text-xs text-white/68">Control de cajas chicas</p>
           </div>
         </div>
         <FormularioLogin errorEnlace={error === "enlace"} siguiente={typeof siguiente === "string" ? siguiente : ""} />
-        <nav className="flex justify-center gap-4 text-[11px] text-white/40">
+        <nav className="flex justify-center gap-4 text-fx-2xs text-white/60">
           <Link href="/privacidad" className="hover:text-white">Privacidad</Link>
           <Link href="/terminos" className="hover:text-white">Condiciones</Link>
         </nav>

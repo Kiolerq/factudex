@@ -17,7 +17,7 @@ export function AnularMovimiento({ id }: { id: string }) {
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="fx-btn self-start rounded-[10px] border border-fx-error/40 px-4 py-2 text-[13px] font-semibold text-fx-error hover:bg-fx-error/10"
+        className="fx-btn self-start rounded-[10px] border border-fx-error/40 px-4 py-2 text-fx-sm font-semibold text-fx-error hover:bg-fx-error/10"
       >
         Anular movimiento
       </button>
@@ -48,15 +48,15 @@ export function AnularMovimiento({ id }: { id: string }) {
         aria-invalid={!!error}
       />
       {error && <p className="text-xs text-fx-error">{error}</p>}
-      <p className="text-xs text-white/45">El monto vuelve al saldo de la caja. No se puede deshacer.</p>
+      <p className="text-xs text-white/68">El monto vuelve al saldo de la caja. No se puede deshacer.</p>
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={() => setAbierto(false)} className="fx-btn rounded-[10px] px-4 py-2 text-[13px] text-white/60">
+        <button type="button" onClick={() => setAbierto(false)} className="fx-btn rounded-[10px] px-4 py-2 text-fx-sm text-white/75">
           Cancelar
         </button>
         <button
           type="submit"
           disabled={anulando}
-          className="fx-btn rounded-[10px] bg-fx-error px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
+          className="fx-btn rounded-[10px] bg-fx-error px-4 py-2 text-fx-sm font-semibold text-white disabled:opacity-60"
         >
           {anulando ? "Anulando…" : "Anular"}
         </button>

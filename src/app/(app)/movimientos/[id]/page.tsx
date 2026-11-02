@@ -49,7 +49,7 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
 
   return (
     <main className="flex flex-col gap-4 md:gap-5">
-      <Link prefetch={false} href={yo.esAdmin || !yo.esTesoreria ? "/historial" : "/tesoreria"} className="text-[13px] text-white/50 hover:text-white">
+      <Link prefetch={false} href={yo.esAdmin || !yo.esTesoreria ? "/historial" : "/tesoreria"} className="text-fx-sm text-white/68 hover:text-white">
         ← Historial
       </Link>
 
@@ -58,13 +58,13 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <h1 className={`text-lg font-bold md:text-xl ${m.anulado ? "line-through opacity-60" : ""}`}>{m.detalle}</h1>
-              <p className="text-xs text-white/45">{m.proveedor ?? "Proveedor por definir"}</p>
+              <p className="text-xs text-white/68">{m.proveedor ?? "Proveedor por definir"}</p>
             </div>
             <div className="shrink-0 text-right">
               <div className="font-display text-xl font-bold md:text-2xl">{formatoSoles(m.monto)}</div>
               <div className="mt-1.5">
                 {m.anulado ? (
-                  <span className="rounded-full border border-white/20 bg-white/8 px-3 py-1 text-[11px] font-semibold text-white/55">
+                  <span className="rounded-full border border-white/20 bg-white/8 px-3 py-1 text-fx-2xs font-semibold text-white/75">
                     ● Anulado
                   </span>
                 ) : (
@@ -75,17 +75,17 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
           </div>
 
           {m.anulado && (
-            <p className="rounded-xl border border-white/12 bg-white/5 px-4 py-3 text-[13px] text-white/60">
+            <p className="rounded-xl border border-white/12 bg-white/5 px-4 py-3 text-fx-sm text-white/75">
               Anulado: {m.motivoAnulacion}
             </p>
           )}
           {pendiente && (
-            <p className="rounded-xl border border-fx-pendiente/40 bg-fx-pendiente/10 px-4 py-3 text-[13px] text-fx-pendiente">
+            <p className="rounded-xl border border-fx-pendiente/40 bg-fx-pendiente/10 px-4 py-3 text-fx-sm text-fx-pendiente">
               {textoFalta(m)}. No entra a la liquidación hasta completarlo.
             </p>
           )}
           {m.porAutorizar && (
-            <div className="flex flex-col gap-3 rounded-xl border border-fx-pendiente/40 bg-fx-pendiente/10 px-4 py-3 text-[13px] text-fx-pendiente">
+            <div className="flex flex-col gap-3 rounded-xl border border-fx-pendiente/40 bg-fx-pendiente/10 px-4 py-3 text-fx-sm text-fx-pendiente">
               <span>
                 Supera el tope por gasto de la empresa: necesita autorización de tesorería para entrar a una liquidación.
                 {yo.esTesoreria && " Si no corresponde, anúlalo con el motivo."}
@@ -94,10 +94,10 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
             </div>
           )}
 
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-[13px] sm:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-fx-sm sm:grid-cols-2">
             {datos.map(([k, v]) => (
               <div key={k}>
-                <dt className="text-[11px] uppercase tracking-[0.6px] text-white/40">{k}</dt>
+                <dt className="text-fx-2xs uppercase tracking-[0.6px] text-white/60">{k}</dt>
                 <dd className="mt-0.5 text-white/85">{v}</dd>
               </div>
             ))}
@@ -106,17 +106,17 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
 
         <section className="fx-card flex flex-col gap-3 p-4 md:p-6">
           <h2 className="text-base font-bold">Adjuntos</h2>
-          {m.adjuntos.length === 0 && <p className="text-[13px] text-white/45">Sin archivos todavía.</p>}
+          {m.adjuntos.length === 0 && <p className="text-fx-sm text-white/68">Sin archivos todavía.</p>}
           {m.adjuntos.map((a) => {
             const etiqueta = a.tipo === "documento" ? "Documento" : a.tipo === "pago" ? "Constancia de pago" : "Otro";
             const contenido = (
               <>
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/8 text-[10px] font-bold text-white/60">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/8 text-fx-2xs font-bold text-white/75">
                   {a.mimeType === "application/pdf" ? "PDF" : "IMG"}
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-[13px] font-semibold">{etiqueta}</span>
-                  <span className="block truncate text-[11.5px] text-white/45">{a.nombreArchivo ?? "Archivo"}</span>
+                  <span className="block text-fx-sm font-semibold">{etiqueta}</span>
+                  <span className="block truncate text-fx-xs text-white/68">{a.nombreArchivo ?? "Archivo"}</span>
                 </span>
               </>
             );

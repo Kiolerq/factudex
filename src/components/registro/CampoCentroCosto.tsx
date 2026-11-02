@@ -91,7 +91,7 @@ export function CampoCentroCosto({ empresaId, centros, valor, onCambiar, onCread
         >
           {!clave && (
             <Opcion activa={!valor} onElegir={() => elegir(null)}>
-              <span className="text-white/50">Sin centro de costo</span>
+              <span className="text-white/68">Sin centro de costo</span>
             </Opcion>
           )}
           {filtrados.map((c) => (
@@ -106,13 +106,13 @@ export function CampoCentroCosto({ empresaId, centros, valor, onCambiar, onCread
                 disabled={creando}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={agregar}
-                className="fx-btn w-full rounded-lg px-3 py-2.5 text-left text-[13px] font-semibold text-fx-primary-light hover:bg-fx-primary-soft disabled:opacity-60"
+                className="fx-btn w-full rounded-lg px-3 py-2.5 text-left text-fx-sm font-semibold text-fx-primary-light hover:bg-fx-primary-soft disabled:opacity-60"
               >
                 {creando ? "Agregando…" : `＋ Agregar «${escrito.trim()}» a la lista`}
               </button>
             </li>
           )}
-          {!filtrados.length && !puedeAgregar && <li className="px-3 py-2.5 text-[12.5px] text-white/45">Sin coincidencias</li>}
+          {!filtrados.length && !puedeAgregar && <li className="px-3 py-2.5 text-fx-sm text-white/68">Sin coincidencias</li>}
         </ul>
       )}
       {error && <p className="mt-1.5 text-xs text-fx-error">{error}</p>}
@@ -127,7 +127,7 @@ function Opcion({ activa, onElegir, children }: { activa: boolean; onElegir: () 
         type="button"
         onMouseDown={(e) => e.preventDefault()}
         onClick={onElegir}
-        className={`fx-btn w-full rounded-lg px-3 py-2.5 text-left text-[13px] hover:bg-white/8 ${activa ? "bg-white/6 font-semibold" : ""}`}
+        className={`fx-btn w-full rounded-lg px-3 py-2.5 text-left text-fx-sm hover:bg-white/8 ${activa ? "bg-white/6 font-semibold" : ""}`}
       >
         {children}
       </button>

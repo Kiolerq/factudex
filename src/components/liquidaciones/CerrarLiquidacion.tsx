@@ -29,7 +29,7 @@ export function CerrarLiquidacion({ id, folio, egresos, numIncompletos, montoInc
         disabled={egresos <= 0}
         title={egresos <= 0 ? "Necesita al menos un movimiento completo" : undefined}
         onClick={() => setConfirmando(true)}
-        className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2.5 text-[13px] font-semibold text-white disabled:opacity-40"
+        className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2.5 text-fx-sm font-semibold text-white disabled:opacity-40"
       >
         {texto}
       </button>
@@ -37,7 +37,7 @@ export function CerrarLiquidacion({ id, folio, egresos, numIncompletos, montoInc
   }
 
   return (
-    <div className="flex w-full flex-col gap-3 rounded-xl border border-fx-primary-line bg-fx-primary-soft p-4 text-[13px]">
+    <div className="flex w-full flex-col gap-3 rounded-xl border border-fx-primary-line bg-fx-primary-soft p-4 text-fx-sm">
       <p>
         Se liquidarán <strong>{formatoSoles(egresos)}</strong> en {folio} y quedará <strong>en revisión</strong> hasta que el
         aprobador la apruebe y registre la recarga.
@@ -51,7 +51,7 @@ export function CerrarLiquidacion({ id, folio, egresos, numIncompletos, montoInc
       )}
       {error && <p className="text-fx-error">{error}</p>}
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={() => setConfirmando(false)} className="fx-btn rounded-[10px] px-4 py-2 text-white/60">
+        <button type="button" onClick={() => setConfirmando(false)} className="fx-btn rounded-[10px] px-4 py-2 text-white/75">
           Cancelar
         </button>
         <button

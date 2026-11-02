@@ -40,10 +40,10 @@ export function Navegacion({ pendientes, modulos, esAdmin, esTesoreria }: Props)
             // Precarga la pantalla completa al abrir la app: cambiar de pestaña es instantáneo.
             prefetch
             aria-current={activa ? "page" : undefined}
-            className={`shrink-0 rounded-[10px] border px-4 py-[9px] text-[13px] font-semibold transition-colors ${
+            className={`shrink-0 rounded-[10px] border px-4 py-[9px] text-fx-sm font-semibold transition-colors ${
               activa
                 ? "border-fx-primary bg-fx-primary-soft text-fx-primary-light"
-                : "border-fx-glass-border bg-white/5 text-white/55 hover:text-white/80"
+                : "border-fx-glass-border bg-white/5 text-white/75 hover:text-white/80"
             }`}
           >
             {s.texto}

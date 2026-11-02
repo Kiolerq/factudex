@@ -51,7 +51,7 @@ export function BuscadorProveedor({ valor, onCambiar, error, requerido }: Props)
         <div className="flex items-center justify-between gap-3 rounded-[10px] border border-fx-primary-line bg-fx-primary-soft px-3.5 py-2.5">
           <div className="min-w-0">
             <div className="truncate text-sm font-medium">{valor.razonSocial}</div>
-            <div className="font-mono text-xs text-white/50">
+            <div className="font-mono text-fx-sm font-semibold tracking-wide text-white/85">
               {valor.tipoDoc} {valor.numDoc}
             </div>
           </div>
@@ -130,7 +130,7 @@ export function BuscadorProveedor({ valor, onCambiar, error, requerido }: Props)
           className="fx-card absolute inset-x-0 top-full z-20 mt-1.5 flex flex-col bg-fx-bg/90! p-1.5"
         >
           {buscando && resultados.length === 0 && (
-            <li className="px-3 py-2.5 text-[13px] text-white/40">Buscando…</li>
+            <li className="px-3 py-2.5 text-fx-sm text-white/60">Buscando…</li>
           )}
           {resultados.map((p, i) => (
             <li
@@ -142,12 +142,12 @@ export function BuscadorProveedor({ valor, onCambiar, error, requerido }: Props)
                 elegir(p);
               }}
               onMouseEnter={() => setIndice(i)}
-              className={`flex cursor-pointer justify-between gap-3 rounded-lg px-3 py-2.5 text-[13px] ${
-                i === indice ? "bg-fx-primary-soft text-white" : "text-white/60"
+              className={`flex cursor-pointer justify-between gap-3 rounded-lg px-3 py-2.5 text-fx-sm ${
+                i === indice ? "bg-fx-primary-soft text-white" : "text-white/75"
               }`}
             >
               <span className="truncate">{p.razonSocial}</span>
-              <span className="shrink-0 font-mono text-white/45">{p.numDoc}</span>
+              <span className="shrink-0 font-mono font-semibold text-white/85">{p.numDoc}</span>
             </li>
           ))}
           <li
@@ -158,7 +158,7 @@ export function BuscadorProveedor({ valor, onCambiar, error, requerido }: Props)
               setCreando(true);
             }}
             onMouseEnter={() => setIndice(resultados.length)}
-            className={`cursor-pointer rounded-lg px-3 py-2.5 text-[13px] font-semibold text-fx-primary-light ${
+            className={`cursor-pointer rounded-lg px-3 py-2.5 text-fx-sm font-semibold text-fx-primary-light ${
               indice === resultados.length ? "bg-white/6" : ""
             }`}
           >
@@ -169,7 +169,7 @@ export function BuscadorProveedor({ valor, onCambiar, error, requerido }: Props)
       {error ? (
         <p className="mt-1.5 text-xs text-fx-error">{error}</p>
       ) : (
-        <p className="mt-1.5 text-[11px] text-white/35">
+        <p className="mt-1.5 text-fx-2xs text-white/60">
           RUC y razón social se autocompletan al elegir de la base de proveedores — evita redigitar.
         </p>
       )}
@@ -213,10 +213,10 @@ function AltaProveedor({
   return (
     <div className="rounded-xl border border-fx-primary-line bg-white/3 p-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-[13px] font-semibold">Nuevo proveedor</span>
-        <span className="text-[11px] text-white/40">Queda guardado para la próxima vez</span>
+        <span className="text-fx-sm font-semibold">Nuevo proveedor</span>
+        <span className="text-fx-2xs text-white/60">Queda guardado para la próxima vez</span>
       </div>
-      <div className="grid grid-cols-[110px_1fr] gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[110px_1fr]">
         <div>
           <label className="fx-label" htmlFor="alta-tipo">
             Documento
@@ -239,8 +239,9 @@ function AltaProveedor({
           </label>
           <input
             id="alta-num"
-            className="fx-input font-mono"
+            className="fx-input font-mono text-xl! font-bold tracking-[0.12em] md:text-base!"
             inputMode={tipoDoc === "RUC" || tipoDoc === "DNI" ? "numeric" : "text"}
+            placeholder={tipoDoc === "RUC" ? "11 dígitos" : tipoDoc === "DNI" ? "8 dígitos" : ""}
             value={numDoc}
             aria-invalid={!!errores.numDoc}
             onChange={(e) => setNumDoc(e.target.value)}
@@ -267,7 +268,7 @@ function AltaProveedor({
         <button
           type="button"
           onClick={onCancelar}
-          className="fx-btn rounded-[10px] border border-white/18 px-4 py-2 text-[13px] font-semibold text-white/60"
+          className="fx-btn rounded-[10px] border border-white/18 px-4 py-2 text-fx-sm font-semibold text-white/75"
         >
           Cancelar
         </button>
@@ -275,7 +276,7 @@ function AltaProveedor({
           type="button"
           onClick={guardar}
           disabled={guardando}
-          className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
+          className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 text-fx-sm font-semibold text-white disabled:opacity-60"
         >
           {guardando ? "Guardando…" : "Guardar proveedor"}
         </button>

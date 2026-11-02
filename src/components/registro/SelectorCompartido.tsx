@@ -220,7 +220,7 @@ export function SelectorCompartido({
             Archivo compartido{archivos.length > 1 && ` ${indice + 1} de ${archivos.length}`}
           </h2>
           {!resultado && (
-            <button type="button" onClick={siguiente} className="fx-btn text-[13px] text-white/50 hover:text-white">
+            <button type="button" onClick={siguiente} className="fx-btn text-fx-sm text-white/68 hover:text-white">
               Descartar
             </button>
           )}
@@ -231,16 +231,16 @@ export function SelectorCompartido({
             // eslint-disable-next-line @next/next/no-img-element -- vista previa local (blob:)
             <img src={vista} alt="" className="h-20 w-20 shrink-0 rounded-lg object-cover" />
           ) : (
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-white/8 text-xs font-bold text-white/60">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-white/8 text-xs font-bold text-white/75">
               {archivo.type === "application/pdf" ? "PDF" : "ARCHIVO"}
             </div>
           )}
-          <div className="min-w-0 text-[12.5px]">
+          <div className="min-w-0 text-fx-sm">
             <div className="truncate font-semibold">{archivo.name}</div>
             {lectura.estado === "leyendo" ? (
               <div className="text-fx-primary-light">La IA está leyendo…</div>
             ) : datos?.es_comprobante ? (
-              <div className="text-white/60">
+              <div className="text-white/75">
                 La IA leyó:{" "}
                 {[
                   datos.es_captura_yape ? "constancia de pago" : datos.tipo_documento && ETIQUETA_DOCUMENTO[datos.tipo_documento],
@@ -252,7 +252,7 @@ export function SelectorCompartido({
                   .join(" · ")}
               </div>
             ) : (
-              <div className="text-white/45">{lectura.error ?? "La IA no reconoció un comprobante. Elige qué es."}</div>
+              <div className="text-white/68">{lectura.error ?? "La IA no reconoció un comprobante. Elige qué es."}</div>
             )}
           </div>
         </div>
@@ -260,7 +260,7 @@ export function SelectorCompartido({
         {resultado ? (
           <div className="flex flex-col gap-3">
             <p
-              className={`rounded-xl border px-4 py-3 text-[13px] ${
+              className={`rounded-xl border px-4 py-3 text-fx-sm ${
                 resultado.estado === "completo"
                   ? "border-fx-completo/40 bg-fx-completo/10 text-fx-completo"
                   : "border-fx-pendiente/40 bg-fx-pendiente/10 text-fx-pendiente"
@@ -270,17 +270,17 @@ export function SelectorCompartido({
               {resultado.estado === "completo" ? "Quedó Completo y entra a la liquidación." : "Sigue pendiente: aún le falta un archivo."}
             </p>
             <div className="flex justify-end gap-2">
-              <Link prefetch={false} href={`/movimientos/${resultado.m.id}`} className="fx-btn rounded-[10px] border border-white/12 px-4 py-2 text-[13px] text-white/75">
+              <Link prefetch={false} href={`/movimientos/${resultado.m.id}`} className="fx-btn rounded-[10px] border border-white/12 px-4 py-2 text-fx-sm text-white/75">
                 Ver gasto
               </Link>
-              <button type="button" onClick={siguiente} className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 text-[13px] font-semibold text-white">
+              <button type="button" onClick={siguiente} className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 text-fx-sm font-semibold text-white">
                 {indice + 1 < archivos.length ? "Siguiente archivo" : "Cerrar"}
               </button>
             </div>
           </div>
         ) : confirmar ? (
           <div className="flex flex-col gap-3">
-            <p className="rounded-xl border border-fx-primary-line bg-fx-primary-soft px-4 py-3 text-[13px]">
+            <p className="rounded-xl border border-fx-primary-line bg-fx-primary-soft px-4 py-3 text-fx-sm">
               Adjuntar <strong>{nombreEleccion}</strong>
               {eleccion?.tipo === "documento" && datos?.serie_numero && ` ${datos.serie_numero}`} a{" "}
               <strong>
@@ -293,16 +293,16 @@ export function SelectorCompartido({
                 </span>
               )}
             </p>
-            {error && <p className="text-[13px] text-fx-error">{error}</p>}
+            {error && <p className="text-fx-sm text-fx-error">{error}</p>}
             <div className="flex justify-end gap-2">
-              <button type="button" disabled={enviando} onClick={() => setConfirmar(null)} className="fx-btn rounded-[10px] px-4 py-2 text-[13px] text-white/60">
+              <button type="button" disabled={enviando} onClick={() => setConfirmar(null)} className="fx-btn rounded-[10px] px-4 py-2 text-fx-sm text-white/75">
                 Volver
               </button>
               <button
                 type="button"
                 disabled={enviando}
                 onClick={() => adjuntar(confirmar)}
-                className="fx-btn rounded-[10px] bg-fx-primary px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
+                className="fx-btn rounded-[10px] bg-fx-primary px-5 py-2 text-fx-sm font-semibold text-white disabled:opacity-60"
               >
                 {enviando ? "Adjuntando…" : "Adjuntar"}
               </button>
@@ -311,7 +311,7 @@ export function SelectorCompartido({
         ) : (
           <>
             <div className="flex flex-col gap-2.5">
-              <div className="text-[13px] font-semibold">¿Qué es?</div>
+              <div className="text-fx-sm font-semibold">¿Qué es?</div>
               <Grupo titulo="Documento">
                 {TIPOS_DOCUMENTO.map((t) => (
                   <Chip key={t} activo={eleccion?.tipo === "documento" && eleccion.subtipo === t} onClick={() => elegir({ tipo: "documento", subtipo: t })}>
@@ -330,7 +330,7 @@ export function SelectorCompartido({
 
             {eleccion && cajas.length > 1 && (
               <div className="flex flex-col gap-2.5">
-                <div className="text-[13px] font-semibold">¿De qué caja sale el dinero?</div>
+                <div className="text-fx-sm font-semibold">¿De qué caja sale el dinero?</div>
                 {empresas.map((e) => {
                   const deEmpresa = cajas.filter((c) => c.empresaId === e.empresaId);
                   if (!deEmpresa.length) return null;
@@ -353,29 +353,29 @@ export function SelectorCompartido({
 
             {eleccion && (
               <div className="flex flex-col gap-2.5">
-                <div className="text-[13px] font-semibold">¿Para qué gasto?</div>
+                <div className="text-fx-sm font-semibold">¿Para qué gasto?</div>
                 <button
                   type="button"
                   onClick={nuevo}
-                  className="fx-btn rounded-xl border border-fx-primary-line bg-fx-primary-soft px-4 py-3 text-left text-[13.5px] font-semibold text-fx-primary-light"
+                  className="fx-btn rounded-xl border border-fx-primary-line bg-fx-primary-soft px-4 py-3 text-left text-fx-sm font-semibold text-fx-primary-light"
                 >
                   ＋ Nuevo gasto
-                  <span className="block text-[11.5px] font-normal text-white/50">
+                  <span className="block text-fx-xs font-normal text-white/68">
                     Se abre el registro en {nombreCaja} con el archivo como{" "}
                     {eleccion.tipo === "documento" ? "documento" : "constancia de pago"}
                     {lectura.estado === "listo" && datos?.es_comprobante ? " y los datos que leyó la IA" : ""}.
                   </span>
                 </button>
                 {pendientes === null ? (
-                  <p className="text-[12.5px] text-white/45">Buscando pendientes…</p>
+                  <p className="text-fx-sm text-white/68">Buscando pendientes…</p>
                 ) : candidatos.length === 0 ? (
-                  <p className="text-[12.5px] text-white/45">
+                  <p className="text-fx-sm text-white/68">
                     En esta caja no hay gastos pendientes a los que les falte{" "}
                     {eleccion.tipo === "documento" ? "el documento" : "la constancia de pago"}.
                   </p>
                 ) : (
                   <>
-                    <div className="text-[11.5px] text-white/45">
+                    <div className="text-fx-xs text-white/68">
                       O júntalo a un gasto al que le falta {eleccion.tipo === "documento" ? "el documento" : "la constancia de pago"}:
                     </div>
                     {candidatos.map(({ m, motivos }) => (
@@ -386,15 +386,15 @@ export function SelectorCompartido({
                         className="fx-btn flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/4 px-4 py-3 text-left hover:bg-white/8"
                       >
                         <span className="min-w-0">
-                          <span className="block truncate text-[13px] font-semibold">{m.detalle}</span>
-                          <span className="block truncate text-[11.5px] text-white/45">
+                          <span className="block truncate text-fx-sm font-semibold">{m.detalle}</span>
+                          <span className="block truncate text-fx-xs text-white/68">
                             {m.proveedor ?? "Por definir"} · {formatoFecha(m.fecha, true)}
                             {" · "}
                             {textoFalta(m)}
                           </span>
-                          {motivos.length > 0 && <span className="block text-[11px] font-semibold text-fx-completo">✓ {motivos.join(" · ")}</span>}
+                          {motivos.length > 0 && <span className="block text-fx-2xs font-semibold text-fx-completo">✓ {motivos.join(" · ")}</span>}
                         </span>
-                        <span className="shrink-0 font-display text-[14px] font-bold">{formatoSoles(m.monto)}</span>
+                        <span className="shrink-0 font-display text-fx-md font-bold">{formatoSoles(m.monto)}</span>
                       </button>
                     ))}
                   </>
@@ -411,7 +411,7 @@ export function SelectorCompartido({
 function Grupo({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-1.5 text-[11px] uppercase tracking-[0.6px] text-white/40">{titulo}</div>
+      <div className="mb-1.5 text-fx-2xs uppercase tracking-[0.6px] text-white/60">{titulo}</div>
       <div className="flex flex-wrap gap-1.5">{children}</div>
     </div>
   );
@@ -423,8 +423,8 @@ function Chip({ activo, onClick, children }: { activo: boolean; onClick: () => v
       type="button"
       aria-pressed={activo}
       onClick={onClick}
-      className={`fx-btn rounded-full border px-3.5 py-2 text-[12.5px] font-semibold ${
-        activo ? "border-fx-primary bg-fx-primary-soft text-fx-primary-light" : "border-white/12 text-white/65 hover:text-white"
+      className={`fx-btn rounded-full border px-3.5 py-2 text-fx-sm font-semibold ${
+        activo ? "border-fx-primary bg-fx-primary-soft text-fx-primary-light" : "border-white/12 text-white/82 hover:text-white"
       }`}
     >
       {children}

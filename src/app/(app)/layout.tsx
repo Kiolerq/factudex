@@ -11,7 +11,7 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
   if (!usuario.activo) {
     return (
       <main className="flex flex-1 items-center justify-center p-6">
-        <div className="fx-card max-w-md p-8 text-center text-sm text-white/60">
+        <div className="fx-card max-w-md p-8 text-center text-sm text-white/75">
           Tu usuario está desactivado. Si es un error, avisa a un administrador.
         </div>
       </main>
@@ -25,7 +25,7 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
   if (!cajaActiva && !usuario.esTesoreria) {
     return (
       <main className="flex flex-1 items-center justify-center p-6">
-        <div className="fx-card max-w-md p-8 text-center text-sm text-white/60">
+        <div className="fx-card max-w-md p-8 text-center text-sm text-white/75">
           Tu usuario todavía no tiene cajas asignadas. Pide a un administrador que te dé acceso.
         </div>
       </main>

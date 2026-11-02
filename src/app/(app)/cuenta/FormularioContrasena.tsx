@@ -24,7 +24,7 @@ export function FormularioContrasena() {
       <button
         type="submit"
         disabled={guardando}
-        className="fx-btn self-start rounded-[10px] bg-fx-primary px-5 py-2.5 text-[13px] font-semibold text-white disabled:opacity-70"
+        className="fx-btn self-start rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-white disabled:opacity-70"
       >
         {guardando ? "Guardando…" : "Cambiar contraseña"}
       </button>

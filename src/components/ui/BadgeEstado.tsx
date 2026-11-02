@@ -13,7 +13,7 @@ const TEXTO: Record<EstadoMovimiento, string> = {
 export function BadgeEstado({ estado, texto }: { estado: EstadoMovimiento; texto?: string }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-[11px] font-semibold ${ESTILOS[estado]}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-fx-2xs font-semibold ${ESTILOS[estado]}`}
     >
       ● {texto ?? TEXTO[estado]}
     </span>

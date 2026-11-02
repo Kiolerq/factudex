@@ -144,7 +144,7 @@ export function CompletarPendiente({ movimiento: m, almacen, medioEditable }: Pr
     <form onSubmit={guardar} noValidate className="fx-card flex flex-col gap-4 border-fx-pendiente/35! p-4 md:p-6">
       <div>
         <h2 className="text-base font-bold">Completar sustento</h2>
-        <p className="text-xs text-white/45">
+        <p className="text-xs text-white/68">
           Adjunta lo que falta. Al tener {esEfectivo ? "el documento" : "el documento y la constancia de pago"} pasa a
           Completo y entra a la liquidación.
         </p>
@@ -257,7 +257,7 @@ export function CompletarPendiente({ movimiento: m, almacen, medioEditable }: Pr
       )}
 
       <div className="flex items-center justify-end gap-3">
-        {paso && <span className="text-xs text-white/50">{paso}</span>}
+        {paso && <span className="text-xs text-white/68">{paso}</span>}
         <button
           type="submit"
           disabled={guardando}

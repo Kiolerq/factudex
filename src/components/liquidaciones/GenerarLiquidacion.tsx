@@ -79,29 +79,29 @@ export function GenerarLiquidacion({ cajaId, cajaCodigo, folio, saldoInicial, in
       </div>
 
       {anteriores.length > 0 && (
-        <p className="rounded-xl border border-fx-pendiente/40 bg-fx-pendiente/10 px-4 py-2.5 text-[12.5px] text-fx-pendiente">
+        <p className="rounded-xl border border-fx-pendiente/40 bg-fx-pendiente/10 px-4 py-2.5 text-fx-sm text-fx-pendiente">
           Hay {anteriores.length} gasto{anteriores.length === 1 ? "" : "s"} completo{anteriores.length === 1 ? "" : "s"} anterior
           {anteriores.length === 1 ? "" : "es"} al {formatoFecha(desde)} sin liquidar ({formatoSoles(suma(anteriores))}). Quedarán en la caja.
         </p>
       )}
 
       <div className="fx-card overflow-hidden">
-        <div className="border-b border-white/8 px-4 py-2.5 text-[11px] uppercase tracking-[0.6px] text-white/40 md:px-5">
+        <div className="border-b border-white/8 px-4 py-2.5 text-fx-2xs uppercase tracking-[0.6px] text-white/60 md:px-5">
           Gastos que entran ({entran.length} de {enRango.length})
         </div>
-        {enRango.length === 0 && <div className="px-5 py-6 text-center text-[13px] text-white/45">No hay gastos completos en ese rango.</div>}
+        {enRango.length === 0 && <div className="px-5 py-6 text-center text-fx-sm text-white/68">No hay gastos completos en ese rango.</div>}
         {enRango.map((m) => {
           const marcado = !excluidos.has(m.id);
           return (
             <label
               key={m.id}
-              className={`flex cursor-pointer items-center gap-3 border-b border-white/5 px-4 py-2.5 text-[13px] last:border-b-0 hover:bg-white/4 md:px-5 ${marcado ? "" : "opacity-50"}`}
+              className={`flex cursor-pointer items-center gap-3 border-b border-white/5 px-4 py-2.5 text-fx-sm last:border-b-0 hover:bg-white/4 md:px-5 ${marcado ? "" : "opacity-50"}`}
             >
               <input type="checkbox" checked={marcado} onChange={() => alternar(m.id)} disabled={!puedeGenerar} />
-              <span className="w-12 shrink-0 text-white/50">{formatoFecha(m.fecha, true)}</span>
+              <span className="w-12 shrink-0 text-white/68">{formatoFecha(m.fecha, true)}</span>
               <span className="min-w-0 flex-1 truncate">
                 {m.detalle}
-                <span className="text-white/40"> · {m.proveedor ?? "Por definir"}</span>
+                <span className="text-white/60"> · {m.proveedor ?? "Por definir"}</span>
               </span>
               <span className="shrink-0 font-semibold">{formatoSoles(m.monto)}</span>
             </label>
@@ -110,8 +110,8 @@ export function GenerarLiquidacion({ cajaId, cajaCodigo, folio, saldoInicial, in
       </div>
 
       {(posteriores.length > 0 || sinSustento.length > 0 || porAutorizar.length > 0 || excluidos.size > 0) && (
-        <div className="flex flex-col gap-1 text-[12.5px] text-white/55">
-          <span className="text-[11px] uppercase tracking-[0.6px] text-white/40">Quedan en la caja para la siguiente</span>
+        <div className="flex flex-col gap-1 text-fx-sm text-white/75">
+          <span className="text-fx-2xs uppercase tracking-[0.6px] text-white/60">Quedan en la caja para la siguiente</span>
           {posteriores.length > 0 && <span>· {posteriores.length} posterior{posteriores.length === 1 ? "" : "es"} al {formatoFecha(hasta)} ({formatoSoles(suma(posteriores))})</span>}
           {enRango.length - entran.length > 0 && <span>· {enRango.length - entran.length} desmarcado{enRango.length - entran.length === 1 ? "" : "s"}</span>}
           {sinSustento.length > 0 && (
@@ -134,17 +134,17 @@ export function GenerarLiquidacion({ cajaId, cajaCodigo, folio, saldoInicial, in
         <Cifra titulo="Por reembolsar" valor={Math.round((saldoInicial + ingresos - total) * 100) / 100} destacado />
       </div>
 
-      {error && <p className="text-[13px] text-fx-error">{error}</p>}
+      {error && <p className="text-fx-sm text-fx-error">{error}</p>}
       {puedeGenerar &&
         (confirmando ? (
-          <div className="flex flex-col gap-3 rounded-xl border border-fx-primary-line bg-fx-primary-soft p-4 text-[13px]">
+          <div className="flex flex-col gap-3 rounded-xl border border-fx-primary-line bg-fx-primary-soft p-4 text-fx-sm">
             <p>
               Se generará <strong>{folio}</strong> de <strong>{cajaCodigo}</strong>, del {formatoFecha(desde)} al{" "}
               {formatoFecha(hasta)}, con {entran.length} gasto{entran.length === 1 ? "" : "s"} por <strong>{formatoSoles(total)}</strong>. Queda en
               revisión de tesorería.
             </p>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setConfirmando(false)} className="fx-btn rounded-[10px] px-4 py-2 text-white/60">
+              <button type="button" onClick={() => setConfirmando(false)} className="fx-btn rounded-[10px] px-4 py-2 text-white/75">
                 Cancelar
               </button>
               <button
@@ -162,7 +162,7 @@ export function GenerarLiquidacion({ cajaId, cajaCodigo, folio, saldoInicial, in
             type="button"
             disabled={!entran.length}
             onClick={() => setConfirmando(true)}
-            className="fx-btn self-end rounded-[10px] bg-fx-primary px-5 py-2.5 text-[13px] font-semibold text-white disabled:opacity-40"
+            className="fx-btn self-end rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-white disabled:opacity-40"
           >
             Generar liquidación {folio}
           </button>
@@ -174,8 +174,8 @@ export function GenerarLiquidacion({ cajaId, cajaCodigo, folio, saldoInicial, in
 function Cifra({ titulo, valor, destacado }: { titulo: string; valor: number; destacado?: boolean }) {
   return (
     <div className="rounded-xl border border-white/8 bg-white/4 px-3.5 py-3">
-      <div className="text-[10.5px] uppercase tracking-[0.6px] text-white/40">{titulo}</div>
-      <div className={`mt-1 font-display text-[16px] font-bold md:text-lg ${destacado ? "text-fx-primary-light" : ""}`}>{formatoSoles(valor)}</div>
+      <div className="text-fx-2xs uppercase tracking-[0.6px] text-white/60">{titulo}</div>
+      <div className={`mt-1 font-display text-fx-lg font-bold md:text-lg ${destacado ? "text-fx-primary-light" : ""}`}>{formatoSoles(valor)}</div>
     </div>
   );
 }

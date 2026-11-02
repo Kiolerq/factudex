@@ -21,7 +21,7 @@ export default async function PaginaRegistro({ searchParams }: PageProps<"/regis
   const cajasRegistro = cajas.filter((_, i) => permisos[i]!.registrar);
   if (!cajasRegistro.length) {
     return (
-      <div className="fx-card px-5 py-8 text-center text-sm text-white/55">
+      <div className="fx-card px-5 py-8 text-center text-sm text-white/75">
         Tu usuario solo puede ver estas cajas. Pide a un administrador acceso de registrador para registrar gastos.
       </div>
     );
@@ -49,7 +49,7 @@ export default async function PaginaRegistro({ searchParams }: PageProps<"/regis
         <InstalarApp compacto />
       </div>
       {compartido === "sin-sw" && (
-        <p role="status" className="fx-card mb-4 px-4 py-3 text-[12.5px] text-white/70">
+        <p role="status" className="fx-card mb-4 px-4 py-3 text-fx-sm text-white/82">
           La app terminó de instalarse. Vuelve a compartir la imagen para adjuntarla.
         </p>
       )}

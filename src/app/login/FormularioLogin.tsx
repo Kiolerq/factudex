@@ -48,7 +48,7 @@ export function FormularioLogin({ errorEnlace, siguiente }: { errorEnlace: boole
       >
         {entrando ? "Entrando…" : "Ingresar"}
       </button>
-      <p className="text-center text-[11px] text-white/35">
+      <p className="text-center text-fx-2xs text-white/60">
         ¿Olvidaste tu contraseña? Pídele al administrador que la restablezca.
       </p>
     </form>

@@ -48,7 +48,7 @@ export function SelectorCaja({ empresas, cajas, cajaActivaId: activaServidor }: 
             aria-pressed={esActiva}
             onClick={() => primera && elegir(primera.id)}
             className={`fx-btn rounded-full px-3.5 py-2 text-xs font-semibold uppercase transition-colors md:px-[18px] md:py-[9px] md:text-[13px] ${
-              esActiva ? "bg-white/12 text-white" : "text-white/50 hover:text-white/80"
+              esActiva ? "bg-white/12 text-white" : "text-white/68 hover:text-white/80"
             } disabled:opacity-40`}
           >
             {e.nombreCorto}
@@ -63,7 +63,7 @@ export function SelectorCaja({ empresas, cajas, cajaActivaId: activaServidor }: 
       {/* Escritorio: switch arriba a la derecha lo pone el HUD; aquí van las tarjetas de caja */}
       <div className="hidden md:flex md:flex-col md:gap-4">
         <div className="flex items-center justify-between gap-4">
-          <div className="text-xs uppercase tracking-[1.2px] text-white/40">
+          <div className="text-xs uppercase tracking-[1.2px] text-white/60">
             Cajas de {empresas.find((e) => e.id === activa.empresaId)?.nombreCorto}
           </div>
           {switchEmpresa}
@@ -89,14 +89,14 @@ export function SelectorCaja({ empresas, cajas, cajaActivaId: activaServidor }: 
               className={`fx-btn flex shrink-0 flex-col items-start rounded-xl border px-3 py-1.5 text-left ${
                 esActiva
                   ? "border-fx-primary bg-fx-primary-soft text-white"
-                  : "border-fx-glass-border bg-fx-glass text-white/60"
+                  : "border-fx-glass-border bg-fx-glass text-white/75"
               }`}
             >
-              <span className="text-[11px] leading-tight">
+              <span className="text-fx-2xs leading-tight">
                 {String(c.numero).padStart(2, "0")} · {c.nombre}
               </span>
               <span
-                className={`font-display text-[13px] font-bold leading-tight ${
+                className={`font-display text-fx-sm font-bold leading-tight ${
                   c.bajoUmbral ? "text-fx-pendiente" : ""
                 }`}
               >
@@ -133,12 +133,12 @@ function TarjetaCaja({
           caja.bajoUmbral ? "bg-fx-pendiente" : activa ? "bg-fx-primary" : "bg-white/10"
         }`}
       />
-      <span className="mb-2 flex items-center justify-between gap-2 text-xs text-white/50">
+      <span className="mb-2 flex items-center justify-between gap-2 text-xs text-white/68">
         <span className="truncate">
           {codigoCaja(caja)} · {caja.nombre}
         </span>
         {activa && (
-          <span className="shrink-0 rounded-full bg-fx-primary-soft px-2 py-0.5 text-[10px] font-semibold text-fx-primary-light">
+          <span className="shrink-0 rounded-full bg-fx-primary-soft px-2 py-0.5 text-fx-2xs font-semibold text-fx-primary-light">
             ACTIVA
           </span>
         )}
@@ -146,7 +146,7 @@ function TarjetaCaja({
       <span className="block font-display text-[26px] font-bold leading-none">
         {formatoSoles(caja.saldo)}
       </span>
-      <span className="mt-2 block text-xs text-white/40">
+      <span className="mt-2 block text-xs text-white/60">
         {caja.bajoUmbral ? (
           <span className="text-fx-pendiente">● Bajo el umbral de {formatoSoles(caja.umbralAlerta)}</span>
         ) : (

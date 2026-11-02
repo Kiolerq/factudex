@@ -37,7 +37,7 @@ export function GestionCajas({ cajas, empresas }: { cajas: CajaAdmin[]; empresas
         <button
           type="button"
           onClick={() => setEditando("nueva")}
-          className="fx-btn self-start rounded-[10px] bg-fx-primary px-4 py-2.5 text-[13px] font-semibold text-white"
+          className="fx-btn self-start rounded-[10px] bg-fx-primary px-4 py-2.5 text-fx-sm font-semibold text-white"
         >
           + Nueva caja
         </button>
@@ -47,17 +47,17 @@ export function GestionCajas({ cajas, empresas }: { cajas: CajaAdmin[]; empresas
         const deEmpresa = cajas.filter((c) => c.empresaId === e.id);
         return (
           <section key={e.id} className="flex flex-col gap-2">
-            <h3 className="text-xs uppercase tracking-[1.2px] text-white/40">{e.nombre}</h3>
+            <h3 className="text-xs uppercase tracking-[1.2px] text-white/60">{e.nombre}</h3>
             <div className="fx-card overflow-hidden">
-              {deEmpresa.length === 0 && <div className="px-5 py-5 text-[13px] text-white/45">Sin cajas.</div>}
+              {deEmpresa.length === 0 && <div className="px-5 py-5 text-fx-sm text-white/68">Sin cajas.</div>}
               {deEmpresa.map((c) => (
                 <div
                   key={c.id}
-                  className={`flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-[13px] last:border-b-0 md:px-5 ${c.activa ? "" : "opacity-50"}`}
+                  className={`flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-fx-sm last:border-b-0 md:px-5 ${c.activa ? "" : "opacity-50"}`}
                 >
                   <div className="min-w-0">
                     <div className="font-mono font-semibold">{codigoCaja(c)}</div>
-                    <div className="truncate text-[12px] text-white/50">
+                    <div className="truncate text-fx-xs text-white/68">
                       {c.nombre} · umbral {formatoSoles(c.umbralAlerta)}
                       {!c.activa && " · inactiva"}
                     </div>
@@ -65,7 +65,7 @@ export function GestionCajas({ cajas, empresas }: { cajas: CajaAdmin[]; empresas
                   <button
                     type="button"
                     onClick={() => setEditando(c)}
-                    className="fx-btn shrink-0 rounded-[10px] border border-white/12 px-3.5 py-1.5 text-[12.5px] text-white/75 hover:text-white"
+                    className="fx-btn shrink-0 rounded-[10px] border border-white/12 px-3.5 py-1.5 text-fx-sm text-white/75 hover:text-white"
                   >
                     Editar
                   </button>
@@ -101,11 +101,11 @@ function Tope({ empresa }: { empresa: EmpresaTope }) {
       </label>
       <div className="flex gap-2">
         <input id={`tope-${empresa.id}`} className="fx-input font-display font-bold" inputMode="decimal" value={texto} onChange={(e) => setTexto(e.target.value)} />
-        <button type="submit" disabled={guardando} className="fx-btn shrink-0 rounded-[10px] border border-white/12 px-4 text-[13px] text-white/80 disabled:opacity-60">
+        <button type="submit" disabled={guardando} className="fx-btn shrink-0 rounded-[10px] border border-white/12 px-4 text-fx-sm text-white/80 disabled:opacity-60">
           Guardar
         </button>
       </div>
-      <p className="text-[11.5px] text-white/45">Un gasto mayor queda “por autorizar” por tesorería.</p>
+      <p className="text-fx-xs text-white/68">Un gasto mayor queda “por autorizar” por tesorería.</p>
       {aviso && <p className={`text-xs ${aviso.ok ? "text-fx-completo" : "text-fx-error"}`}>{aviso.texto}</p>}
     </form>
   );
@@ -160,9 +160,9 @@ function EditorCaja({
     <form onSubmit={guardar} noValidate className="fx-card flex flex-col gap-4 p-4 md:p-6">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-base font-bold">{caja ? "Editar caja" : "Nueva caja"}</h3>
-        <span className="font-mono text-[13px] text-fx-primary-light">{vistaCodigo}</span>
+        <span className="font-mono text-fx-sm text-fx-primary-light">{vistaCodigo}</span>
       </div>
-      {errores._ && <p className="text-[13px] text-fx-error">{errores._}</p>}
+      {errores._ && <p className="text-fx-sm text-fx-error">{errores._}</p>}
       <div className="grid gap-3.5 md:grid-cols-3">
         <div>
           <label htmlFor="caja-empresa" className="fx-label">
@@ -227,24 +227,24 @@ function EditorCaja({
         </div>
       </div>
       {caja && (
-        <label className="flex items-center gap-2 text-[13px]">
+        <label className="flex items-center gap-2 text-fx-sm">
           <input type="checkbox" checked={activa} onChange={(e) => setActiva(e.target.checked)} /> Activa (desmárcala para dejar de usarla; su historial
           se conserva)
         </label>
       )}
       {caja && (caja.numero !== numero || caja.area !== area) && (
-        <p className="text-[12px] text-fx-pendiente">
+        <p className="text-fx-xs text-fx-pendiente">
           Las liquidaciones ya generadas conservan su folio; las nuevas salen con la numeración nueva.
         </p>
       )}
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCerrar} className="fx-btn rounded-[10px] px-4 py-2 text-[13px] text-white/60">
+        <button type="button" onClick={onCerrar} className="fx-btn rounded-[10px] px-4 py-2 text-fx-sm text-white/75">
           Cancelar
         </button>
         <button
           type="submit"
           disabled={guardando}
-          className="fx-btn rounded-[10px] bg-fx-primary px-5 py-2.5 text-[13px] font-semibold text-white disabled:opacity-60"
+          className="fx-btn rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-white disabled:opacity-60"
         >
           {guardando ? "Guardando…" : caja ? "Guardar cambios" : "Crear caja"}
         </button>

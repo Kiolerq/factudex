@@ -35,7 +35,7 @@ export default async function PaginaPendientes() {
     <main className="flex flex-col gap-4 md:gap-5">
       <div>
         <h1 className="text-lg font-bold md:text-xl">Pendientes de sustento</h1>
-        <p className="text-xs text-white/45">
+        <p className="text-xs text-white/68">
           {empresa.nombreCorto} · Gastos sin documento o sin constancia de pago. No tienen plazo, pero no entran a la
           liquidación hasta completarlos: al cerrar, pasan a la siguiente.
         </p>
@@ -50,7 +50,7 @@ export default async function PaginaPendientes() {
       )}
 
       {lista.length === 0 ? (
-        <div className="fx-card px-5 py-10 text-center text-sm text-white/55">
+        <div className="fx-card px-5 py-10 text-center text-sm text-white/75">
           <span className="text-fx-completo">●</span> Todo sustentado. No hay gastos pendientes en {empresa.nombreCorto}.
         </div>
       ) : (
@@ -64,22 +64,22 @@ export default async function PaginaPendientes() {
                 className="fx-card flex flex-col gap-2.5 rounded-[14px] border-fx-pendiente/35! p-3.5 hover:bg-white/6 md:flex-row md:items-center md:gap-5 md:px-5"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13.5px] font-semibold">{m.detalle}</div>
-                  <div className="truncate text-[11.5px] text-white/45">
+                  <div className="truncate text-fx-sm font-semibold">{m.detalle}</div>
+                  <div className="truncate text-fx-xs text-white/68">
                     {m.proveedor ?? "Proveedor por definir"} · {formatoFecha(m.fecha)}
                     {m.medioPago && ` · ${ETIQUETA_MEDIO_PAGO[m.medioPago]}`}
                     {variasCajas && ` · ${nombreCaja(m.cajaId)}`}
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-3 md:contents">
-                  <span className="text-[12px] text-fx-pendiente md:w-[230px]">{textoFalta(m)}</span>
-                  <span className="text-[11.5px] text-white/45 md:w-[90px] md:text-right">
+                  <span className="text-fx-xs text-fx-pendiente md:w-[230px]">{textoFalta(m)}</span>
+                  <span className="text-fx-xs text-white/68 md:w-[90px] md:text-right">
                     {d === 0 ? "hoy" : `hace ${d} día${d === 1 ? "" : "s"}`}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3 md:contents">
-                  <span className="font-display text-[15px] font-bold md:w-[110px] md:text-right">{formatoSoles(m.monto)}</span>
-                  <span className="rounded-[9px] bg-fx-primary px-3 py-1.5 text-[12px] font-semibold text-white">Adjuntar</span>
+                  <span className="font-display text-fx-md font-bold md:w-[110px] md:text-right">{formatoSoles(m.monto)}</span>
+                  <span className="rounded-[9px] bg-fx-primary px-3 py-1.5 text-fx-xs font-semibold text-white">Adjuntar</span>
                 </div>
               </Link>
             );
@@ -93,8 +93,8 @@ export default async function PaginaPendientes() {
 function Indicador({ titulo, valor }: { titulo: string; valor: string }) {
   return (
     <div className="fx-card rounded-[14px] px-3 py-3 md:px-5 md:py-4">
-      <div className="text-[10.5px] uppercase tracking-[0.6px] text-white/40 md:text-[11px]">{titulo}</div>
-      <div className="mt-1 font-display text-[15px] font-bold md:text-xl">{valor}</div>
+      <div className="text-fx-2xs uppercase tracking-[0.6px] text-white/60 md:text-[11px]">{titulo}</div>
+      <div className="mt-1 font-display text-fx-md font-bold md:text-xl">{valor}</div>
     </div>
   );
 }

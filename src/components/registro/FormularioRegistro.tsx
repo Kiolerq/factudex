@@ -472,7 +472,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
           <div role="status" className="fx-card mb-4 flex flex-wrap items-center justify-between gap-3 border-fx-completo/40! px-5 py-4">
             <div className="text-sm">
               <span className="font-semibold">Registro guardado.</span>{" "}
-              <span className="text-white/55">
+              <span className="text-white/75">
                 {guardado.detalle} · {formatoSoles(guardado.monto)}
               </span>
             </div>
@@ -518,14 +518,14 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
           <span aria-hidden className="text-lg">📷</span>
           {archivos.documento ? "Cambiar foto del comprobante" : "Tomar foto del comprobante"}
         </button>
-        <p className="-mt-1.5 text-center text-[11px] text-white/35 md:hidden">
+        <p className="-mt-1.5 text-center text-fx-2xs text-white/60 md:hidden">
           {ocr ? "La IA lee la foto y llena los datos por ti" : "o sube un archivo en la sección de adjuntos"}
         </p>
 
         <div className="fx-card flex flex-col gap-3.5 rounded-[14px] p-4 md:gap-4 md:rounded-2xl md:px-7 md:py-[26px]">
           <div className="hidden md:block">
             <h2 className="mb-1 text-lg font-bold">Nuevo registro de movimiento</h2>
-            <p className="text-xs text-white/45">
+            <p className="text-xs text-white/68">
               {empresaNombre} › {nombreCaja(caja)} — los campos con * son obligatorios.
             </p>
           </div>
@@ -715,7 +715,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
                 ))}
               </div>
               {esEfectivo && (
-                <p className="mt-1.5 text-[11px] text-white/40">
+                <p className="mt-1.5 text-fx-2xs text-white/60">
                   En efectivo basta el documento (boleta física, comprobante de egreso…).
                 </p>
               )}
@@ -751,13 +751,13 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
               />
               <span
                 aria-hidden
-                className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border border-white/30 text-[11px] peer-focus-visible:outline-2 peer-focus-visible:outline-white ${
+                className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border border-white/30 text-fx-2xs peer-focus-visible:outline-2 peer-focus-visible:outline-white ${
                   sinDocumento ? "bg-fx-pendiente text-fx-bg" : ""
                 }`}
               >
                 {sinDocumento && "✓"}
               </span>
-              <span className="text-[12.5px] text-white/75 md:text-[13px]">
+              <span className="text-fx-sm text-white/75 md:text-[13px]">
                 Aún no tengo el documento — marcar como pendiente
               </span>
             </label>
@@ -785,7 +785,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
                 />
               )}
               {sinDocumento && (
-                <p className="rounded-xl border border-dashed border-fx-pendiente/60 bg-fx-pendiente/6 px-4 py-3 text-[12.5px] text-white/60 md:col-span-2">
+                <p className="rounded-xl border border-dashed border-fx-pendiente/60 bg-fx-pendiente/6 px-4 py-3 text-fx-sm text-white/75 md:col-span-2">
                   Se guardará como <span className="font-semibold text-fx-pendiente">pendiente</span>. Podrás
                   adjuntar el documento después; mientras tanto no entra a la liquidación.
                 </p>
@@ -803,8 +803,8 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
       {/* Escritorio: panel lateral */}
       <aside className="hidden flex-col gap-4 md:sticky md:top-6 md:flex">
         <div className="fx-card px-[22px] py-5">
-          <div className="mb-3 text-xs uppercase tracking-[1px] text-white/40">Vista previa</div>
-          <dl className="flex flex-col gap-2.5 text-[13px]">
+          <div className="mb-3 text-xs uppercase tracking-[1px] text-white/60">Vista previa</div>
+          <dl className="flex flex-col gap-2.5 text-fx-sm">
             <Fila etiqueta="Caja">
               {empresaNombre} · {nombreCaja(caja)}
             </Fila>
@@ -821,12 +821,12 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
             </Fila>
           </dl>
           {estado === "pendiente" && faltantes.length > 0 && (
-            <p className="mt-3 text-xs text-white/45">Falta adjuntar: {faltantes.join(" y ")}.</p>
+            <p className="mt-3 text-xs text-white/68">Falta adjuntar: {faltantes.join(" y ")}.</p>
           )}
         </div>
         <div className="fx-card px-[22px] py-5">
-          <div className="mb-2.5 text-xs uppercase tracking-[1px] text-white/40">Nota</div>
-          <p className="text-[12.5px] leading-relaxed text-white/55">
+          <div className="mb-2.5 text-xs uppercase tracking-[1px] text-white/60">Nota</div>
+          <p className="text-fx-sm leading-relaxed text-white/75">
             Si el proveedor aún no emite el documento, marca &ldquo;pendiente&rdquo; y sigue trabajando: el
             movimiento descuenta el saldo ahora y queda en Pendientes hasta que adjuntes el documento y la
             constancia de pago. Solo los movimientos completos entran a la liquidación.
@@ -860,14 +860,14 @@ function BotonesAccion({
         type="button"
         onClick={onCancelar}
         disabled={guardando}
-        className={`fx-btn border border-white/18 bg-transparent text-[13px] font-semibold text-white/60 ${base} ${movil ? "flex-1" : ""}`}
+        className={`fx-btn border border-white/18 bg-transparent text-fx-sm font-semibold text-white/75 ${base} ${movil ? "flex-1" : ""}`}
       >
         Cancelar
       </button>
       <button
         type="submit"
         disabled={guardando}
-        className={`fx-btn bg-fx-primary text-[13px] text-white disabled:opacity-70 ${base} ${movil ? "flex-2 font-bold" : "font-semibold"}`}
+        className={`fx-btn bg-fx-primary text-fx-sm text-white disabled:opacity-70 ${base} ${movil ? "flex-2 font-bold" : "font-semibold"}`}
       >
         {guardando ? paso || "Guardando…" : "Guardar registro"}
       </button>
@@ -882,7 +882,7 @@ function Chip({ activo, onClick, children }: { activo: boolean; onClick: () => v
       aria-pressed={activo}
       onClick={onClick}
       className={`fx-btn rounded-full border px-4 py-[9px] text-xs font-semibold transition-colors ${
-        activo ? "border-fx-primary bg-fx-primary/22 text-white" : "border-white/10 bg-white/5 text-white/55 hover:text-white/80"
+        activo ? "border-fx-primary bg-fx-primary/22 text-white" : "border-white/10 bg-white/5 text-white/75 hover:text-white/80"
       }`}
     >
       {children}
@@ -893,7 +893,7 @@ function Chip({ activo, onClick, children }: { activo: boolean; onClick: () => v
 function Fila({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <dt className="shrink-0 text-white/45">{etiqueta}</dt>
+      <dt className="shrink-0 text-white/68">{etiqueta}</dt>
       <dd className="truncate text-right">{children}</dd>
     </div>
   );
@@ -919,7 +919,7 @@ function SelectorCajaRegistro({
         if (!deEmpresa.length) return null;
         return (
           <div key={l.empresaId} className="flex flex-col gap-1.5">
-            {listas.length > 1 && <div className="text-[11px] uppercase tracking-[0.6px] text-white/40">{l.nombre}</div>}
+            {listas.length > 1 && <div className="text-fx-2xs uppercase tracking-[0.6px] text-white/60">{l.nombre}</div>}
             <div className="flex flex-wrap gap-2">
               {deEmpresa.map((c) => {
                 const activa = c.id === cajaId;
@@ -931,13 +931,13 @@ function SelectorCajaRegistro({
                     data-empresa={c.empresaCodigo}
                     onClick={() => onElegir(c.id)}
                     className={`fx-btn flex flex-col items-start rounded-xl border px-3.5 py-2 text-left ${
-                      activa ? "border-fx-primary bg-fx-primary-soft text-white" : "border-white/12 bg-white/4 text-white/60 hover:text-white"
+                      activa ? "border-fx-primary bg-fx-primary-soft text-white" : "border-white/12 bg-white/4 text-white/75 hover:text-white"
                     }`}
                   >
-                    <span className="text-[12px] font-semibold leading-tight">
+                    <span className="text-fx-xs font-semibold leading-tight">
                       {String(c.numero).padStart(2, "0")} · {c.nombre}
                     </span>
-                    <span className={`font-display text-[13px] font-bold leading-tight ${c.bajoUmbral ? "text-fx-pendiente" : ""}`}>
+                    <span className={`font-display text-fx-sm font-bold leading-tight ${c.bajoUmbral ? "text-fx-pendiente" : ""}`}>
                       {formatoSoles(c.saldo)}
                     </span>
                   </button>

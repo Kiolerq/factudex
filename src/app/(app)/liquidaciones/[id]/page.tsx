@@ -24,7 +24,7 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
 
   return (
     <main className="flex flex-col gap-4 md:gap-5">
-      <Link prefetch={false} href={yo.esAdmin || !yo.esTesoreria ? "/liquidaciones" : "/tesoreria"} className="text-[13px] text-white/50 hover:text-white">
+      <Link prefetch={false} href={yo.esAdmin || !yo.esTesoreria ? "/liquidaciones" : "/tesoreria"} className="text-fx-sm text-white/68 hover:text-white">
         ← {yo.esAdmin || !yo.esTesoreria ? "Liquidaciones" : "Tesorería"}
       </Link>
 
@@ -32,7 +32,7 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="font-display text-lg font-bold md:text-xl">{l.folio}</h1>
-            <p className="text-xs text-white/45">
+            <p className="text-xs text-white/68">
               {caja && `Caja ${codigoCaja(caja)} · ${caja.nombre} · `}
               del {formatoFecha(l.fechaInicio)} al {l.fechaCierre ? formatoFecha(l.fechaCierre) : "en curso"}
               {l.folioAnterior && ` · viene de ${l.folioAnterior}`}
@@ -41,7 +41,7 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
           <BadgeLiquidacion estado={l.estado} />
         </div>
         {l.observaciones && (
-          <p className="rounded-xl border border-fx-error/40 bg-fx-error/10 px-4 py-3 text-[13px] text-fx-error">
+          <p className="rounded-xl border border-fx-error/40 bg-fx-error/10 px-4 py-3 text-fx-sm text-fx-error">
             Observación: {l.observaciones}
           </p>
         )}
@@ -49,7 +49,7 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
         <div className="flex flex-wrap items-center justify-end gap-2">
           <a
             href={`/api/liquidaciones/${l.id}/excel`}
-            className="fx-btn rounded-[10px] border border-white/12 px-4 py-2.5 text-[13px] text-white/75 hover:text-white"
+            className="fx-btn rounded-[10px] border border-white/12 px-4 py-2.5 text-fx-sm text-white/75 hover:text-white"
           >
             Descargar Excel
           </a>
@@ -68,7 +68,7 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
       </section>
 
       <section className="flex flex-col gap-2.5">
-        <h2 className="text-xs uppercase tracking-[1.2px] text-white/40">Ingresos</h2>
+        <h2 className="text-xs uppercase tracking-[1.2px] text-white/60">Ingresos</h2>
         <div className="fx-card overflow-hidden">
           <Fila izquierda={l.folioAnterior ? `Saldo de ${l.folioAnterior}` : "Saldo anterior"} derecha={formatoSoles(l.saldoInicial)} />
           {l.recargas.map((r) => (
@@ -85,7 +85,7 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
       </section>
 
       <section className="flex flex-col gap-2.5">
-        <h2 className="text-xs uppercase tracking-[1.2px] text-white/40">Egresos</h2>
+        <h2 className="text-xs uppercase tracking-[1.2px] text-white/60">Egresos</h2>
         <div className="fx-card overflow-hidden">
           {l.movimientos.length === 0 && <Fila izquierda="Sin movimientos" derecha="" />}
           {l.movimientos.map((m) => {
@@ -116,13 +116,13 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
 function Fila({ izquierda, detalle, derecha, rojo }: { izquierda: string; detalle?: string; derecha: string; rojo?: boolean }) {
   return (
     <div
-      className={`flex items-center justify-between gap-4 border-b border-white/5 px-4 py-3 text-[13px] last:border-b-0 md:px-5 ${
+      className={`flex items-center justify-between gap-4 border-b border-white/5 px-4 py-3 text-fx-sm last:border-b-0 md:px-5 ${
         rojo ? "bg-fx-error/8 text-fx-error" : ""
       }`}
     >
       <div className="min-w-0">
         <div className="truncate">{izquierda}</div>
-        {detalle && <div className={`truncate text-[11.5px] ${rojo ? "text-fx-error/80" : "text-white/45"}`}>{detalle}</div>}
+        {detalle && <div className={`truncate text-fx-xs ${rojo ? "text-fx-error/80" : "text-white/68"}`}>{detalle}</div>}
       </div>
       <div className="shrink-0 font-semibold">{derecha}</div>
     </div>

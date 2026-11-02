@@ -51,9 +51,9 @@ export function GestionUsuarios({ usuarios, miId, soyAdmin, empresas }: Props) {
   return (
     <div className="flex flex-col gap-4">
       {creado && (
-        <div role="status" className="fx-card flex flex-col gap-2 border-fx-completo/40! p-4 text-[13px]">
+        <div role="status" className="fx-card flex flex-col gap-2 border-fx-completo/40! p-4 text-fx-sm">
           <span className="font-semibold text-fx-completo">● Usuario creado.</span>
-          <span className="text-white/65">
+          <span className="text-white/82">
             Pásale sus datos para entrar a <strong>factudex.vercel.app</strong> (la contraseña no se vuelve a mostrar; puede
             cambiarla en Mi cuenta):
           </span>
@@ -81,7 +81,7 @@ export function GestionUsuarios({ usuarios, miId, soyAdmin, empresas }: Props) {
           <button
             type="button"
             onClick={() => abrir({ modo: "nuevo" })}
-            className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2.5 text-[13px] font-semibold text-white"
+            className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2.5 text-fx-sm font-semibold text-white"
           >
             + Nuevo usuario
           </button>
@@ -93,16 +93,16 @@ export function GestionUsuarios({ usuarios, miId, soyAdmin, empresas }: Props) {
           <div key={u.id} className={`fx-card flex flex-col gap-2 p-4 md:flex-row md:items-center md:gap-5 md:px-5 ${u.activo ? "" : "opacity-55"}`}>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="truncate text-[14px] font-semibold">{u.nombre}</span>
+                <span className="truncate text-fx-md font-semibold">{u.nombre}</span>
                 {u.esAdmin && <Etiqueta clase="border-fx-primary-line bg-fx-primary-soft text-fx-primary-light">Administrador</Etiqueta>}
                 {u.esTesoreria && !u.esAdmin && (
                   <Etiqueta clase="border-fx-completo/40 bg-fx-completo/12 text-fx-completo">Tesorería</Etiqueta>
                 )}
                 {!u.activo && <Etiqueta clase="border-fx-error/40 bg-fx-error/12 text-fx-error">Desactivado</Etiqueta>}
-                {u.id === miId && <Etiqueta clase="border-white/15 bg-white/6 text-white/55">Tú</Etiqueta>}
+                {u.id === miId && <Etiqueta clase="border-white/15 bg-white/6 text-white/75">Tú</Etiqueta>}
               </div>
-              <div className="truncate text-[12px] text-white/45">{u.email ?? "sin correo"}</div>
-              <div className="mt-1 text-[12px] text-white/60">
+              <div className="truncate text-fx-xs text-white/68">{u.email ?? "sin correo"}</div>
+              <div className="mt-1 text-fx-xs text-white/75">
                 {u.esAdmin ? (
                   "Ve y hace todo en todas las cajas"
                 ) : u.esTesoreria ? (
@@ -123,7 +123,7 @@ export function GestionUsuarios({ usuarios, miId, soyAdmin, empresas }: Props) {
             <button
               type="button"
               onClick={() => abrir({ modo: "editar", usuario: u })}
-              className="fx-btn self-start rounded-[10px] border border-white/12 px-4 py-2 text-[13px] text-white/75 hover:text-white md:self-center"
+              className="fx-btn self-start rounded-[10px] border border-white/12 px-4 py-2 text-fx-sm text-white/75 hover:text-white md:self-center"
             >
               Editar
             </button>
@@ -136,7 +136,7 @@ export function GestionUsuarios({ usuarios, miId, soyAdmin, empresas }: Props) {
 }
 
 function Etiqueta({ clase, children }: { clase: string; children: React.ReactNode }) {
-  return <span className={`rounded-full border px-2.5 py-0.5 text-[10.5px] font-semibold ${clase}`}>{children}</span>;
+  return <span className={`rounded-full border px-2.5 py-0.5 text-fx-2xs font-semibold ${clase}`}>{children}</span>;
 }
 
 function EditorUsuario({
@@ -220,7 +220,7 @@ function EditorUsuario({
     <form onSubmit={guardar} noValidate className="fx-card flex flex-col gap-5 p-4 md:p-6">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-bold">{u ? `Editar · ${u.nombre}` : "Nuevo usuario"}</h2>
-        <button type="button" onClick={onCerrar} className="fx-btn text-[13px] text-white/50 hover:text-white">
+        <button type="button" onClick={onCerrar} className="fx-btn text-fx-sm text-white/68 hover:text-white">
           Cerrar
         </button>
       </div>
@@ -266,7 +266,7 @@ function EditorUsuario({
             <button
               type="button"
               onClick={() => setPassword(generarContrasena())}
-              className="fx-btn shrink-0 rounded-[10px] border border-white/12 px-3 text-[12px] text-white/70"
+              className="fx-btn shrink-0 rounded-[10px] border border-white/12 px-3 text-fx-xs text-white/82"
             >
               Generar
             </button>
@@ -276,7 +276,7 @@ function EditorUsuario({
               type="button"
               disabled={guardando || password.length < 8}
               onClick={cambiarClave}
-              className="fx-btn mt-2 rounded-[10px] border border-white/12 px-3 py-1.5 text-[12px] text-white/75 disabled:opacity-40"
+              className="fx-btn mt-2 rounded-[10px] border border-white/12 px-3 py-1.5 text-fx-xs text-white/75 disabled:opacity-40"
             >
               Cambiar contraseña
             </button>
@@ -311,8 +311,8 @@ function EditorUsuario({
                   tipo === t.id ? "border-fx-primary bg-fx-primary-soft" : "border-white/12"
                 }`}
               >
-                <span className={`block text-[13px] font-semibold ${tipo === t.id ? "text-fx-primary-light" : "text-white/80"}`}>{t.texto}</span>
-                <span className="block text-[11.5px] text-white/45">{t.ayuda}</span>
+                <span className={`block text-fx-sm font-semibold ${tipo === t.id ? "text-fx-primary-light" : "text-white/80"}`}>{t.texto}</span>
+                <span className="block text-fx-xs text-white/68">{t.ayuda}</span>
               </button>
             ))}
           </div>
@@ -322,28 +322,28 @@ function EditorUsuario({
       {tipo === "registrador" && (
         <fieldset className="flex flex-col gap-3">
           <legend className="fx-label">Cajas que maneja</legend>
-          <p className="-mt-1 text-[11.5px] text-white/45">
+          <p className="-mt-1 text-fx-xs text-white/68">
             Solo en estas cajas registra gastos, adjunta comprobantes y genera su liquidación. Puedes agregarle o quitarle cajas
             cuando quieras.
           </p>
           {empresas.map((e) => (
             <div key={e.id} className="flex flex-col gap-2">
-              <div className="text-[11px] uppercase tracking-[0.6px] text-white/40">{e.nombre}</div>
-              {e.cajas.length === 0 && <p className="text-[12px] text-white/40">Sin cajas activas.</p>}
+              <div className="text-fx-2xs uppercase tracking-[0.6px] text-white/60">{e.nombre}</div>
+              {e.cajas.length === 0 && <p className="text-fx-xs text-white/60">Sin cajas activas.</p>}
               <div className="grid gap-2 md:grid-cols-2">
                 {e.cajas.map((c) => {
                   const marcada = cajas.has(c.id);
                   return (
                     <label
                       key={c.id}
-                      className={`flex cursor-pointer items-center gap-3 rounded-[12px] border px-3.5 py-2.5 text-[13px] ${
+                      className={`flex cursor-pointer items-center gap-3 rounded-[12px] border px-3.5 py-2.5 text-fx-sm ${
                         marcada ? "border-fx-primary bg-fx-primary-soft" : "border-white/12"
                       }`}
                     >
                       <input type="checkbox" checked={marcada} onChange={() => marcar(c.id)} />
                       <span className="min-w-0">
                         <span className="block font-display font-bold">{c.codigo}</span>
-                        <span className="block truncate text-[11.5px] text-white/50">{c.nombre}</span>
+                        <span className="block truncate text-fx-xs text-white/68">{c.nombre}</span>
                       </span>
                     </label>
                   );
@@ -356,13 +356,13 @@ function EditorUsuario({
       )}
 
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCerrar} className="fx-btn rounded-[10px] px-4 py-2 text-[13px] text-white/60">
+        <button type="button" onClick={onCerrar} className="fx-btn rounded-[10px] px-4 py-2 text-fx-sm text-white/75">
           Cancelar
         </button>
         <button
           type="submit"
           disabled={guardando}
-          className="fx-btn rounded-[10px] bg-fx-primary px-5 py-2.5 text-[13px] font-semibold text-white disabled:opacity-60"
+          className="fx-btn rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-white disabled:opacity-60"
         >
           {guardando ? "Guardando…" : u ? "Guardar cambios" : "Crear usuario"}
         </button>
@@ -397,7 +397,7 @@ function Interruptor({
   ayuda: string;
 }) {
   return (
-    <label className={`flex items-start gap-3 text-[13px] ${deshabilitado ? "opacity-50" : ""}`}>
+    <label className={`flex items-start gap-3 text-fx-sm ${deshabilitado ? "opacity-50" : ""}`}>
       <input
         type="checkbox"
         className="mt-1"
@@ -407,7 +407,7 @@ function Interruptor({
       />
       <span>
         <span className="font-semibold">{texto}</span>
-        <span className="block text-[11.5px] text-white/45">{ayuda}</span>
+        <span className="block text-fx-xs text-white/68">{ayuda}</span>
       </span>
     </label>
   );

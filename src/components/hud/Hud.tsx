@@ -32,7 +32,7 @@ export function Hud({ empresas, cajas, cajaActiva, usuario, demo }: Props) {
           </span>
           <div className="min-w-0">
             <div className="font-display text-base font-bold tracking-[0.2px] md:text-xl">Factudex</div>
-            <div className="hidden truncate text-xs text-white/45 md:block">
+            <div className="hidden truncate text-xs text-white/68 md:block">
               {cajaActiva ? (
                 <>
                   {empresa?.nombreCorto} <span className="text-white/30">›</span> Caja{" "}
@@ -46,7 +46,7 @@ export function Hud({ empresas, cajas, cajaActiva, usuario, demo }: Props) {
           {demo && (
             <span
               title="Sin Supabase configurado: datos de ejemplo en memoria, se reinician al reiniciar el servidor."
-              className="rounded-full border border-fx-pendiente/40 bg-fx-pendiente/16 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-fx-pendiente"
+              className="rounded-full border border-fx-pendiente/40 bg-fx-pendiente/16 px-2.5 py-1 text-fx-2xs font-semibold uppercase tracking-wide text-fx-pendiente"
             >
               Modo demo
             </span>
@@ -62,9 +62,9 @@ export function Hud({ empresas, cajas, cajaActiva, usuario, demo }: Props) {
                 : "border-fx-primary-line bg-fx-primary-soft"
             }`}
           >
-            <span className="hidden text-xs text-white/55 md:inline">Saldo disponible</span>
+            <span className="hidden text-xs text-white/75 md:inline">Saldo disponible</span>
             <span
-              className={`font-display text-[11px] font-bold md:text-[15px] ${
+              className={`font-display text-fx-2xs font-bold md:text-[15px] ${
                 cajaActiva.bajoUmbral ? "text-fx-pendiente" : "text-fx-primary-light"
               }`}
             >
@@ -75,7 +75,7 @@ export function Hud({ empresas, cajas, cajaActiva, usuario, demo }: Props) {
           <Link
             href="/cuenta"
             title={`${usuario.nombre} — mi cuenta`}
-            className="flex h-[30px] w-[30px] items-center justify-center rounded-full border border-white/12 bg-white/8 text-[11px] font-semibold text-white/70 hover:text-white md:h-[34px] md:w-[34px] md:text-xs"
+            className="flex h-[30px] w-[30px] items-center justify-center rounded-full border border-white/12 bg-white/8 text-fx-2xs font-semibold text-white/82 hover:text-white md:h-[34px] md:w-[34px] md:text-xs"
           >
             {iniciales(usuario.nombre)}
           </Link>
@@ -85,7 +85,7 @@ export function Hud({ empresas, cajas, cajaActiva, usuario, demo }: Props) {
       {cajaActiva ? (
         <SelectorCaja empresas={empresas} cajas={cajas} cajaActivaId={cajaActiva.id} />
       ) : (
-        <div className="fx-card px-4 py-3 text-[13px] text-white/60">
+        <div className="fx-card px-4 py-3 text-fx-sm text-white/75">
           Aún no hay cajas. Ábrelas en{" "}
           <Link href="/tesoreria?vista=ingresos" className="font-semibold text-fx-primary-light hover:underline">
             Tesorería → Ingresos → ＋ Abrir caja nueva
@@ -97,7 +97,7 @@ export function Hud({ empresas, cajas, cajaActiva, usuario, demo }: Props) {
       {cajaActiva?.bajoUmbral && (
         <div
           role="status"
-          className="rounded-xl border border-fx-pendiente/40 bg-fx-pendiente/10 px-4 py-2.5 text-[12.5px] text-fx-pendiente"
+          className="rounded-xl border border-fx-pendiente/40 bg-fx-pendiente/10 px-4 py-2.5 text-fx-sm text-fx-pendiente"
         >
           El saldo de la caja {String(cajaActiva.numero).padStart(2, "0")} · {cajaActiva.nombre} bajó del
           umbral de {formatoSoles(cajaActiva.umbralAlerta)}. Toca liquidar para solicitar la recarga.

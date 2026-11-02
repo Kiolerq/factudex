@@ -32,7 +32,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="es"
       data-empresa="SL"
       className={`${grotesk.variable} ${plex.variable} h-full antialiased`}
+      suppressHydrationWarning // data-letra lo pone el script de arriba
     >
+      <head>
+        {/* "Letra extra grande" (Mi cuenta): se aplica antes de pintar para que no salte el texto. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem("fx_letra")==="grande")document.documentElement.dataset.letra="grande"}catch(e){}`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
         <RegistrarServiceWorker />

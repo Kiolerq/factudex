@@ -52,18 +52,18 @@ export function CampoAdjunto({ etiqueta, ayuda, archivo, onElegir, onQuitar, err
             // eslint-disable-next-line @next/next/no-img-element -- vista previa local (blob:)
             <img src={vista} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
           ) : (
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-white/8 text-[11px] font-bold text-white/60">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-white/8 text-fx-2xs font-bold text-white/75">
               {archivo.type === "application/pdf" ? "PDF" : "IMG"}
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[13px]">{archivo.name}</div>
-            <div className="text-[11px] text-white/45">{(archivo.size / 1024).toFixed(0)} KB</div>
+            <div className="truncate text-fx-sm">{archivo.name}</div>
+            <div className="text-fx-2xs text-white/68">{(archivo.size / 1024).toFixed(0)} KB</div>
           </div>
           <button
             type="button"
             onClick={onQuitar}
-            className="fx-btn shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white/60 hover:bg-white/8 hover:text-white"
+            className="fx-btn shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white/75 hover:bg-white/8 hover:text-white"
           >
             Quitar
           </button>
@@ -87,15 +87,15 @@ export function CampoAdjunto({ etiqueta, ayuda, archivo, onElegir, onQuitar, err
           }}
           className={`cursor-pointer rounded-xl border-[1.5px] border-dashed bg-white/3 px-4 py-5 text-center transition-colors hover:bg-white/5 ${borde}`}
         >
-          <div className="mb-1 text-[13px] text-white/55">{ayuda}</div>
-          <div className="text-[11px] text-white/35">JPG, PNG o PDF · máx. 10 MB</div>
+          <div className="mb-1 text-fx-sm text-white/75">{ayuda}</div>
+          <div className="text-fx-2xs text-white/60">JPG, PNG o PDF · máx. 10 MB</div>
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               camara.current?.click();
             }}
-            className="fx-btn mt-3 inline-flex items-center gap-1.5 rounded-lg border border-white/14 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70 md:hidden"
+            className="fx-btn mt-3 inline-flex items-center gap-1.5 rounded-lg border border-white/14 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/82 md:hidden"
           >
             <span aria-hidden>📷</span> Tomar foto
           </button>

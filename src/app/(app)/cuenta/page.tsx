@@ -1,4 +1,5 @@
 import { InstalarApp } from "@/components/InstalarApp";
+import { LetraGrande } from "@/components/ui/LetraGrande";
 import { cerrarSesion } from "@/app/acciones";
 import { modoDemo, obtenerRepositorio } from "@/lib/datos/repositorio";
 import { estadoDrive } from "@/lib/drive/estado";
@@ -31,7 +32,7 @@ export default async function PaginaCuenta({ searchParams }: PageProps<"/cuenta"
       <section className="fx-card flex flex-col gap-4 p-5 md:p-7">
         <div>
           <h1 className="text-lg font-bold">Mi cuenta</h1>
-          <p className="text-sm text-white/55">
+          <p className="text-sm text-white/75">
             {usuario?.nombre} · {usuario?.email ?? "sin correo"}
           </p>
         </div>
@@ -39,21 +40,22 @@ export default async function PaginaCuenta({ searchParams }: PageProps<"/cuenta"
       </section>
 
       <div className="flex flex-col gap-5">
+        <LetraGrande />
         <InstalarApp />
         {drive && (
           <section className="fx-card flex flex-col gap-3 p-5 md:p-7">
-            <div className="text-xs uppercase tracking-[1px] text-white/40">Google Drive</div>
+            <div className="text-xs uppercase tracking-[1px] text-white/60">Google Drive</div>
             {aviso && (
-              <p className={`text-[12.5px] ${aviso.ok ? "text-fx-completo" : "text-fx-error"}`}>● {aviso.texto}</p>
+              <p className={`text-fx-sm ${aviso.ok ? "text-fx-completo" : "text-fx-error"}`}>● {aviso.texto}</p>
             )}
             {!drive.configurado ? (
-              <p className="text-sm text-white/55">
+              <p className="text-sm text-white/75">
                 Falta configurar en Vercel: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET y SUPABASE_SERVICE_ROLE_KEY.
               </p>
             ) : (
               <>
                 {drive.conectado ? (
-                  <p className="text-sm text-white/70">
+                  <p className="text-sm text-white/82">
                     <span className="text-fx-completo">● Conectado</span>
                     {drive.cuenta && <> a {drive.cuenta}</>}. Las fotos se guardan en{" "}
                     {drive.carpetaId ? (
@@ -71,7 +73,7 @@ export default async function PaginaCuenta({ searchParams }: PageProps<"/cuenta"
                     , ordenadas por empresa, caja y mes.
                   </p>
                 ) : (
-                  <p className="text-sm text-white/55">
+                  <p className="text-sm text-white/75">
                     Pega el enlace de la carpeta de Drive donde irán todos los comprobantes y conecta tu cuenta de
                     Google (la dueña de esa carpeta).
                   </p>
@@ -91,7 +93,7 @@ export default async function PaginaCuenta({ searchParams }: PageProps<"/cuenta"
                   />
                   <button
                     type="submit"
-                    className="fx-btn self-start rounded-[10px] bg-fx-primary px-5 py-2.5 text-[13px] font-semibold text-white"
+                    className="fx-btn self-start rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-white"
                   >
                     {drive.conectado ? "Reconectar / cambiar carpeta" : "Conectar Google Drive"}
                   </button>
@@ -101,11 +103,11 @@ export default async function PaginaCuenta({ searchParams }: PageProps<"/cuenta"
           </section>
         )}
         <section className="fx-card flex flex-col gap-3 p-5 md:p-7">
-          <p className="text-sm text-white/55">¿Terminaste? Cierra sesión si usas un equipo compartido.</p>
+          <p className="text-sm text-white/75">¿Terminaste? Cierra sesión si usas un equipo compartido.</p>
           <form action={cerrarSesion}>
             <button
               type="submit"
-              className="fx-btn rounded-[10px] border border-white/18 px-5 py-2.5 text-[13px] font-semibold text-white/70 hover:text-white"
+              className="fx-btn rounded-[10px] border border-white/18 px-5 py-2.5 text-fx-sm font-semibold text-white/82 hover:text-white"
             >
               Cerrar sesión
             </button>

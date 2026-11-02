@@ -87,7 +87,7 @@ export default async function PaginaPanel({ searchParams }: PageProps<"/panel">)
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-lg font-bold md:text-xl">Panel</h1>
-          <p className="text-xs text-white/45">
+          <p className="text-xs text-white/68">
             {yo?.esTesoreria ? "Todas las cajas" : "Tus cajas"} · {nombreMes(mes)}
           </p>
         </div>
@@ -98,8 +98,8 @@ export default async function PaginaPanel({ searchParams }: PageProps<"/panel">)
               <Link prefetch={false}
                 key={e.nombre}
                 href={enlace({ empresa: e.codigo })}
-                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[12px] font-semibold ${
-                  (empresaFiltro?.codigo ?? null) === e.codigo ? "border-fx-primary bg-fx-primary-soft text-fx-primary-light" : "border-white/12 text-white/55"
+                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-fx-xs font-semibold ${
+                  (empresaFiltro?.codigo ?? null) === e.codigo ? "border-fx-primary bg-fx-primary-soft text-fx-primary-light" : "border-white/12 text-white/75"
                 }`}
               >
                 {e.nombre}
@@ -111,8 +111,8 @@ export default async function PaginaPanel({ searchParams }: PageProps<"/panel">)
               <Link prefetch={false}
                 key={m}
                 href={enlace({ mes: m === mesActual ? null : m })}
-                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[12px] font-semibold capitalize ${
-                  m === mes ? "border-fx-primary bg-fx-primary-soft text-fx-primary-light" : "border-white/12 text-white/55"
+                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-fx-xs font-semibold capitalize ${
+                  m === mes ? "border-fx-primary bg-fx-primary-soft text-fx-primary-light" : "border-white/12 text-white/75"
                 }`}
               >
                 {nombreMes(m)}
@@ -155,17 +155,17 @@ export default async function PaginaPanel({ searchParams }: PageProps<"/panel">)
       )}
 
       <section className="flex flex-col gap-2.5">
-        <h2 className="text-xs uppercase tracking-[1.2px] text-white/40">Cajas</h2>
+        <h2 className="text-xs uppercase tracking-[1.2px] text-white/60">Cajas</h2>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {porCaja.map(({ c, ultimo, gastado, pct }) => (
             <div key={c.id} data-empresa={c.empresaCodigo} className="fx-card flex flex-col gap-2.5 p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="font-mono text-[12px] text-fx-primary-light">{codigoCaja(c)}</div>
-                  <div className="truncate text-[13px] text-white/70">{c.nombre}</div>
+                  <div className="font-mono text-fx-xs text-fx-primary-light">{codigoCaja(c)}</div>
+                  <div className="truncate text-fx-sm text-white/82">{c.nombre}</div>
                 </div>
                 {c.bajoUmbral && (
-                  <span className="shrink-0 rounded-full border border-fx-pendiente/40 bg-fx-pendiente/16 px-2.5 py-0.5 text-[10.5px] font-semibold text-fx-pendiente">
+                  <span className="shrink-0 rounded-full border border-fx-pendiente/40 bg-fx-pendiente/16 px-2.5 py-0.5 text-fx-2xs font-semibold text-fx-pendiente">
                     ● Bajo el umbral
                   </span>
                 )}
@@ -180,16 +180,16 @@ export default async function PaginaPanel({ searchParams }: PageProps<"/panel">)
                   >
                     <div className={`h-full rounded-full ${pct >= 85 ? "bg-fx-pendiente" : "bg-fx-primary"}`} style={{ width: `${pct}%` }} />
                   </div>
-                  <div className="text-[11.5px] text-white/50">
+                  <div className="text-fx-xs text-white/68">
                     Usado {pct}% · gastó {formatoSoles(gastado)} desde el último ingreso ({formatoSoles(ultimo.monto)} el{" "}
                     {formatoFecha(ultimo.fecha, true)})
                   </div>
                 </div>
               ) : (
-                <div className="text-[11.5px] text-white/45">Sin ingresos registrados</div>
+                <div className="text-fx-xs text-white/68">Sin ingresos registrados</div>
               )}
               {c.pendientes > 0 && (
-                <div className="text-[11.5px] text-fx-pendiente">
+                <div className="text-fx-xs text-fx-pendiente">
                   {c.pendientes} pendiente{c.pendientes === 1 ? "" : "s"} de sustento
                 </div>
               )}
@@ -200,7 +200,7 @@ export default async function PaginaPanel({ searchParams }: PageProps<"/panel">)
 
       <div className="grid gap-4 md:grid-cols-[1.2fr_1fr]">
         <section className="fx-card flex flex-col gap-3 p-4 md:p-5">
-          <h2 className="text-[13px] font-semibold">Gasto por mes</h2>
+          <h2 className="text-fx-sm font-semibold">Gasto por mes</h2>
           <div className="flex h-44 items-end gap-2 border-b border-white/10 pb-0.5" role="list">
             {porMes.map((x) => {
               const elegido = x.mes === mes;
@@ -213,7 +213,7 @@ export default async function PaginaPanel({ searchParams }: PageProps<"/panel">)
                   aria-label={`${nombreMes(x.mes)}: ${formatoSoles(x.monto)}`}
                   className="group flex h-full flex-1 flex-col items-center justify-end gap-1"
                 >
-                  <span className={`text-[10.5px] ${elegido ? "font-semibold text-white" : "text-transparent group-hover:text-white/70"}`}>
+                  <span className={`text-fx-2xs ${elegido ? "font-semibold text-white" : "text-transparent group-hover:text-white/82"}`}>
                     {formatoSoles(x.monto).replace(".00", "")}
                   </span>
                   <span
@@ -226,7 +226,7 @@ export default async function PaginaPanel({ searchParams }: PageProps<"/panel">)
           </div>
           <div className="flex gap-2">
             {porMes.map((x) => (
-              <span key={x.mes} className={`flex-1 text-center text-[11px] capitalize ${x.mes === mes ? "text-white" : "text-white/45"}`}>
+              <span key={x.mes} className={`flex-1 text-center text-fx-2xs capitalize ${x.mes === mes ? "text-white" : "text-white/68"}`}>
                 {nombreMes(x.mes)}
               </span>
             ))}
@@ -257,9 +257,9 @@ function Cifra({
 }) {
   const contenido = (
     <>
-      <div className="text-[10.5px] uppercase tracking-[0.6px] text-white/40 md:text-[11px]">{titulo}</div>
-      <div className="mt-1 font-display text-[17px] font-bold md:text-2xl">{valor}</div>
-      {detalle && <div className={`text-[11.5px] ${tono === "pendiente" ? "text-fx-pendiente" : "text-white/45"}`}>{detalle}</div>}
+      <div className="text-fx-2xs uppercase tracking-[0.6px] text-white/60 md:text-[11px]">{titulo}</div>
+      <div className="mt-1 font-display text-fx-lg font-bold md:text-2xl">{valor}</div>
+      {detalle && <div className={`text-fx-xs ${tono === "pendiente" ? "text-fx-pendiente" : "text-white/68"}`}>{detalle}</div>}
     </>
   );
   const clase = "fx-card block rounded-[14px] px-3.5 py-3 md:px-5 md:py-4";
@@ -276,7 +276,7 @@ function Aviso({ href, children }: { href: string; children: React.ReactNode }) 
   return (
     <Link prefetch={false}
       href={href}
-      className="rounded-full border border-fx-pendiente/40 bg-fx-pendiente/10 px-3.5 py-1.5 text-[12.5px] font-semibold text-fx-pendiente hover:bg-fx-pendiente/16"
+      className="rounded-full border border-fx-pendiente/40 bg-fx-pendiente/10 px-3.5 py-1.5 text-fx-sm font-semibold text-fx-pendiente hover:bg-fx-pendiente/16"
     >
       {children} →
     </Link>
@@ -287,11 +287,11 @@ function Ranking({ titulo, filas }: { titulo: string; filas: { nombre: string; m
   const max = Math.max(1, ...filas.map((f) => f.monto));
   return (
     <div className="flex flex-col gap-2">
-      <h2 className="text-[13px] font-semibold">{titulo}</h2>
-      {filas.length === 0 && <p className="text-[12.5px] text-white/45">Sin gastos en este mes.</p>}
+      <h2 className="text-fx-sm font-semibold">{titulo}</h2>
+      {filas.length === 0 && <p className="text-fx-sm text-white/68">Sin gastos en este mes.</p>}
       {filas.map((f) => (
         <div key={f.nombre} className="flex flex-col gap-1" title={`${f.nombre}: ${formatoSoles(f.monto)}`}>
-          <div className="flex justify-between gap-3 text-[12.5px]">
+          <div className="flex justify-between gap-3 text-fx-sm">
             <span className="truncate text-white/75">{f.nombre}</span>
             <span className="shrink-0 font-semibold">{formatoSoles(f.monto)}</span>
           </div>

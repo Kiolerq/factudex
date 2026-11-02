@@ -70,7 +70,7 @@ export function FiltrosHistorial({ texto, estado, caja, opcionesCaja, pendientes
               aria-pressed={activo}
               onClick={() => aplicar({ estado: e.valor === "todos" ? null : e.valor })}
               className={`fx-btn shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-xs font-semibold md:border-transparent ${
-                activo ? "border-fx-primary bg-fx-primary-soft text-fx-primary-light" : "border-white/10 text-white/55 hover:text-white/80"
+                activo ? "border-fx-primary bg-fx-primary-soft text-fx-primary-light" : "border-white/10 text-white/75 hover:text-white/80"
               }`}
             >
               {e.texto}

@@ -21,7 +21,7 @@ export function AutorizarGasto({ id }: { id: string }) {
             else setError(r.errores._ ?? "No se pudo autorizar");
           })
         }
-        className="fx-btn rounded-[10px] bg-fx-completo px-4 py-2 text-[13px] font-semibold text-[#0A0E1A] disabled:opacity-60"
+        className="fx-btn rounded-[10px] bg-fx-completo px-4 py-2 text-fx-sm font-semibold text-[#0A0E1A] disabled:opacity-60"
       >
         {enviando ? "Autorizando…" : "Autorizar gasto"}
       </button>

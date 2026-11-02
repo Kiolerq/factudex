@@ -94,8 +94,8 @@ export function FormularioIngreso({
             role="tab"
             aria-selected={modo === m}
             onClick={() => setModo(m)}
-            className={`fx-btn rounded-[10px] border px-4 py-2.5 text-[13px] font-semibold ${
-              modo === m ? "border-fx-primary-line bg-fx-primary-soft text-fx-primary-light" : "border-white/10 text-white/60"
+            className={`fx-btn rounded-[10px] border px-4 py-2.5 text-fx-sm font-semibold ${
+              modo === m ? "border-fx-primary-line bg-fx-primary-soft text-fx-primary-light" : "border-white/10 text-white/75"
             }`}
           >
             {texto}
@@ -179,13 +179,13 @@ function RecargarCaja({ cajas, almacen }: { cajas: CajaIngreso[]; almacen: Almac
     });
   };
 
-  if (!cajas.length) return <p className="text-[13px] text-white/50">No hay cajas activas. Abre una con “＋ Abrir caja nueva”.</p>;
+  if (!cajas.length) return <p className="text-fx-sm text-white/68">No hay cajas activas. Abre una con “＋ Abrir caja nueva”.</p>;
 
   return (
     <form onSubmit={guardar} noValidate className="fx-card flex flex-col gap-4 p-4 md:p-6">
       <h2 className="text-base font-bold">Agregar dinero a una caja</h2>
-      {listo && <p className="text-[13px] text-fx-completo">● {listo}</p>}
-      {errores._ && <p className="text-[13px] text-fx-error">{errores._}</p>}
+      {listo && <p className="text-fx-sm text-fx-completo">● {listo}</p>}
+      {errores._ && <p className="text-fx-sm text-fx-error">{errores._}</p>}
       <div className="grid gap-3.5 md:grid-cols-2">
         <div>
           <label htmlFor="ing-caja" className="fx-label">
@@ -257,13 +257,13 @@ function RecargarCaja({ cajas, almacen }: { cajas: CajaIngreso[]; almacen: Almac
           />
         </div>
       </div>
-      <p className="text-[11.5px] text-white/45">
+      <p className="text-fx-xs text-white/68">
         El ingreso entra a la liquidación abierta de la caja (la siguiente que se genere).
       </p>
       <button
         type="submit"
         disabled={guardando}
-        className="fx-btn self-end rounded-[10px] bg-fx-primary px-5 py-2.5 text-[13px] font-semibold text-white disabled:opacity-60"
+        className="fx-btn self-end rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-white disabled:opacity-60"
       >
         {guardando ? "Guardando…" : "Registrar ingreso"}
       </button>
@@ -374,7 +374,7 @@ function AbrirCaja({
     });
   };
 
-  if (!empresas.length) return <p className="text-[13px] text-white/50">No hay empresas.</p>;
+  if (!empresas.length) return <p className="text-fx-sm text-white/68">No hay empresas.</p>;
 
   return (
     <form onSubmit={guardar} noValidate className="fx-card flex flex-col gap-4 p-4 md:p-6">
@@ -384,8 +384,8 @@ function AbrirCaja({
           {codigo}
         </span>
       </div>
-      {listo && <p className="text-[13px] text-fx-completo">● {listo}</p>}
-      {errores._ && <p className="text-[13px] text-fx-error">{errores._}</p>}
+      {listo && <p className="text-fx-sm text-fx-completo">● {listo}</p>}
+      {errores._ && <p className="text-fx-sm text-fx-error">{errores._}</p>}
       <div>
         <span className="fx-label">¿Para qué empresa? *</span>
         <div className="flex flex-wrap gap-2">
@@ -395,8 +395,8 @@ function AbrirCaja({
               type="button"
               aria-pressed={e.id === empresaId}
               onClick={() => setEmpresaId(e.id)}
-              className={`fx-btn rounded-[10px] border px-4 py-2 text-[13px] font-semibold ${
-                e.id === empresaId ? "border-fx-primary-line bg-fx-primary-soft text-fx-primary-light" : "border-white/10 text-white/60"
+              className={`fx-btn rounded-[10px] border px-4 py-2 text-fx-sm font-semibold ${
+                e.id === empresaId ? "border-fx-primary-line bg-fx-primary-soft text-fx-primary-light" : "border-white/10 text-white/75"
               }`}
             >
               {e.nombre}
@@ -427,7 +427,7 @@ function AbrirCaja({
             </p>
           )}
           {!errores.numero && !repetido && (
-            <p className="mt-1.5 text-[11.5px] text-white/45">
+            <p className="mt-1.5 text-fx-xs text-white/68">
               Déjalo vacío para usar el siguiente. Si ya venían trabajando con otras cajas, pon el número que les toca.
             </p>
           )}
@@ -467,12 +467,12 @@ function AbrirCaja({
             {candidatas.length > 0 ? (
               <>
                 {candidatas.map((c) => (
-                  <label key={c.id} className="flex items-start gap-2.5 text-[13px]">
+                  <label key={c.id} className="flex items-start gap-2.5 text-fx-sm">
                     <input type="radio" name="anterior" className="mt-1" checked={anterior?.id === c.id} onChange={() => setAnteriorElegida(c.id)} />
                     <span>
                       Pasar el saldo de <strong className="font-display">{c.codigo}</strong>:{" "}
                       <span className={c.saldo < 0 ? "text-fx-error" : "text-fx-completo"}>{formatoSoles(c.saldo)}</span>
-                      <span className="block text-[11.5px] text-white/45">
+                      <span className="block text-fx-xs text-white/68">
                         {c.sinLiquidar
                           ? `${c.sinLiquidar} gasto${c.sinLiquidar === 1 ? "" : "s"} sin liquidar (pendientes o sin rendir) pasan a la nueva. `
                           : ""}
@@ -481,7 +481,7 @@ function AbrirCaja({
                     </span>
                   </label>
                 ))}
-                <label className="flex items-center gap-2.5 text-[13px] text-white/60">
+                <label className="flex items-center gap-2.5 text-fx-sm text-white/75">
                   <input type="radio" name="anterior" checked={!anterior} onChange={() => setAnteriorElegida("ninguna")} />
                   No pasar saldo (la anterior sigue abierta)
                 </label>
@@ -515,15 +515,15 @@ function AbrirCaja({
                     onChange={(e) => setSaldoNota(e.target.value)}
                   />
                 </div>
-                <p className="text-[11.5px] text-white/45 md:col-span-2">
+                <p className="text-fx-xs text-white/68 md:col-span-2">
                   No hay otra caja abierta de esta empresa y área en la app. Si venían trabajando con una (en Excel o papel) y
                   quedó saldo, ponlo aquí; si no, déjalo vacío.
                 </p>
               </div>
             )}
             {errores.cajaAnteriorId && <p className="text-xs text-fx-error">{errores.cajaAnteriorId}</p>}
-            <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-white/8 pt-2.5 text-[13px]">
-              <span className="text-white/55">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-white/8 pt-2.5 text-fx-sm">
+              <span className="text-white/75">
                 Abono {formatoSoles(Number.isFinite(montoNum) ? montoNum : 0)} {saldoPrevio < 0 ? "−" : "+"} saldo anterior{" "}
                 {formatoSoles(Math.abs(saldoPrevio))}
               </span>
@@ -556,7 +556,7 @@ function AbrirCaja({
       <button
         type="submit"
         disabled={guardando || repetido}
-        className="fx-btn self-end rounded-[10px] bg-fx-primary px-5 py-2.5 text-[13px] font-semibold text-white disabled:opacity-60"
+        className="fx-btn self-end rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-white disabled:opacity-60"
       >
         {guardando ? "Abriendo…" : "Abrir caja"}
       </button>
@@ -631,7 +631,7 @@ function CampoArea({
       </select>
       {error && !agregando && <p className="mt-1.5 text-xs text-fx-error">{error}</p>}
       {!agregando && valor && areas.find((a) => a.codigo === valor)?.descripcion && (
-        <p className="mt-1.5 text-[11.5px] text-white/45">{areas.find((a) => a.codigo === valor)!.descripcion}</p>
+        <p className="mt-1.5 text-fx-xs text-white/68">{areas.find((a) => a.codigo === valor)!.descripcion}</p>
       )}
       {agregando && (
         <div className="mt-2.5 grid gap-3 rounded-xl border border-white/10 bg-white/3 p-3.5 md:grid-cols-[120px_1fr]">
@@ -684,7 +684,7 @@ function CampoArea({
                 setAgregando(false);
                 setErrores({});
               }}
-              className="fx-btn rounded-[10px] px-4 py-2 text-[13px] text-white/60"
+              className="fx-btn rounded-[10px] px-4 py-2 text-fx-sm text-white/75"
             >
               Cancelar
             </button>
@@ -692,7 +692,7 @@ function CampoArea({
               type="button"
               disabled={guardando}
               onClick={guardar}
-              className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
+              className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 text-fx-sm font-semibold text-white disabled:opacity-60"
             >
               {guardando ? "Guardando…" : "Agregar área"}
             </button>
@@ -781,7 +781,7 @@ function ElegirFoto({ id, foto, onCambiar }: { id: string; foto: File | null; on
       <button
         type="button"
         onClick={() => entrada.current?.click()}
-        className="fx-btn min-w-0 flex-1 truncate rounded-[10px] border border-dashed border-white/20 px-3.5 py-2.5 text-left text-[13px] text-white/70"
+        className="fx-btn min-w-0 flex-1 truncate rounded-[10px] border border-dashed border-white/20 px-3.5 py-2.5 text-left text-fx-sm text-white/82"
       >
         {foto ? `📎 ${foto.name}` : "Adjuntar foto o PDF del depósito / Yape"}
       </button>
@@ -792,7 +792,7 @@ function ElegirFoto({ id, foto, onCambiar }: { id: string; foto: File | null; on
             onCambiar(null);
             if (entrada.current) entrada.current.value = "";
           }}
-          className="fx-btn shrink-0 rounded-[10px] px-2.5 py-2 text-[12px] text-white/50 hover:text-white"
+          className="fx-btn shrink-0 rounded-[10px] px-2.5 py-2 text-fx-xs text-white/68 hover:text-white"
         >
           Quitar
         </button>
@@ -842,7 +842,7 @@ export function AdjuntarFotoIngreso({
         disabled={subiendo}
         title={error || undefined}
         onClick={() => entrada.current?.click()}
-        className={`text-[11.5px] font-semibold hover:underline disabled:opacity-60 ${error ? "text-fx-error" : "text-fx-primary-light"}`}
+        className={`text-fx-xs font-semibold hover:underline disabled:opacity-60 ${error ? "text-fx-error" : "text-fx-primary-light"}`}
       >
         {subiendo ? "Subiendo…" : error ? "No se subió · reintentar" : "＋ Foto"}
       </button>
