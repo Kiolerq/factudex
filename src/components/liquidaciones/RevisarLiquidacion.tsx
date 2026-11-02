@@ -43,7 +43,7 @@ export function RevisarLiquidacion({ id }: { id: string }) {
             type="button"
             disabled={enviando}
             onClick={() => enviar(false)}
-            className="fx-btn rounded-[10px] bg-fx-error px-4 py-2 text-fx-sm font-semibold text-white disabled:opacity-60"
+            className="fx-btn rounded-[10px] bg-fx-error px-4 py-2 text-fx-sm font-semibold text-blanco disabled:opacity-60"
           >
             Observar
           </button>
@@ -66,7 +66,7 @@ export function RevisarLiquidacion({ id }: { id: string }) {
         type="button"
         disabled={enviando}
         onClick={() => enviar(true)}
-        className="fx-btn rounded-[10px] bg-fx-completo px-4 py-2 text-fx-sm font-semibold text-[#0A0E1A] disabled:opacity-60"
+        className="fx-btn rounded-[10px] bg-fx-completo px-4 py-2 text-fx-sm font-semibold text-fx-sobre-completo disabled:opacity-60"
       >
         {enviando ? "Aprobando…" : "Aprobar"}
       </button>

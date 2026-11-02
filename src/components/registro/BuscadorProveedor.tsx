@@ -276,7 +276,7 @@ function AltaProveedor({
           type="button"
           onClick={guardar}
           disabled={guardando}
-          className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 text-fx-sm font-semibold text-white disabled:opacity-60"
+          className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 text-fx-sm font-semibold text-blanco disabled:opacity-60"
         >
           {guardando ? "Guardando…" : "Guardar proveedor"}
         </button>

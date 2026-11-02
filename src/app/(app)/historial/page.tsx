@@ -45,7 +45,7 @@ export default async function PaginaHistorial({ searchParams }: PageProps<"/hist
         <Link prefetch={false}
           href="/registro"
           aria-label="Nuevo registro"
-          className="fx-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-fx-primary text-base font-semibold text-white md:h-auto md:w-auto md:rounded-[10px] md:px-4 md:py-2.5 md:text-[13px]"
+          className="fx-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-fx-primary text-base font-semibold text-blanco md:h-auto md:w-auto md:rounded-[10px] md:px-4 md:py-2.5 md:text-[13px]"
         >
           <span className="md:hidden">+</span>
           <span className="hidden md:inline">+ Nuevo registro</span>

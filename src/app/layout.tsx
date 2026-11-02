@@ -22,8 +22,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0A0E1A",
-  colorScheme: "dark",
+  themeColor: "#F3F5F9",
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -32,13 +32,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="es"
       data-empresa="SL"
       className={`${grotesk.variable} ${plex.variable} h-full antialiased`}
-      suppressHydrationWarning // data-letra lo pone el script de arriba
+      suppressHydrationWarning // data-letra y data-tema los pone el script de abajo
     >
       <head>
-        {/* "Letra extra grande" (Mi cuenta): se aplica antes de pintar para que no salte el texto. */}
+        {/* "Letra extra grande" y "Tema oscuro" (Mi cuenta): se aplican antes de pintar para que no salte. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem("fx_letra")==="grande")document.documentElement.dataset.letra="grande"}catch(e){}`,
+            __html: `try{var d=document.documentElement.dataset;if(localStorage.getItem("fx_letra")==="grande")d.letra="grande";if(localStorage.getItem("fx_tema")==="oscuro")d.tema="oscuro"}catch(e){}`,
           }}
         />
       </head>

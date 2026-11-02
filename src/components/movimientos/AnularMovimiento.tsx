@@ -56,7 +56,7 @@ export function AnularMovimiento({ id }: { id: string }) {
         <button
           type="submit"
           disabled={anulando}
-          className="fx-btn rounded-[10px] bg-fx-error px-4 py-2 text-fx-sm font-semibold text-white disabled:opacity-60"
+          className="fx-btn rounded-[10px] bg-fx-error px-4 py-2 text-fx-sm font-semibold text-blanco disabled:opacity-60"
         >
           {anulando ? "Anulando…" : "Anular"}
         </button>

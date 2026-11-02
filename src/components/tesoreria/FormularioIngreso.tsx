@@ -263,7 +263,7 @@ function RecargarCaja({ cajas, almacen }: { cajas: CajaIngreso[]; almacen: Almac
       <button
         type="submit"
         disabled={guardando}
-        className="fx-btn self-end rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-white disabled:opacity-60"
+        className="fx-btn self-end rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-blanco disabled:opacity-60"
       >
         {guardando ? "Guardando…" : "Registrar ingreso"}
       </button>
@@ -556,7 +556,7 @@ function AbrirCaja({
       <button
         type="submit"
         disabled={guardando || repetido}
-        className="fx-btn self-end rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-white disabled:opacity-60"
+        className="fx-btn self-end rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-blanco disabled:opacity-60"
       >
         {guardando ? "Abriendo…" : "Abrir caja"}
       </button>
@@ -692,7 +692,7 @@ function CampoArea({
               type="button"
               disabled={guardando}
               onClick={guardar}
-              className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 text-fx-sm font-semibold text-white disabled:opacity-60"
+              className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 text-fx-sm font-semibold text-blanco disabled:opacity-60"
             >
               {guardando ? "Guardando…" : "Agregar área"}
             </button>

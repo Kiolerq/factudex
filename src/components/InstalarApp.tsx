@@ -37,7 +37,7 @@ export function InstalarApp({ compacto = false }: { compacto?: boolean }) {
     return (
       <div className="fx-card flex items-center justify-between gap-3 px-4 py-3 text-fx-sm">
         <span className="text-white/82">Instala Factudex para compartirle capturas de Yape y facturas.</span>
-        <button type="button" onClick={instalar} className="fx-btn shrink-0 rounded-[9px] bg-fx-primary px-3 py-1.5 font-semibold text-white">
+        <button type="button" onClick={instalar} className="fx-btn shrink-0 rounded-[9px] bg-fx-primary px-3 py-1.5 font-semibold text-blanco">
           Instalar
         </button>
       </div>
@@ -58,7 +58,7 @@ export function InstalarApp({ compacto = false }: { compacto?: boolean }) {
           <p className="text-sm text-white/82">
             Instálala para que aparezca en el menú <strong>Compartir</strong> de Yape, WhatsApp y la galería.
           </p>
-          <button type="button" onClick={instalar} className="fx-btn self-start rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-white">
+          <button type="button" onClick={instalar} className="fx-btn self-start rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-blanco">
             Instalar app
           </button>
         </>

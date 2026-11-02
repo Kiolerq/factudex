@@ -16,8 +16,9 @@ Lee antes de trabajar: `docs/modelo-datos.md`, `docs/roadmap.md`, `diseno/LEEME.
 
 ## Reglas de diseño (no negociables)
 La referencia visual aprobada son los HTML de `diseno/`. Copia de ahí espaciados, radios y estructura.
-- **Tema oscuro siempre.** Nunca fondo blanco ni negro plano. Fondo: degradado `#0A0E1A → #0D1526 → #0A0F1C` (ya en `body`).
-- **Glass**: `rgba(255,255,255,0.045)`, borde `rgba(255,255,255,0.09)`, `blur(16px)`, radio 16px (14px en móvil). Usa `.fx-card`, `.fx-input`, `.fx-label`.
+- **Tema claro por defecto, minimalista** (pedido del cliente: lo usan personas mayores): fondo `#F3F5F9` plano, tarjetas blancas con borde `#DFE4EC` y sombra mínima, texto oscuro. El **tema oscuro** original queda como opción en Mi cuenta (`data-tema="oscuro"` en `<html>`, `localStorage fx_tema`). Usa `.fx-card`, `.fx-input`, `.fx-label`.
+- **Colores por tema**: `text-white/xx`, `bg-white/xx` y `border-white/xx` usan la "tinta" del tema (`--color-white: var(--fx-ink)`: oscura en el claro, blanca en el oscuro). Para texto blanco de verdad sobre botones de color usa `text-blanco`; sobre el verde de completo, `text-fx-sobre-completo`.
+- **Letra grande en el celular**: usa la escala `text-fx-2xs|xs|sm|md|lg` (y `text-xs…xl`), que en el celular es más grande y en escritorio queda como el diseño original; nunca `text-[13px]` sueltos. "Letra extra grande" (Mi cuenta, `data-letra="grande"`) la sube más. Campos de 52 px de alto en el celular.
 - **Fuentes**: Space Grotesk para títulos y cifras grandes (`font-display`), IBM Plex Sans para texto (`font-sans`).
 - **Marca por empresa** vía `data-empresa="SL|SIPE"` (en el contenedor del layout `(app)`), que cambia `--fx-primary` / `--fx-accent`:
   San Lorenzo `#2E75B6` + `#D3453A` · SIPE `#1FA2C9` + `#2FAE60`. Usa `text-fx-primary`, `bg-fx-primary-soft`, etc. — nunca hex de marca sueltos en componentes.

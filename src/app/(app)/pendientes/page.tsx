@@ -79,7 +79,7 @@ export default async function PaginaPendientes() {
                 </div>
                 <div className="flex items-center justify-between gap-3 md:contents">
                   <span className="font-display text-fx-md font-bold md:w-[110px] md:text-right">{formatoSoles(m.monto)}</span>
-                  <span className="rounded-[9px] bg-fx-primary px-3 py-1.5 text-fx-xs font-semibold text-white">Adjuntar</span>
+                  <span className="rounded-[9px] bg-fx-primary px-3 py-1.5 text-fx-xs font-semibold text-blanco">Adjuntar</span>
                 </div>
               </Link>
             );

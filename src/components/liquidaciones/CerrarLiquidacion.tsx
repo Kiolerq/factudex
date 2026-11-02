@@ -29,7 +29,7 @@ export function CerrarLiquidacion({ id, folio, egresos, numIncompletos, montoInc
         disabled={egresos <= 0}
         title={egresos <= 0 ? "Necesita al menos un movimiento completo" : undefined}
         onClick={() => setConfirmando(true)}
-        className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2.5 text-fx-sm font-semibold text-white disabled:opacity-40"
+        className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2.5 text-fx-sm font-semibold text-blanco disabled:opacity-40"
       >
         {texto}
       </button>
@@ -66,7 +66,7 @@ export function CerrarLiquidacion({ id, folio, egresos, numIncompletos, montoInc
               } else setError(r.errores._ ?? "No se pudo cerrar");
             })
           }
-          className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 font-semibold text-white disabled:opacity-60"
+          className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 font-semibold text-blanco disabled:opacity-60"
         >
           {cerrando ? "Cerrando…" : `Sí, ${texto.toLowerCase()}`}
         </button>

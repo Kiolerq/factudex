@@ -9,8 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Registro y liquidación de cajas chicas de San Lorenzo y SIPE",
     start_url: "/",
     display: "standalone",
-    background_color: "#0A0E1A",
-    theme_color: "#0A0E1A",
+    background_color: "#F3F5F9",
+    theme_color: "#F3F5F9",
     lang: "es-PE",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },

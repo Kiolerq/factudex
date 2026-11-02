@@ -44,7 +44,7 @@ export function FormularioLogin({ errorEnlace, siguiente }: { errorEnlace: boole
       <button
         type="submit"
         disabled={entrando}
-        className="fx-btn mt-1 rounded-[10px] bg-fx-primary px-5 py-3 text-sm font-semibold text-white disabled:opacity-70"
+        className="fx-btn mt-1 rounded-[10px] bg-fx-primary px-5 py-3 text-sm font-semibold text-blanco disabled:opacity-70"
       >
         {entrando ? "Entrando…" : "Ingresar"}
       </button>

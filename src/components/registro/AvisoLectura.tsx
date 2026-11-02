@@ -122,7 +122,7 @@ export function AvisoLectura({ lectura, hayProveedor, onCrearProveedor, hayCentr
               await onCrearCentro();
               setCreandoCentro(false);
             }}
-            className="fx-btn rounded-lg bg-fx-primary px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+            className="fx-btn rounded-lg bg-fx-primary px-3 py-1.5 text-xs font-semibold text-blanco disabled:opacity-60"
           >
             {creandoCentro ? "Agregando…" : "Agregar y usar"}
           </button>
@@ -145,7 +145,7 @@ export function AvisoLectura({ lectura, hayProveedor, onCrearProveedor, hayCentr
               await onCrearProveedor();
               setCreando(false);
             }}
-            className="fx-btn rounded-lg bg-fx-primary px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+            className="fx-btn rounded-lg bg-fx-primary px-3 py-1.5 text-xs font-semibold text-blanco disabled:opacity-60"
           >
             {creando ? "Agregando…" : "Agregar y usar"}
           </button>

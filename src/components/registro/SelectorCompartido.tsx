@@ -273,7 +273,7 @@ export function SelectorCompartido({
               <Link prefetch={false} href={`/movimientos/${resultado.m.id}`} className="fx-btn rounded-[10px] border border-white/12 px-4 py-2 text-fx-sm text-white/75">
                 Ver gasto
               </Link>
-              <button type="button" onClick={siguiente} className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 text-fx-sm font-semibold text-white">
+              <button type="button" onClick={siguiente} className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 text-fx-sm font-semibold text-blanco">
                 {indice + 1 < archivos.length ? "Siguiente archivo" : "Cerrar"}
               </button>
             </div>
@@ -302,7 +302,7 @@ export function SelectorCompartido({
                 type="button"
                 disabled={enviando}
                 onClick={() => adjuntar(confirmar)}
-                className="fx-btn rounded-[10px] bg-fx-primary px-5 py-2 text-fx-sm font-semibold text-white disabled:opacity-60"
+                className="fx-btn rounded-[10px] bg-fx-primary px-5 py-2 text-fx-sm font-semibold text-blanco disabled:opacity-60"
               >
                 {enviando ? "Adjuntando…" : "Adjuntar"}
               </button>

@@ -151,7 +151,7 @@ export function GenerarLiquidacion({ cajaId, cajaCodigo, folio, saldoInicial, in
                 type="button"
                 disabled={generando}
                 onClick={generar}
-                className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 font-semibold text-white disabled:opacity-60"
+                className="fx-btn rounded-[10px] bg-fx-primary px-4 py-2 font-semibold text-blanco disabled:opacity-60"
               >
                 {generando ? "Generando…" : "Sí, generar"}
               </button>
@@ -162,7 +162,7 @@ export function GenerarLiquidacion({ cajaId, cajaCodigo, folio, saldoInicial, in
             type="button"
             disabled={!entran.length}
             onClick={() => setConfirmando(true)}
-            className="fx-btn self-end rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-white disabled:opacity-40"
+            className="fx-btn self-end rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-blanco disabled:opacity-40"
           >
             Generar liquidación {folio}
           </button>

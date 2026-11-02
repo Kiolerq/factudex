@@ -93,7 +93,7 @@ export default async function PaginaCuenta({ searchParams }: PageProps<"/cuenta"
                   />
                   <button
                     type="submit"
-                    className="fx-btn self-start rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-white"
+                    className="fx-btn self-start rounded-[10px] bg-fx-primary px-5 py-2.5 text-fx-sm font-semibold text-blanco"
                   >
                     {drive.conectado ? "Reconectar / cambiar carpeta" : "Conectar Google Drive"}
                   </button>

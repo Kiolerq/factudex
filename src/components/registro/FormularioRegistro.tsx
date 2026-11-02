@@ -513,7 +513,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
         <button
           type="button"
           onClick={() => camaraRapida.current?.click()}
-          className="fx-btn flex w-full items-center justify-center gap-2.5 rounded-[14px] bg-linear-135 from-fx-primary to-fx-primary-dark p-4 text-sm font-bold text-white md:hidden"
+          className="fx-btn flex w-full items-center justify-center gap-2.5 rounded-[14px] bg-linear-135 from-fx-primary to-fx-primary-dark p-4 text-sm font-bold text-blanco md:hidden"
         >
           <span aria-hidden className="text-lg">📷</span>
           {archivos.documento ? "Cambiar foto del comprobante" : "Tomar foto del comprobante"}
@@ -867,7 +867,7 @@ function BotonesAccion({
       <button
         type="submit"
         disabled={guardando}
-        className={`fx-btn bg-fx-primary text-fx-sm text-white disabled:opacity-70 ${base} ${movil ? "flex-2 font-bold" : "font-semibold"}`}
+        className={`fx-btn bg-fx-primary text-fx-sm text-blanco disabled:opacity-70 ${base} ${movil ? "flex-2 font-bold" : "font-semibold"}`}
       >
         {guardando ? paso || "Guardando…" : "Guardar registro"}
       </button>
