@@ -356,6 +356,36 @@ export async function registrarDevolucion(entrada: EntradaDevolucion): Promise<R
   return ejecutar(() => repo.registrarDevolucion(datos.data));
 }
 
+/**
+ * "Este pago cubrió más gastos": un gasto ya registrado (aunque esté liquidado, ej. en la caja
+ * anterior) pasa a ser la primera salida de un pago mayor, para sustentar el resto después.
+ */
+export async function convertirEnPago(
+  movimientoId: string,
+  monto: number,
+): Promise<{ ok: true; pagoId: string } | { ok: false; errores: Record<string, string> }> {
+  const datos = z
+    .object({
+      movimientoId: z.uuid(),
+      monto: z
+        .number("Ingresa el monto total del pago")
+        .positive("El monto debe ser mayor a 0")
+        .max(100000, "Monto demasiado alto")
+        .refine((m) => Math.abs(m * 100 - Math.round(m * 100)) < 1e-6, "Máximo 2 decimales"),
+    })
+    .safeParse({ movimientoId, monto });
+  if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
+  const repo = await repoRegistrador();
+  try {
+    const pagoId = await repo.convertirEnPago(datos.data.movimientoId, datos.data.monto);
+    revalidatePath("/", "layout");
+    return { ok: true, pagoId };
+  } catch (e) {
+    if (e instanceof ErrorDeNegocio) return { ok: false, errores: { monto: e.message } };
+    throw e;
+  }
+}
+
 // --- Planilla de movilidad ---
 
 /**
@@ -374,7 +404,7 @@ export async function crearPlanilla(
   const d = datos.data;
   if (d.pagoId) {
     const pago = await repo.obtenerPago(d.pagoId);
-    if (!pago || pago.cajaId !== d.cajaId) return { ok: false, errores: { _: "El pago es de otra caja" } };
+    if (!pago) return { ok: false, errores: { _: "El pago no existe" } };
   }
   let planillaId: string;
   try {

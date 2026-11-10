@@ -1271,6 +1271,10 @@ export type Database = {
         }
         Returns: string
       }
+      convertir_en_pago: {
+        Args: { p_monto: number; p_movimiento: string }
+        Returns: string
+      }
       traspasar_caja: {
         Args: { p_anterior: string; p_nueva: string }
         Returns: number

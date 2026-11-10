@@ -4,12 +4,13 @@ import { AnularMovimiento } from "@/components/movimientos/AnularMovimiento";
 import { AutorizarGasto } from "@/components/movimientos/AutorizarGasto";
 import { CompletarPendiente } from "@/components/movimientos/CompletarPendiente";
 import { PagoVariasSalidas } from "@/components/movimientos/PagoVariasSalidas";
+import { ConvertirEnPago } from "@/components/movimientos/ConvertirEnPago";
 import { AccionesPlanilla } from "@/components/movimientos/AccionesPlanilla";
 import { textoFalta } from "@/components/movimientos/textos";
 import { BadgeEstado } from "@/components/ui/BadgeEstado";
 import { exigirDetalle } from "@/lib/contexto";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
-import { ETIQUETA_DOCUMENTO, ETIQUETA_LIQUIDACION, ETIQUETA_MEDIO_PAGO } from "@/lib/datos/tipos";
+import { ETIQUETA_DOCUMENTO, ETIQUETA_LIQUIDACION, ETIQUETA_MEDIO_PAGO, esSoloTesoreria } from "@/lib/datos/tipos";
 import { almacenActivo } from "@/lib/drive/estado";
 import { formatoFecha, formatoSoles } from "@/lib/formato";
 
@@ -154,6 +155,14 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
         />
       )}
       {pago && <PagoVariasSalidas pago={pago} actualId={m.id} puedeRegistrar={permisos.registrar} almacen={almacen} />}
+      {!pago && !planilla && !m.anulado && permisos.registrar && !esSoloTesoreria(yo) && (
+        <div className="flex flex-col gap-1.5">
+          <ConvertirEnPago movimientoId={m.id} monto={m.monto} />
+          <p className="text-fx-xs text-white/60">
+            Si con el mismo Yape o pago se cubrió otro gasto (ej. la comida con una planilla), aunque este ya se haya liquidado.
+          </p>
+        </div>
+      )}
       {pendiente && (m.faltaDocumento || m.faltaPago) && permisos.registrar && (
         <CompletarPendiente movimiento={m} almacen={almacen} medioEditable={liquidacionAbierta} />
       )}

@@ -1,16 +1,19 @@
 import { InstalarApp } from "@/components/InstalarApp";
 import { FormularioRegistro } from "@/components/registro/FormularioRegistro";
+import { InicioRegistro } from "@/components/registro/InicioRegistro";
+import { fechaHoyLima, restarDias } from "@/lib/datos/esquemas";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
 import { almacenActivo } from "@/lib/drive/estado";
 import { ocrConfigurado } from "@/lib/ocr/leer";
 import { exigirModulo } from "@/lib/contexto";
 import { leerCajaActiva } from "@/lib/seleccion";
+import { cajaParaPago } from "@/lib/datos/tipos";
 
 export const metadata = { title: "Registro · Factudex" };
 
 export default async function PaginaRegistro({ searchParams }: PageProps<"/registro">) {
   await exigirModulo("registro");
-  const { compartido, pago: pagoParam } = await searchParams;
+  const { compartido, pago: pagoParam, nuevo } = await searchParams;
   const repo = await obtenerRepositorio();
   const [empresas, cajas] = await Promise.all([repo.listarEmpresas(), repo.listarCajas()]);
   const activa = await leerCajaActiva(cajas);
@@ -26,12 +29,27 @@ export default async function PaginaRegistro({ searchParams }: PageProps<"/regis
       </div>
     );
   }
+  // Sin nada que abrir directo (compartir, otra salida, "nuevo"): primero qué quiere hacer.
+  if (!compartido && !pagoParam && !nuevo) {
+    const empresasRegistro = [...new Set(cajasRegistro.map((c) => c.empresaId))];
+    const anteriores = await Promise.all(empresasRegistro.map((e) => repo.listarAnteriores(e, restarDias(fechaHoyLima(), 90))));
+    const pagos = anteriores.flatMap((a) => a.pagos);
+    return (
+      <>
+        <div className="mb-4 empty:hidden md:hidden">
+          <InstalarApp compacto />
+        </div>
+        <InicioRegistro porCompletar={pagos.length} faltaTotal={pagos.reduce((t, p) => t + p.falta, 0)} />
+      </>
+    );
+  }
+
   // Otra salida de un pago con varias salidas: se registra en la caja del pago.
   const pago =
     typeof pagoParam === "string" && /^[0-9a-f-]{36}$/i.test(pagoParam) ? await repo.obtenerPago(pagoParam) : null;
-  const pagoValido = pago && cajasRegistro.some((c) => c.id === pago.cajaId) ? pago : null;
-  const cajaInicial =
-    cajasRegistro.find((c) => c.id === (pagoValido?.cajaId ?? activa.id)) ?? cajasRegistro[0]!;
+  const cajaDelPago = pago ? cajaParaPago(pago, cajasRegistro, activa.id) : null;
+  const pagoValido = cajaDelPago ? pago : null;
+  const cajaInicial = cajaDelPago ?? cajasRegistro.find((c) => c.id === activa.id) ?? cajasRegistro[0]!;
 
   const empresasConCajas = empresas.filter((e) => cajasRegistro.some((c) => c.empresaId === e.id));
   const [listas, almacen] = await Promise.all([

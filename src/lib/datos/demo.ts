@@ -380,10 +380,33 @@ const estadoDe = (m: MovimientoDemo) => {
   return info && info.falta !== 0 ? "pendiente" : estado;
 };
 
-/** Como fx_recalcular_pago(): el estado de todas las salidas de un pago. */
+/** ¿Su liquidación ya se generó? (en revisión o aprobada: ya no se toca) */
+const yaRendido = (m: MovimientoDemo) => {
+  const l = db.liquidaciones.find((x) => x.id === m.liquidacionId);
+  return !!l && l.estado !== "abierta" && l.estado !== "observada";
+};
+
+const codigoDe = (cajaId: string) => {
+  const c = db.cajas.find((x) => x.id === cajaId)!;
+  return codigoCaja({ empresaCodigo: db.empresas.find((e) => e.id === c.empresaId)!.codigo, area: c.area, numero: c.numero });
+};
+
+/** Como fx_recalcular_pago(): el estado de las salidas de un pago que siguen en una liquidación abierta. */
 function recalcularPago(pagoId: string | null) {
   if (!pagoId) return;
-  for (const m of db.movimientos.filter((x) => x.pagoId === pagoId)) m.estado = estadoDe(m);
+  for (const m of db.movimientos.filter((x) => x.pagoId === pagoId && !yaRendido(x))) m.estado = estadoDe(m);
+}
+
+/** Lo ya rendido de un pago, agrupado por liquidación. */
+function yaLiquidadoDe(pagoId: string) {
+  const grupos = new Map<string, { folio: string; cajaCodigo: string; monto: number }>();
+  for (const m of db.movimientos.filter((x) => x.pagoId === pagoId && !x.anulado && yaRendido(x))) {
+    const l = db.liquidaciones.find((x) => x.id === m.liquidacionId)!;
+    const g = grupos.get(l.folio) ?? { folio: l.folio, cajaCodigo: codigoDe(l.cajaId), monto: 0 };
+    g.monto = redondear(g.monto + m.monto);
+    grupos.set(l.folio, g);
+  }
+  return [...grupos.values()];
 }
 
 function resumen(m: MovimientoDemo): MovimientoResumen {
@@ -554,8 +577,8 @@ export const repositorioDemo: Repositorio = {
     if (pago?.nuevo) {
       if ((db.pagos ??= []).some((p) => p.id === pago.id)) throw new ErrorDeNegocio("Ese pago ya se registró");
       db.pagos.push({ id: pago.id, cajaId: m.cajaId, monto: pago.monto, medioPago: m.medioPago, operacion: m.operacionPago, fecha: m.fecha });
-    } else if (pago && !(db.pagos ??= []).some((p) => p.id === pago.id && p.cajaId === m.cajaId)) {
-      throw new ErrorDeNegocio("El pago es de otra caja");
+    } else if (pago && !(db.pagos ??= []).some((p) => p.id === pago.id && db.cajas.find((c) => c.id === p.cajaId)?.empresaId === empresaId)) {
+      throw new ErrorDeNegocio("El pago es de otra empresa");
     }
 
     const nuevo: MovimientoDemo = {
@@ -840,6 +863,8 @@ export const repositorioDemo: Repositorio = {
     return {
       id,
       cajaId: i.pago.cajaId,
+      cajaCodigo: codigoDe(i.pago.cajaId),
+      empresaId: db.cajas.find((c) => c.id === i.pago.cajaId)!.empresaId,
       monto: i.pago.monto,
       medioPago: i.pago.medioPago,
       operacion: i.pago.operacion,
@@ -852,7 +877,62 @@ export const repositorioDemo: Repositorio = {
       devoluciones: (db.devoluciones ??= [])
         .filter((d) => d.pagoId === id)
         .map((d) => ({ id: d.id, pagoId: d.pagoId, monto: d.monto, motivo: d.motivo, fecha: d.fecha, conFoto: !!d.comprobantePath })),
+      yaLiquidado: yaLiquidadoDe(id),
     };
+  },
+
+  async convertirEnPago(movimientoId, monto) {
+    const m = db.movimientos.find((x) => x.id === movimientoId);
+    if (!m) throw new ErrorDeNegocio("El gasto no existe");
+    if (m.anulado) throw new ErrorDeNegocio("El gasto está anulado");
+    if (m.pagoId) throw new ErrorDeNegocio("Este gasto ya es parte de un pago con varias salidas");
+    if (!(monto > m.monto)) throw new ErrorDeNegocio(`El pago total debe ser mayor que este gasto (S/ ${m.monto.toFixed(2)})`);
+    const id = randomUUID();
+    (db.pagos ??= []).push({ id, cajaId: m.cajaId, monto: redondear(monto), medioPago: m.medioPago, operacion: m.operacionPago, fecha: m.fecha });
+    m.pagoId = id;
+    recalcularPago(id);
+    return id;
+  },
+
+  async listarAnteriores(empresaId, desde) {
+    const cajas = new Set(db.cajas.filter((c) => c.empresaId === empresaId).map((c) => c.id));
+    const folioDe = (m: MovimientoDemo) => db.liquidaciones.find((l) => l.id === m.liquidacionId)?.folio ?? null;
+    const pagos = (db.pagos ??= [])
+      .filter((p) => cajas.has(p.cajaId))
+      .map((p) => ({ p, i: infoPago(p.id) }))
+      .filter(({ i }) => i.falta > 0)
+      .sort((a, b) => b.p.fecha.localeCompare(a.p.fecha))
+      .map(({ p, i }) => ({
+        id: p.id,
+        cajaId: p.cajaId,
+        cajaCodigo: codigoDe(p.cajaId),
+        fecha: p.fecha,
+        monto: p.monto,
+        medioPago: p.medioPago,
+        operacion: p.operacion,
+        sustentado: i.sustentado,
+        falta: i.falta,
+        salidas: i.salidas
+          .filter((m) => !m.anulado)
+          .map((m) => ({ detalle: m.detalle, monto: m.monto, folio: folioDe(m), liquidado: yaRendido(m) })),
+      }));
+    const gastos = db.movimientos
+      .filter((m) => cajas.has(m.cajaId) && !m.pagoId && !m.anulado && m.fecha >= desde)
+      .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creado - a.creado)
+      .slice(0, 60)
+      .map((m) => ({
+        id: m.id,
+        cajaId: m.cajaId,
+        cajaCodigo: codigoDe(m.cajaId),
+        fecha: m.fecha,
+        detalle: m.detalle,
+        proveedor: db.proveedores.find((p) => p.id === m.proveedorId)?.razonSocial ?? null,
+        monto: m.monto,
+        medioPago: m.medioPago,
+        folio: folioDe(m),
+        liquidado: yaRendido(m),
+      }));
+    return { pagos, gastos };
   },
 
   async registrarDevolucion(d) {

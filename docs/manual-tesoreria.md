@@ -132,7 +132,8 @@ Además de las columnas de siempre, al final trae:
   Para que contabilidad los abra, comparte con ellos la carpeta de Drive de Factudex (solo lectura).
 - En los ingresos, la **FOTO** del depósito.
 - En **YAPE/PLIN**, si un pago se sustentó con varios comprobantes: *"pago S/ 90.00 en 3 salidas ·
-  devolución S/ 10.00"*. Cada salida va en su propia línea.
+  devolución S/ 10.00"*. Cada salida va en su propia línea. Si parte del pago se rindió antes (ej. en la caja
+  anterior), lo dice: *"S/ 40.00 ya liquidado en SL-LIQ-GE-001 (SL-CAJA-GE-04)"*.
 - Las **planillas de movilidad** salen en **OTROS** (*"Planilla mov. 10-157"*) con el trabajador en
   razón social.
 

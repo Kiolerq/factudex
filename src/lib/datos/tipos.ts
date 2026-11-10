@@ -238,6 +238,8 @@ export interface NuevoMovimiento {
 export interface Pago {
   id: string;
   cajaId: string;
+  cajaCodigo: string; // la caja donde se registró el pago (puede ser la anterior, ya cerrada)
+  empresaId: string;
   monto: number;
   medioPago: MedioPago | null;
   operacion: string | null;
@@ -248,6 +250,36 @@ export interface Pago {
   tieneConstancia: boolean;
   salidas: MovimientoResumen[];
   devoluciones: Devolucion[];
+  /** Salidas que ya se rindieron en otra liquidación (ej. en la caja anterior), por folio. */
+  yaLiquidado: { folio: string; cajaCodigo: string; monto: number }[];
+}
+
+/** Un pago anterior al que le falta sustentar (para "Completar un registro anterior"). */
+export interface PagoPorCompletar {
+  id: string;
+  cajaId: string;
+  cajaCodigo: string;
+  fecha: string;
+  monto: number;
+  medioPago: MedioPago | null;
+  operacion: string | null;
+  sustentado: number;
+  falta: number;
+  salidas: { detalle: string; monto: number; folio: string | null; liquidado: boolean }[];
+}
+
+/** Un gasto ya registrado que podría haber sido parte de un pago mayor. */
+export interface GastoAnterior {
+  id: string;
+  cajaId: string;
+  cajaCodigo: string;
+  fecha: string;
+  detalle: string;
+  proveedor: string | null;
+  monto: number;
+  medioPago: MedioPago | null;
+  folio: string | null;
+  liquidado: boolean; // su liquidación ya se generó (en revisión o aprobada)
 }
 
 export interface Devolucion {
@@ -485,3 +517,20 @@ export interface CajaAdmin {
 }
 
 export type DatosCaja = Omit<CajaAdmin, "id" | "empresaCodigo"> & { id: string | null }; // id null = nueva
+
+/**
+ * Caja donde se registra otra salida de un pago: la del pago si el usuario registra ahí; si el pago
+ * quedó en una caja anterior (ya cerrada), la preferida o la primera de la misma empresa.
+ */
+export function cajaParaPago<C extends { id: string; empresaId: string }>(
+  pago: Pick<Pago, "cajaId" | "empresaId">,
+  cajas: C[],
+  preferidaId: string,
+): C | null {
+  return (
+    cajas.find((c) => c.id === pago.cajaId) ??
+    cajas.find((c) => c.id === preferidaId && c.empresaId === pago.empresaId) ??
+    cajas.find((c) => c.empresaId === pago.empresaId) ??
+    null
+  );
+}

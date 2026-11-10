@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Json, TablesInsert, TablesUpdate } from "@/types/database";
 import { ErrorDeNegocio, type Repositorio } from "./repositorio";
 import { MODULOS, type DatosUsuario, type Modulo, type RolCaja, type UsuarioAdmin } from "./tipos";
-import { AREAS_BASE, claveCentro, claveTrabajador, type FilaPlanilla, type GastoPlanillaDia, type Planilla } from "./tipos";
+import { AREAS_BASE, claveCentro, codigoCaja, claveTrabajador, type FilaPlanilla, type GastoPlanillaDia, type Planilla } from "./tipos";
 import type {
   AdjuntoGuardado,
   CajaSaldo,
@@ -238,6 +238,49 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
     fallo(error, "Pagos");
     return new Map(data.map((p) => [p.id!, { falta: Number(p.falta), tieneConstancia: !!p.tiene_constancia }]));
   }
+
+  /** Salidas de pagos con su liquidación y su caja (para saber qué ya se rindió y dónde). */
+  async function salidasConLiquidacion(pagoIds: string[]) {
+    if (!pagoIds.length) return [];
+    const { data, error } = await sb
+      .from("movimientos")
+      .select("pago_id, detalle, monto, anulado, liquidaciones(folio, estado), cajas(numero, area, empresas(codigo))")
+      .in("pago_id", pagoIds)
+      .eq("anulado", false)
+      .order("created_at")
+      .overrideTypes<
+        {
+          pago_id: string;
+          detalle: string;
+          monto: number;
+          anulado: boolean;
+          liquidaciones: { folio: string; estado: EstadoLiquidacion } | null;
+          cajas: { numero: number; area: string; empresas: { codigo: string } } | null;
+        }[],
+        { merge: false }
+      >();
+    fallo(error, "Salidas del pago");
+    return data.map((m) => ({
+      pagoId: m.pago_id,
+      detalle: m.detalle,
+      monto: Number(m.monto),
+      folio: m.liquidaciones?.folio ?? null,
+      liquidado: !!m.liquidaciones && m.liquidaciones.estado !== "abierta" && m.liquidaciones.estado !== "observada",
+      cajaCodigo: m.cajas ? codigoCaja({ empresaCodigo: m.cajas.empresas.codigo as CodigoEmpresa, area: m.cajas.area, numero: m.cajas.numero }) : "",
+    }));
+  }
+
+  /** Lo ya rendido de un pago, agrupado por liquidación. */
+  const agruparLiquidado = (salidas: Awaited<ReturnType<typeof salidasConLiquidacion>>) =>
+    Object.values(
+      salidas
+        .filter((x) => x.liquidado && x.folio)
+        .reduce<Record<string, { folio: string; cajaCodigo: string; monto: number }>>((acc, x) => {
+          const g = (acc[x.folio!] ??= { folio: x.folio!, cajaCodigo: x.cajaCodigo, monto: 0 });
+          g.monto = Math.round((g.monto + x.monto) * 100) / 100;
+          return acc;
+        }, {}),
+    );
 
   async function leerPlanilla(campo: "id" | "movimiento_id", valor: string): Promise<Planilla | null> {
     const { data, error } = await sb
@@ -788,7 +831,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
 
     async obtenerPago(id) {
       if (!(await hayPagos())) return null;
-      const [pago, salidas, devs] = await Promise.all([
+      const [pago, salidas, devs, conLiq, caja] = await Promise.all([
         sb.from("v_pagos").select("*").eq("id", id).maybeSingle(),
         sb
           .from("movimientos")
@@ -797,16 +840,27 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
           .order("created_at")
           .overrideTypes<FilaMovimiento[], { merge: false }>(),
         sb.from("devoluciones").select("id, pago_id, monto, motivo, fecha, comprobante_path").eq("pago_id", id).order("created_at"),
+        salidasConLiquidacion([id]),
+        sb
+          .from("pagos")
+          .select("cajas(empresa_id, numero, area, empresas(codigo))")
+          .eq("id", id)
+          .maybeSingle()
+          .overrideTypes<{ cajas: { empresa_id: string; numero: number; area: string; empresas: { codigo: string } } }, { merge: false }>(),
       ]);
+      fallo(caja.error, "Caja del pago");
       fallo(pago.error, "Pago");
       fallo(salidas.error, "Salidas del pago");
       fallo(devs.error, "Devoluciones");
       const p = pago.data;
       if (!p) return null;
       const info = new Map([[id, { falta: Number(p.falta), tieneConstancia: !!p.tiene_constancia }]]);
+      const c = caja.data?.cajas;
       return {
         id,
         cajaId: p.caja_id!,
+        cajaCodigo: c ? codigoCaja({ empresaCodigo: c.empresas.codigo as CodigoEmpresa, area: c.area, numero: c.numero }) : "",
+        empresaId: c?.empresa_id ?? "",
         monto: Number(p.monto),
         medioPago: p.medio_pago,
         operacion: p.operacion,
@@ -823,6 +877,82 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
           motivo: d.motivo,
           fecha: d.fecha,
           conFoto: !!d.comprobante_path,
+        })),
+        yaLiquidado: agruparLiquidado(conLiq),
+      };
+    },
+
+    async convertirEnPago(movimientoId, monto) {
+      const { data, error } = await sb.rpc("convertir_en_pago", { p_movimiento: movimientoId, p_monto: monto });
+      falloNegocio(error, "Convertir en pago");
+      return data as string;
+    },
+
+    async listarAnteriores(empresaId, desde) {
+      if (!(await hayPagos())) return { pagos: [], gastos: [] };
+      const cajas = await sb
+        .from("cajas")
+        .select("id, numero, area, empresas(codigo)")
+        .eq("empresa_id", empresaId)
+        .overrideTypes<{ id: string; numero: number; area: string; empresas: { codigo: string } }[], { merge: false }>();
+      fallo(cajas.error, "Cajas");
+      const codigo = new Map(
+        cajas.data.map((c) => [c.id, codigoCaja({ empresaCodigo: c.empresas.codigo as CodigoEmpresa, area: c.area, numero: c.numero })]),
+      );
+      const ids = [...codigo.keys()];
+      if (!ids.length) return { pagos: [], gastos: [] };
+      const [pagos, gastos] = await Promise.all([
+        sb.from("v_pagos").select("*").in("caja_id", ids).gt("falta", 0).order("fecha", { ascending: false }).limit(40),
+        sb
+          .from("movimientos")
+          .select("id, caja_id, fecha, detalle, monto, medio_pago, proveedores(razon_social), liquidaciones(folio, estado)")
+          .in("caja_id", ids)
+          .is("pago_id", null)
+          .eq("anulado", false)
+          .gte("fecha", desde)
+          .order("fecha", { ascending: false })
+          .limit(60)
+          .overrideTypes<
+            {
+              id: string;
+              caja_id: string;
+              fecha: string;
+              detalle: string;
+              monto: number;
+              medio_pago: MedioPago | null;
+              proveedores: { razon_social: string } | null;
+              liquidaciones: { folio: string; estado: EstadoLiquidacion } | null;
+            }[],
+            { merge: false }
+          >(),
+      ]);
+      fallo(pagos.error, "Pagos");
+      fallo(gastos.error, "Gastos");
+      const salidas = await salidasConLiquidacion(pagos.data.map((p) => p.id!));
+      return {
+        pagos: pagos.data.map((p) => ({
+          id: p.id!,
+          cajaId: p.caja_id!,
+          cajaCodigo: codigo.get(p.caja_id!) ?? "",
+          fecha: p.fecha!,
+          monto: Number(p.monto),
+          medioPago: p.medio_pago,
+          operacion: p.operacion,
+          sustentado: Number(p.sustentado),
+          falta: Number(p.falta),
+          salidas: salidas.filter((x) => x.pagoId === p.id).map(({ detalle, monto, folio, liquidado }) => ({ detalle, monto, folio, liquidado })),
+        })),
+        gastos: gastos.data.map((m) => ({
+          id: m.id,
+          cajaId: m.caja_id,
+          cajaCodigo: codigo.get(m.caja_id) ?? "",
+          fecha: m.fecha,
+          detalle: m.detalle,
+          proveedor: m.proveedores?.razon_social ?? null,
+          monto: Number(m.monto),
+          medioPago: m.medio_pago,
+          folio: m.liquidaciones?.folio ?? null,
+          liquidado: !!m.liquidaciones && m.liquidaciones.estado !== "abierta" && m.liquidaciones.estado !== "observada",
         })),
       };
     },

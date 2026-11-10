@@ -43,7 +43,11 @@ export async function GET(peticion: NextRequest, { params }: { params: Promise<{
     const p = pagos.find((x) => x?.id === pagoId);
     if (!p) return null;
     const salidas = p.salidas.filter((s) => !s.anulado).length;
-    return [`pago ${formatoSoles(p.monto)} en ${salidas} salidas`, p.devuelto > 0 && `devolución ${formatoSoles(p.devuelto)}`]
+    // Si parte del pago ya se rindió en otra liquidación (ej. en la caja anterior), se indica dónde.
+    const enOtra = p.yaLiquidado
+      .filter((x) => x.folio !== l.folio)
+      .map((x) => `${formatoSoles(x.monto)} ya liquidado en ${x.folio}${x.cajaCodigo ? ` (${x.cajaCodigo})` : ""}`);
+    return [`pago ${formatoSoles(p.monto)} en ${salidas} salidas`, ...enOtra, p.devuelto > 0 && `devolución ${formatoSoles(p.devuelto)}`]
       .filter(Boolean)
       .join(" · ");
   };

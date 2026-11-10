@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { crearPlanilla } from "@/app/acciones";
 import { BadgeEstado } from "@/components/ui/BadgeEstado";
@@ -19,6 +20,7 @@ import {
   type MotivoPlanilla,
   type Opcion,
   type Pago,
+  type PagoPorCompletar,
   type TipoTransporte,
   type Trabajador,
 } from "@/lib/datos/tipos";
@@ -68,13 +70,17 @@ export function FormularioPlanilla({
   cajaInicialId,
   empresas,
   pago,
+  pagosAnteriores,
 }: {
   cajas: CajaSaldo[];
   cajaInicialId: string;
   empresas: EmpresaPlanilla[];
   pago: Pago | null;
+  /** Pagos con saldo por sustentar, para enganchar la planilla a uno de ellos. */
+  pagosAnteriores: PagoPorCompletar[];
 }) {
-  const [cajaId, setCajaId] = useState(pago?.cajaId ?? cajaInicialId);
+  const router = useRouter();
+  const [cajaId, setCajaId] = useState(cajaInicialId);
   const caja = cajas.find((c) => c.id === cajaId) ?? cajas[0]!;
   const empresa = empresas.find((e) => e.empresaId === caja.empresaId)!;
   const general = empresa.centrosCosto.find((c) => c.nombre === "General")?.id ?? "";
@@ -248,11 +254,52 @@ export function FormularioPlanilla({
         </div>
       )}
 
-      {pago && (
+      {pago ? (
         <div className="fx-card flex flex-col gap-2 border-fx-primary-line! px-4 py-3.5">
-          <div className="text-fx-md font-semibold">Salida del pago {pago.medioPago ? ETIQUETA_MEDIO_PAGO[pago.medioPago] : ""} · total {formatoSoles(pago.monto)}</div>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div className="text-fx-md font-semibold">
+              Salida del pago {pago.medioPago ? ETIQUETA_MEDIO_PAGO[pago.medioPago] : ""} del {formatoFecha(pago.fecha)} · total{" "}
+              {formatoSoles(pago.monto)}
+            </div>
+            <Link prefetch={false} href="/registro/planilla" className="text-fx-sm text-white/68 hover:text-white">
+              No es de este pago ✕
+            </Link>
+          </div>
+          {pago.cajaCodigo && pago.cajaId !== caja.id && (
+            <p className="text-fx-sm text-white/75">
+              El pago se hizo en <b>{pago.cajaCodigo}</b>; esta planilla se rinde en <b>{codigoCaja(caja)}</b>.
+            </p>
+          )}
           <BarraPago pago={pago} />
         </div>
+      ) : (
+        pagosAnteriores.length > 0 && (
+          <div className="fx-card flex flex-col gap-2 px-4 py-3.5">
+            <label htmlFor="pl-pago" className="fx-label mb-0!">
+              ¿Es el resto de un pago anterior? (opcional)
+            </label>
+            <p className="text-fx-xs text-white/68">
+              Ej.: un Yape de S/ 60 que pagó un peaje de S/ 40 y S/ 20 de comida. Elige el pago y la planilla lo completa.
+            </p>
+            <select
+              id="pl-pago"
+              className="fx-input"
+              value=""
+              onChange={(e) => e.target.value && router.push(`/registro/planilla?pago=${e.target.value}`)}
+            >
+              <option value="">No, es un gasto nuevo</option>
+              {pagosAnteriores.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {formatoFecha(p.fecha)} · {p.medioPago ? ETIQUETA_MEDIO_PAGO[p.medioPago] : "Pago"} {formatoSoles(p.monto)} · falta{" "}
+                  {formatoSoles(p.falta)} · {p.cajaCodigo}
+                </option>
+              ))}
+            </select>
+            <Link prefetch={false} href="/registro/completar" className="text-fx-sm text-fx-primary-light hover:underline">
+              ¿No aparece? Búscalo en «Completar un registro anterior» →
+            </Link>
+          </div>
+        )
       )}
 
       <section className="fx-card grid gap-3.5 p-4 md:grid-cols-3 md:p-6">
@@ -260,8 +307,14 @@ export function FormularioPlanilla({
           <label htmlFor="pl-caja" className="fx-label">
             ¿De qué caja sale el dinero? *
           </label>
-          <select id="pl-caja" className="fx-input" value={caja.id} disabled={!!pago} onChange={(e) => elegirCaja(e.target.value)}>
-            {cajas.map((c) => (
+          <select
+            id="pl-caja"
+            className="fx-input"
+            value={caja.id}
+            disabled={!!pago && pago.cajaId === caja.id}
+            onChange={(e) => elegirCaja(e.target.value)}
+          >
+            {cajas.filter((c) => !pago || c.empresaId === pago.empresaId).map((c) => (
               <option key={c.id} value={c.id}>
                 {codigoCaja(c)} · {c.nombre}
               </option>

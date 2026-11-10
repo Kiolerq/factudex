@@ -2,13 +2,8 @@ import { FormularioPlanilla, type EmpresaPlanilla } from "@/components/registro/
 import { exigirModulo } from "@/lib/contexto";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
 import { leerCajaActiva } from "@/lib/seleccion";
-import { fechaHoyLima } from "@/lib/datos/esquemas";
-
-const restarDias = (iso: string, dias: number) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - dias);
-  return d.toISOString().slice(0, 10);
-};
+import { cajaParaPago } from "@/lib/datos/tipos";
+import { fechaHoyLima, restarDias } from "@/lib/datos/esquemas";
 
 export const metadata = { title: "Planilla de movilidad · Factudex" };
 
@@ -29,9 +24,14 @@ export default async function PaginaPlanilla({ searchParams }: PageProps<"/regis
   }
   const pago =
     typeof pagoParam === "string" && /^[0-9a-f-]{36}$/i.test(pagoParam) ? await repo.obtenerPago(pagoParam) : null;
-  const pagoValido = pago && cajasRegistro.some((c) => c.id === pago.cajaId) ? pago : null;
+  const cajaDelPago = pago ? cajaParaPago(pago, cajasRegistro, activa.id) : null;
+  const pagoValido = cajaDelPago ? pago : null;
 
   const desde = restarDias(fechaHoyLima(), DIAS_TOPE);
+  const empresasRegistro = [...new Set(cajasRegistro.map((c) => c.empresaId))];
+  const pagosAnteriores = pagoValido
+    ? []
+    : (await Promise.all(empresasRegistro.map((e) => repo.listarAnteriores(e, restarDias(fechaHoyLima(), 90))))).flatMap((a) => a.pagos);
   const datos: EmpresaPlanilla[] = await Promise.all(
     empresas
       .filter((e) => cajasRegistro.some((c) => c.empresaId === e.id))
@@ -63,9 +63,10 @@ export default async function PaginaPlanilla({ searchParams }: PageProps<"/regis
     <FormularioPlanilla
       key={pagoValido?.id ?? activa.id}
       cajas={cajasRegistro}
-      cajaInicialId={(cajasRegistro.find((c) => c.id === (pagoValido?.cajaId ?? activa.id)) ?? cajasRegistro[0]!).id}
+      cajaInicialId={(cajaDelPago ?? cajasRegistro.find((c) => c.id === activa.id) ?? cajasRegistro[0]!).id}
       empresas={datos}
       pago={pagoValido}
+      pagosAnteriores={pagosAnteriores}
     />
   );
 }

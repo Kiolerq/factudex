@@ -9,6 +9,8 @@ import type {
   Trabajador,
   NuevaDevolucion,
   Pago,
+  PagoPorCompletar,
+  GastoAnterior,
   CajaAdmin,
   DatosCaja,
   CambiosUsuario,
@@ -78,6 +80,10 @@ export interface Repositorio {
   /** Pago con varias salidas: sus salidas, devoluciones y cuánto falta cuadrar. */
   obtenerPago(id: string): Promise<Pago | null>;
   registrarDevolucion(d: NuevaDevolucion): Promise<void>;
+  /** Un gasto ya registrado (aunque esté liquidado) pasa a ser la primera salida de un pago de `monto`. */
+  convertirEnPago(movimientoId: string, monto: number): Promise<string>;
+  /** Pagos de la empresa a los que les falta sustentar y gastos recientes que podrían ser parte de uno. */
+  listarAnteriores(empresaId: string, desde: string): Promise<{ pagos: PagoPorCompletar[]; gastos: GastoAnterior[] }>;
   // Planillas de movilidad
   listarTrabajadores(empresaId: string): Promise<Trabajador[]>;
   /** La siguiente serie y número de planilla de la empresa (null si aún no hay ninguna). */

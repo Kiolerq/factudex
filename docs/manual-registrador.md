@@ -17,7 +17,7 @@ Debajo, las pestañas:
 
 | Pestaña | Para qué |
 | --- | --- |
-| **Registro** | Cargar un gasto nuevo. Es la pantalla con la que abre la app. |
+| **Registro** | Abre con tres opciones: **Nuevo registro**, **Planilla de movilidad** y **Completar un registro anterior**. |
 | **Pendientes** | Gastos a los que les falta el comprobante o el pago. |
 | **Historial** | Todos los gastos de tu caja, con buscador y filtros. |
 | **Liquidaciones** | Rendir la caja a tesorería. |
@@ -26,7 +26,7 @@ Si el saldo baja del umbral de la caja, sale un aviso en ámbar: es momento de l
 
 ## 2. Registrar un gasto
 
-1. Ve a **Registro** y elige **de qué caja sale el dinero** (si manejas más de una).
+1. Ve a **Registro** → **📷 Nuevo registro** y elige **de qué caja sale el dinero** (si manejas más de una).
 2. Toca **Tomar foto del comprobante** o sube el archivo (foto o PDF): factura, boleta, recibo por
    honorarios, planilla de movilidad, comprobante de egreso…
 3. Si no pagaste en efectivo, sube también la **constancia de pago** (captura de Yape o Plin,
@@ -116,7 +116,8 @@ salida va como una línea propia en la liquidación.
 
 ## 4c. Planilla de movilidad (y alimentación)
 
-En **Registro** toca **"📝 Hacer planilla de movilidad"**.
+En **Registro** toca **"📝 Planilla de movilidad"**. Si es el resto de un pago anterior (ej. el Yape que también
+pagó un peaje), elígelo arriba en **"¿Es el resto de un pago anterior?"**.
 
 1. **Serie y N°**: vienen solos (San Lorenzo: serie 10, el siguiente número). En SIPE, la primera
    vez escribe tu serie y número; después la app propone el siguiente.
@@ -131,6 +132,23 @@ En **Registro** toca **"📝 Hacer planilla de movilidad"**.
    liquidación**: el PDF ya queda adjunto como documento.
 
 En la liquidación sale en la columna **OTROS** como *"Planilla mov. 10-157"*.
+
+## 4d. Completar un registro anterior (un pago que cubrió más de un gasto)
+
+Ejemplo: un **Yape de S/ 60** pagó un **peaje de S/ 40** (ya registrado, quizá ya liquidado, incluso en la caja
+anterior) y **S/ 20 de comida**, que se sustenta con una planilla.
+
+1. **Registro** → **🧩 Completar un registro anterior**.
+2. Arriba están los **pagos a los que les falta sustentar**: toca **📝 Planilla de movilidad** o
+   **＋ Factura, boleta u otro comprobante**.
+3. Si el pago no está ahí, busca el gasto en **"¿Un gasto ya registrado se pagó junto con otro?"** (ej. *peaje*),
+   toca **🧩 Este pago cubrió más gastos**, escribe el **total (60.00)** y **Guardar el pago**. Luego toca
+   **📝 Planilla de movilidad** y registra los S/ 20.
+   - También puedes hacerlo desde el detalle del gasto (Historial → el gasto → *Este pago cubrió más gastos*).
+4. La nueva salida se rinde en tu **caja actual**. La app indica *"S/ 40.00 ya se liquidó en SL-LIQ-… (caja
+   anterior)"* y lo mismo sale en el Excel, para que tesorería sepa de dónde vienen los S/ 20.
+
+Lo que ya se liquidó no cambia. La salida nueva queda **Completa** cuando el pago cuadra (60 = 40 + 20).
 
 ## 5. Completar pendientes
 

@@ -135,7 +135,8 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
   function continuarPago(p: Pago) {
     setPagoActual(p);
     setVariasSalidas(false);
-    setCajaId(p.cajaId);
+    // Si el pago quedó en la caja anterior (ya cerrada), la salida va en la caja actual.
+    if (cajas.some((c) => c.id === p.cajaId)) setCajaId(p.cajaId);
     setMedioPago(p.medioPago);
     setOperacionPago(p.operacion ?? "");
     setFecha(p.fecha);
@@ -359,7 +360,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
     let cancelado = false;
     (async () => {
       const recibidos = await leerCompartidos();
-      if (compartido) history.replaceState(null, "", "/registro");
+      if (compartido) history.replaceState(null, "", "/registro?nuevo=1");
       if (!recibidos.length) {
         if (compartido && !cancelado)
           setErrores((e) => ({ ...e, _: "No llegó el archivo compartido. Vuelve a compartirlo desde la otra app." }));
@@ -985,7 +986,26 @@ export function BarraPago({ pago }: { pago: Pago }) {
           {cuadrado ? "✓ Pago cuadrado" : pago.falta > 0 ? `Falta ${formatoSoles(pago.falta)}` : `Se pasa por ${formatoSoles(-pago.falta)}`}
         </span>
       </div>
+      <AvisoYaLiquidado pago={pago} />
     </div>
+  );
+}
+
+/** "S/ 40.00 ya se liquidó en SL-LIQ-GE-001 (SL-CAJA-GE-04)": el resto proviene de un pago anterior. */
+export function AvisoYaLiquidado({ pago }: { pago: Pick<Pago, "yaLiquidado"> }) {
+  if (!pago.yaLiquidado?.length) return null;
+  return (
+    <p className="rounded-lg bg-white/5 px-3 py-2 text-fx-xs text-white/75">
+      ⓘ Pago anterior:{" "}
+      {pago.yaLiquidado.map((l, i) => (
+        <span key={l.folio}>
+          {i > 0 && " · "}
+          <b className="text-white/90">{formatoSoles(l.monto)}</b> ya se liquidó en <b className="text-white/90">{l.folio}</b>
+          {l.cajaCodigo && ` (${l.cajaCodigo})`}
+        </span>
+      ))}
+      . Lo que registres ahora completa ese pago.
+    </p>
   );
 }
 

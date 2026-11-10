@@ -340,3 +340,10 @@ export function erroresPorCampo(error: z.ZodError): Record<string, string> {
   }
   return salida;
 }
+
+/** Fecha ISO (YYYY-MM-DD) `dias` días antes. */
+export const restarDias = (iso: string, dias: number) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - dias);
+  return d.toISOString().slice(0, 10);
+};
