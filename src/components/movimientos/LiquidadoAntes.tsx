@@ -19,7 +19,16 @@ export function LiquidadoAntes({ pagoId, falta, gastos }: { pagoId: string; falt
   const [monto, setMonto] = useState(falta.toFixed(2));
   const [referencia, setReferencia] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [hecho, setHecho] = useState<string | null>(null);
   const [enviando, iniciar] = useTransition();
+
+  if (hecho) {
+    return (
+      <p role="status" className="rounded-xl border border-fx-completo/40 bg-fx-completo/10 px-3.5 py-3 text-fx-sm font-semibold text-fx-completo">
+        ✓ {hecho}
+      </p>
+    );
+  }
 
   if (!abierto) {
     return (
@@ -46,11 +55,22 @@ export function LiquidadoAntes({ pagoId, falta, gastos }: { pagoId: string; falt
     )
     .slice(0, 12);
 
-  const listo = (r: { ok: true } | { ok: false; errores: Record<string, string> }) => {
-    if (!r.ok)
-      return setError(r.errores.motivo ? "Escribe dónde se liquidó" : (Object.values(r.errores)[0] ?? "No se pudo guardar"));
-    setAbierto(false);
-    router.refresh();
+  /** Ejecuta la acción y muestra siempre el resultado (nunca queda "sin pasar nada"). */
+  const enviar = (accion: () => Promise<{ ok: true } | { ok: false; errores: Record<string, string> }>, exito: string) => {
+    setError(null);
+    iniciar(async () => {
+      try {
+        const r = await accion();
+        if (!r.ok) {
+          setError(r.errores.motivo ? "Escribe dónde se liquidó" : (Object.values(r.errores)[0] ?? "No se pudo guardar"));
+          return;
+        }
+        setHecho(exito);
+        router.refresh();
+      } catch {
+        setError("No se pudo guardar. Revisa tu conexión e inténtalo de nuevo; si sigue, avisa a tesorería.");
+      }
+    });
   };
 
   const pestaña = (m: "app" | "fuera", t: string) => (
@@ -108,10 +128,9 @@ export function LiquidadoAntes({ pagoId, falta, gastos }: { pagoId: string; falt
                     <button
                       type="button"
                       disabled={enviando}
-                      onClick={() => {
-                        setError(null);
-                        iniciar(async () => listo(await vincularAPago(pagoId, g.id)));
-                      }}
+                      onClick={() =>
+                        enviar(() => vincularAPago(pagoId, g.id), `Listo: «${g.detalle}» quedó junto a este pago. El pago cuadra.`)
+                      }
                       className="fx-btn rounded-[10px] bg-fx-primary px-3 py-2 text-fx-xs font-semibold text-blanco disabled:opacity-60"
                     >
                       Juntar
@@ -129,10 +148,9 @@ export function LiquidadoAntes({ pagoId, falta, gastos }: { pagoId: string; falt
             e.preventDefault();
             const v = leerMonto(monto);
             if (!Number.isFinite(v) || v <= 0) return setError("Escribe el monto");
-            setError(null);
-            iniciar(async () =>
-              listo(
-                await registrarDevolucion({
+            enviar(
+              () =>
+                registrarDevolucion({
                   pagoId,
                   tipo: "liquidado_antes",
                   monto: v,
@@ -140,7 +158,7 @@ export function LiquidadoAntes({ pagoId, falta, gastos }: { pagoId: string; falt
                   comprobantePath: null,
                   comprobanteMime: null,
                 }),
-              ),
+              `Listo: ${formatoSoles(v)} quedan como ya liquidados (${referencia.trim()}).`,
             );
           }}
         >

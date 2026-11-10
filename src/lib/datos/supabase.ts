@@ -46,6 +46,14 @@ function falloNegocio(error: { code?: string; message: string } | null, contexto
   fallo(error, contexto);
 }
 
+/** RPC de negocio: sus reglas, permisos y una migración sin correr se muestran en palabras. */
+function falloRpc(error: { code?: string; message: string } | null, contexto: string, migracion: string): asserts error is null {
+  if (error?.code === "42501") throw new ErrorDeNegocio(error.message.startsWith("permission denied") ? "No tienes permiso para esto" : error.message);
+  if (error?.code === "PGRST202" || error?.code === "42883")
+    throw new ErrorDeNegocio(`Falta correr la migración ${migracion} en Supabase. Avisa al administrador.`);
+  falloNegocio(error, contexto);
+}
+
 // Columnas de un movimiento para listas (historial, pendientes, liquidación).
 const COLUMNAS_MOVIMIENTO =
   "id, caja_id, liquidacion_id, fecha, detalle, monto, solicitante, tipo_documento, serie_numero, medio_pago, " +
@@ -240,8 +248,23 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
   }
 
   /** Salidas de pagos con su liquidación y su caja (para saber qué ya se rindió y dónde). */
-  async function salidasConLiquidacion(pagoIds: string[]) {
+  async function salidasConLiquidacion(pagoIds: string[]): Promise<
+    { pagoId: string; detalle: string; monto: number; folio: string | null; liquidado: boolean; cajaCodigo: string }[]
+  > {
     if (!pagoIds.length) return [];
+    // fx_salidas_pago (migración 20261112000000) ve también las salidas de la caja anterior,
+    // aunque el registrador ya no tenga acceso a ella.
+    const rpc = await sb.rpc("fx_salidas_pago", { p_pagos: pagoIds });
+    if (!rpc.error) {
+      return rpc.data.map((m) => ({
+        pagoId: m.pago_id,
+        detalle: m.detalle,
+        monto: Number(m.monto),
+        folio: m.folio,
+        liquidado: !!m.estado_liquidacion && m.estado_liquidacion !== "abierta" && m.estado_liquidacion !== "observada",
+        cajaCodigo: codigoCaja({ empresaCodigo: m.empresa_codigo as CodigoEmpresa, area: m.area, numero: m.numero }),
+      }));
+    }
     const { data, error } = await sb
       .from("movimientos")
       .select("pago_id, detalle, monto, anulado, liquidaciones(folio, estado), cajas(numero, area, empresas(codigo))")
@@ -886,12 +909,12 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
 
     async vincularAPago(pagoId, movimientoId) {
       const { error } = await sb.rpc("vincular_a_pago", { p_pago: pagoId, p_movimiento: movimientoId });
-      falloNegocio(error, "Juntar al pago");
+      falloRpc(error, "Juntar al pago", "20261112000000_arreglo_pagos_anteriores");
     },
 
     async convertirEnPago(movimientoId, monto) {
       const { data, error } = await sb.rpc("convertir_en_pago", { p_movimiento: movimientoId, p_monto: monto });
-      falloNegocio(error, "Convertir en pago");
+      falloRpc(error, "Convertir en pago", "20261112000000_arreglo_pagos_anteriores");
       return data as string;
     },
 
@@ -935,7 +958,37 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       ]);
       fallo(pagos.error, "Pagos");
       fallo(gastos.error, "Gastos");
-      const salidas = await salidasConLiquidacion(pagos.data.map((p) => p.id!));
+      const [salidas, deEmpresa] = await Promise.all([
+        salidasConLiquidacion(pagos.data.map((p) => p.id!)),
+        // También los gastos de cajas anteriores que el registrador ya no ve (migración 20261112000000).
+        sb.rpc("fx_gastos_sin_pago", { p_empresa: empresaId, p_desde: desde }),
+      ]);
+      const empresaCodigo = cajas.data[0]?.empresas.codigo as CodigoEmpresa;
+      const listaGastos = deEmpresa.error
+        ? gastos.data.map((m) => ({
+            id: m.id,
+            cajaId: m.caja_id,
+            cajaCodigo: codigo.get(m.caja_id) ?? "",
+            fecha: m.fecha,
+            detalle: m.detalle,
+            proveedor: m.proveedores?.razon_social ?? null,
+            monto: Number(m.monto),
+            medioPago: m.medio_pago,
+            folio: m.liquidaciones?.folio ?? null,
+            liquidado: !!m.liquidaciones && m.liquidaciones.estado !== "abierta" && m.liquidaciones.estado !== "observada",
+          }))
+        : deEmpresa.data.map((m) => ({
+            id: m.id,
+            cajaId: m.caja_id,
+            cajaCodigo: codigoCaja({ empresaCodigo, area: m.area, numero: m.numero }),
+            fecha: m.fecha,
+            detalle: m.detalle,
+            proveedor: m.proveedor,
+            monto: Number(m.monto),
+            medioPago: m.medio_pago,
+            folio: m.folio,
+            liquidado: !!m.estado_liquidacion && m.estado_liquidacion !== "abierta" && m.estado_liquidacion !== "observada",
+          }));
       return {
         pagos: pagos.data.map((p) => ({
           id: p.id!,
@@ -949,18 +1002,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
           falta: Number(p.falta),
           salidas: salidas.filter((x) => x.pagoId === p.id).map(({ detalle, monto, folio, liquidado }) => ({ detalle, monto, folio, liquidado })),
         })),
-        gastos: gastos.data.map((m) => ({
-          id: m.id,
-          cajaId: m.caja_id,
-          cajaCodigo: codigo.get(m.caja_id) ?? "",
-          fecha: m.fecha,
-          detalle: m.detalle,
-          proveedor: m.proveedores?.razon_social ?? null,
-          monto: Number(m.monto),
-          medioPago: m.medio_pago,
-          folio: m.liquidaciones?.folio ?? null,
-          liquidado: !!m.liquidaciones && m.liquidaciones.estado !== "abierta" && m.liquidaciones.estado !== "observada",
-        })),
+        gastos: listaGastos,
       };
     },
 

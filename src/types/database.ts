@@ -1273,6 +1273,35 @@ export type Database = {
         }
         Returns: string
       }
+      fx_salidas_pago: {
+        Args: { p_pagos: string[] }
+        Returns: {
+          pago_id: string
+          detalle: string
+          monto: number
+          folio: string | null
+          estado_liquidacion: Database["public"]["Enums"]["estado_liquidacion"] | null
+          empresa_codigo: string
+          area: string
+          numero: number
+        }[]
+      }
+      fx_gastos_sin_pago: {
+        Args: { p_empresa: string; p_desde: string }
+        Returns: {
+          id: string
+          caja_id: string
+          fecha: string
+          detalle: string
+          monto: number
+          medio_pago: Database["public"]["Enums"]["medio_pago"] | null
+          proveedor: string | null
+          folio: string | null
+          estado_liquidacion: Database["public"]["Enums"]["estado_liquidacion"] | null
+          area: string
+          numero: number
+        }[]
+      }
       vincular_a_pago: {
         Args: { p_movimiento: string; p_pago: string }
         Returns: undefined

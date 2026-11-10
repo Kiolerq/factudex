@@ -69,9 +69,13 @@ export function ConvertirEnPago({ movimientoId, monto, compacto }: { movimientoI
         if (valor === null) return setError("Escribe el monto total del pago");
         setError(null);
         iniciar(async () => {
-          const r = await convertirEnPago(movimientoId, valor);
-          if (r.ok) setPagoId(r.pagoId);
-          else setError(r.errores.monto ?? r.errores.movimientoId ?? r.errores._ ?? "No se pudo guardar");
+          try {
+            const r = await convertirEnPago(movimientoId, valor);
+            if (r.ok) setPagoId(r.pagoId);
+            else setError(r.errores.monto ?? r.errores.movimientoId ?? r.errores._ ?? "No se pudo guardar");
+          } catch {
+            setError("No se pudo guardar. Revisa tu conexión e inténtalo de nuevo; si sigue, avisa a tesorería.");
+          }
         });
       }}
     >
