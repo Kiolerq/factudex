@@ -133,7 +133,8 @@ Además de las columnas de siempre, al final trae:
 - En los ingresos, la **FOTO** del depósito.
 - En **YAPE/PLIN**, si un pago se sustentó con varios comprobantes: *"pago S/ 90.00 en 3 salidas ·
   devolución S/ 10.00"*. Cada salida va en su propia línea. Si parte del pago se rindió antes (ej. en la caja
-  anterior), lo dice: *"S/ 40.00 ya liquidado en SL-LIQ-GE-001 (SL-CAJA-GE-04)"*.
+  anterior), lo dice: *"S/ 40.00 ya liquidado en SL-LIQ-GE-001 (SL-CAJA-GE-04)"*. Si se rindió fuera de la
+  app, sale la referencia que escribió el registrador (ej. *"S/ 29.30 ya liquidado en Caja 4 · planilla 10-150"*).
 - Las **planillas de movilidad** salen en **OTROS** (*"Planilla mov. 10-157"*) con el trabajador en
   razón social.
 

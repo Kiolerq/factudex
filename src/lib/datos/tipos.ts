@@ -245,7 +245,8 @@ export interface Pago {
   operacion: string | null;
   fecha: string;
   sustentado: number; // suma de las salidas no anuladas
-  devuelto: number;
+  devuelto: number; // solo lo que volvió a la caja
+  liquidadoAntes: number; // lo que se rindió fuera de la app (Excel, papel) en una caja anterior
   falta: number; // monto − sustentado − devuelto (negativo: se pasó)
   tieneConstancia: boolean;
   salidas: MovimientoResumen[];
@@ -282,17 +283,22 @@ export interface GastoAnterior {
   liquidado: boolean; // su liquidación ya se generó (en revisión o aprobada)
 }
 
+/** devolucion: el dinero volvió a la caja · liquidado_antes: esa parte ya se rindió fuera de la app. */
+export type TipoDevolucion = "devolucion" | "liquidado_antes";
+
 export interface Devolucion {
   id: string;
   pagoId: string;
+  tipo: TipoDevolucion;
   monto: number;
-  motivo: string;
+  motivo: string; // en liquidado_antes: la referencia (ej. "Caja 4 · planilla 10-150")
   fecha: string;
   conFoto: boolean; // se ve en /api/devoluciones/<id>/foto
 }
 
 export interface NuevaDevolucion {
   pagoId: string;
+  tipo: TipoDevolucion;
   monto: number;
   motivo: string;
   comprobantePath: string | null;
@@ -533,4 +539,19 @@ export function cajaParaPago<C extends { id: string; empresaId: string }>(
     cajas.find((c) => c.empresaId === pago.empresaId) ??
     null
   );
+}
+
+/**
+ * v_pagos suma devoluciones y "liquidado antes" juntos (los dos cuentan para el cuadre); aquí se
+ * separan, y lo liquidado antes se suma a `yaLiquidado` con su referencia.
+ */
+export function separarLiquidadoAntes(p: Omit<Pago, "liquidadoAntes">): Pago {
+  const antes = p.devoluciones.filter((d) => d.tipo === "liquidado_antes");
+  const liquidadoAntes = Math.round(antes.reduce((t, d) => t + d.monto, 0) * 100) / 100;
+  return {
+    ...p,
+    devuelto: Math.round((p.devuelto - liquidadoAntes) * 100) / 100,
+    liquidadoAntes,
+    yaLiquidado: [...p.yaLiquidado, ...antes.map((d) => ({ folio: d.motivo, cajaCodigo: "", monto: d.monto }))],
+  };
 }

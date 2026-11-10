@@ -970,7 +970,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
 
 /** Barra de avance de un pago con varias salidas: sustentado, devuelto y lo que falta. */
 export function BarraPago({ pago }: { pago: Pago }) {
-  const hecho = Math.min(100, ((pago.sustentado + pago.devuelto) / pago.monto) * 100);
+  const hecho = Math.min(100, ((pago.sustentado + pago.devuelto + (pago.liquidadoAntes ?? 0)) / pago.monto) * 100);
   const cuadrado = Math.abs(pago.falta) < 0.005;
   return (
     <div className="flex flex-col gap-1.5">

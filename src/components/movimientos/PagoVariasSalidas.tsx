@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { BarraPago } from "@/components/registro/FormularioRegistro";
 import { BadgeEstado } from "@/components/ui/BadgeEstado";
-import { ETIQUETA_DOCUMENTO, ETIQUETA_MEDIO_PAGO, type Pago } from "@/lib/datos/tipos";
+import { ETIQUETA_DOCUMENTO, ETIQUETA_MEDIO_PAGO, type GastoAnterior, type Pago } from "@/lib/datos/tipos";
 import type { Almacen } from "@/lib/subida";
 import { formatoFecha, formatoSoles } from "@/lib/formato";
 import { RegistrarDevolucion } from "./RegistrarDevolucion";
+import { LiquidadoAntes } from "./LiquidadoAntes";
 
 /** Detalle de un gasto que es parte de un pago con varias salidas: todas las salidas y devoluciones. */
 export function PagoVariasSalidas({
@@ -12,7 +13,10 @@ export function PagoVariasSalidas({
   actualId,
   puedeRegistrar,
   almacen,
+  gastosAnteriores = [],
 }: {
+  /** Gastos de la empresa sin pago, para "lo que falta ya se liquidó en una caja anterior". */
+  gastosAnteriores?: GastoAnterior[];
   pago: Pago;
   actualId: string;
   puedeRegistrar: boolean;
@@ -57,7 +61,9 @@ export function PagoVariasSalidas({
         {pago.devoluciones.map((d) => (
           <div key={d.id} className="flex items-center justify-between gap-3 px-3.5 py-3">
             <div className="min-w-0">
-              <div className="text-fx-sm font-semibold">↩ Devolución a la caja</div>
+              <div className="text-fx-sm font-semibold">
+                {d.tipo === "liquidado_antes" ? "✓ Ya liquidado antes (fuera de la app)" : "↩ Devolución a la caja"}
+              </div>
               <div className="truncate text-fx-xs text-white/68">
                 {d.motivo} · {formatoFecha(d.fecha)}
                 {d.conFoto && (
@@ -103,6 +109,7 @@ export function PagoVariasSalidas({
             📝 Agregar planilla de movilidad
           </Link>
           <RegistrarDevolucion pago={pago} almacen={almacen} />
+          <LiquidadoAntes pagoId={pago.id} falta={pago.falta} gastos={gastosAnteriores} />
         </div>
       )}
     </section>

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Json, TablesInsert, TablesUpdate } from "@/types/database";
 import { ErrorDeNegocio, type Repositorio } from "./repositorio";
 import { MODULOS, type DatosUsuario, type Modulo, type RolCaja, type UsuarioAdmin } from "./tipos";
-import { AREAS_BASE, claveCentro, codigoCaja, claveTrabajador, type FilaPlanilla, type GastoPlanillaDia, type Planilla } from "./tipos";
+import { AREAS_BASE, claveCentro, codigoCaja, separarLiquidadoAntes, type TipoDevolucion, claveTrabajador, type FilaPlanilla, type GastoPlanillaDia, type Planilla } from "./tipos";
 import type {
   AdjuntoGuardado,
   CajaSaldo,
@@ -839,7 +839,8 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
           .eq("pago_id", id)
           .order("created_at")
           .overrideTypes<FilaMovimiento[], { merge: false }>(),
-        sb.from("devoluciones").select("id, pago_id, monto, motivo, fecha, comprobante_path").eq("pago_id", id).order("created_at"),
+        // "*": `tipo` llegó con la migración 20261111000000.
+        sb.from("devoluciones").select("*").eq("pago_id", id).order("created_at"),
         salidasConLiquidacion([id]),
         sb
           .from("pagos")
@@ -856,7 +857,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       if (!p) return null;
       const info = new Map([[id, { falta: Number(p.falta), tieneConstancia: !!p.tiene_constancia }]]);
       const c = caja.data?.cajas;
-      return {
+      return separarLiquidadoAntes({
         id,
         cajaId: p.caja_id!,
         cajaCodigo: c ? codigoCaja({ empresaCodigo: c.empresas.codigo as CodigoEmpresa, area: c.area, numero: c.numero }) : "",
@@ -873,13 +874,19 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         devoluciones: devs.data.map((d) => ({
           id: d.id,
           pagoId: d.pago_id,
+          tipo: ((d as { tipo?: string }).tipo === "liquidado_antes" ? "liquidado_antes" : "devolucion") as TipoDevolucion,
           monto: Number(d.monto),
           motivo: d.motivo,
           fecha: d.fecha,
           conFoto: !!d.comprobante_path,
         })),
         yaLiquidado: agruparLiquidado(conLiq),
-      };
+      });
+    },
+
+    async vincularAPago(pagoId, movimientoId) {
+      const { error } = await sb.rpc("vincular_a_pago", { p_pago: pagoId, p_movimiento: movimientoId });
+      falloNegocio(error, "Juntar al pago");
     },
 
     async convertirEnPago(movimientoId, monto) {
@@ -962,6 +969,7 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         pago_id: d.pagoId,
         monto: d.monto,
         motivo: d.motivo,
+        ...(d.tipo === "liquidado_antes" ? { tipo: d.tipo } : {}),
         comprobante_path: d.comprobantePath,
         comprobante_mime: d.comprobanteMime,
       });

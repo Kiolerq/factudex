@@ -386,6 +386,14 @@ export async function convertirEnPago(
   }
 }
 
+/** "Lo que falta ya se liquidó en una caja anterior": junta al pago ese gasto ya registrado. */
+export async function vincularAPago(pagoId: string, movimientoId: string): Promise<Resultado> {
+  const datos = z.object({ pagoId: z.uuid(), movimientoId: z.uuid() }).safeParse({ pagoId, movimientoId });
+  if (!datos.success) return { ok: false, errores: { _: "Datos inválidos" } };
+  const repo = await repoRegistrador();
+  return ejecutar(() => repo.vincularAPago(datos.data.pagoId, datos.data.movimientoId));
+}
+
 // --- Planilla de movilidad ---
 
 /**

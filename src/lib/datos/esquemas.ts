@@ -74,6 +74,7 @@ export type EntradaMovimiento = z.input<typeof EsquemaNuevoMovimiento>;
 /** Devolución de lo que sobró de un pago (volvió a la caja): monto, motivo y foto. */
 export const EsquemaDevolucion = z.object({
   pagoId: z.uuid(),
+  tipo: z.enum(["devolucion", "liquidado_antes"]).default("devolucion"),
   monto: z
     .number("Ingresa el monto devuelto")
     .positive("El monto debe ser mayor a 0")

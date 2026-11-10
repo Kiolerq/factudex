@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { GastosAnteriores } from "@/components/registro/GastosAnteriores";
+import { LiquidadoAntes } from "@/components/movimientos/LiquidadoAntes";
 import { exigirModulo } from "@/lib/contexto";
 import { fechaHoyLima, restarDias } from "@/lib/datos/esquemas";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
@@ -9,7 +10,7 @@ import { formatoFecha, formatoSoles } from "@/lib/formato";
 export const metadata = { title: "Completar un registro anterior · Factudex" };
 
 /** Días hacia atrás de los gastos que se ofrecen para "este pago cubrió más gastos". */
-const DIAS = 90;
+const DIAS = 120;
 
 /**
  * Completar un registro anterior: un pago (Yape, transferencia, efectivo) que cubrió varios gastos
@@ -23,7 +24,7 @@ export default async function PaginaCompletar() {
   const cajasRegistro = cajas.filter((_, i) => permisos[i]!.registrar);
   const empresas = [...new Set(cajasRegistro.map((c) => c.empresaId))];
   const anteriores = await Promise.all(empresas.map((e) => repo.listarAnteriores(e, restarDias(fechaHoyLima(), DIAS))));
-  const pagos = anteriores.flatMap((a) => a.pagos);
+  const pagos = anteriores.flatMap((a) => a.pagos.map((p) => ({ ...p, gastosEmpresa: a.gastos })));
   const gastos = anteriores.flatMap((a) => a.gastos);
 
   return (
@@ -86,6 +87,7 @@ export default async function PaginaCompletar() {
                   ＋ Factura, boleta u otro comprobante
                 </Link>
               </div>
+              <LiquidadoAntes pagoId={p.id} falta={p.falta} gastos={p.gastosEmpresa} />
             </article>
           ))
         )}

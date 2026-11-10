@@ -67,6 +67,7 @@ export type Database = {
           monto: number
           motivo: string
           pago_id: string
+          tipo: string
         }
         Insert: {
           comprobante_mime?: string | null
@@ -78,6 +79,7 @@ export type Database = {
           monto: number
           motivo: string
           pago_id: string
+          tipo?: string
         }
         Update: {
           comprobante_mime?: string | null
@@ -1270,6 +1272,10 @@ export type Database = {
           p_solicitante: string
         }
         Returns: string
+      }
+      vincular_a_pago: {
+        Args: { p_movimiento: string; p_pago: string }
+        Returns: undefined
       }
       convertir_en_pago: {
         Args: { p_monto: number; p_movimiento: string }

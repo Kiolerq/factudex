@@ -26,6 +26,8 @@ import {
   MODULOS,
   claveCentro,
   codigoCaja,
+  separarLiquidadoAntes,
+  type TipoDevolucion,
 } from "./tipos";
 
 // Modo demo: réplica en memoria de supabase/seed.sql + algunos movimientos para que los
@@ -51,6 +53,7 @@ interface PagoDemo {
 interface DevolucionDemo {
   id: string;
   pagoId: string;
+  tipo?: TipoDevolucion;
   monto: number;
   motivo: string;
   fecha: string;
@@ -860,7 +863,7 @@ export const repositorioDemo: Repositorio = {
   async obtenerPago(id) {
     if (!(db.pagos ??= []).some((p) => p.id === id)) return null;
     const i = infoPago(id);
-    return {
+    return separarLiquidadoAntes({
       id,
       cajaId: i.pago.cajaId,
       cajaCodigo: codigoDe(i.pago.cajaId),
@@ -876,9 +879,33 @@ export const repositorioDemo: Repositorio = {
       salidas: [...i.salidas].sort((a, b) => a.creado - b.creado).map(resumen),
       devoluciones: (db.devoluciones ??= [])
         .filter((d) => d.pagoId === id)
-        .map((d) => ({ id: d.id, pagoId: d.pagoId, monto: d.monto, motivo: d.motivo, fecha: d.fecha, conFoto: !!d.comprobantePath })),
+        .map((d) => ({
+          id: d.id,
+          pagoId: d.pagoId,
+          tipo: d.tipo ?? "devolucion",
+          monto: d.monto,
+          motivo: d.motivo,
+          fecha: d.fecha,
+          conFoto: !!d.comprobantePath,
+        })),
       yaLiquidado: yaLiquidadoDe(id),
-    };
+    });
+  },
+
+  async vincularAPago(pagoId, movimientoId) {
+    const p = (db.pagos ??= []).find((x) => x.id === pagoId);
+    if (!p) throw new ErrorDeNegocio("El pago no existe");
+    const m = db.movimientos.find((x) => x.id === movimientoId);
+    if (!m) throw new ErrorDeNegocio("El gasto no existe");
+    if (m.anulado) throw new ErrorDeNegocio("El gasto está anulado");
+    if (m.pagoId) throw new ErrorDeNegocio("Ese gasto ya es parte de un pago");
+    const empresa = (cajaId: string) => db.cajas.find((c) => c.id === cajaId)?.empresaId;
+    if (empresa(m.cajaId) !== empresa(p.cajaId)) throw new ErrorDeNegocio("El gasto es de otra empresa");
+    const falta = infoPago(pagoId).falta;
+    if (m.monto > falta + 0.005)
+      throw new ErrorDeNegocio(`El gasto (S/ ${m.monto.toFixed(2)}) es mayor que lo que falta del pago (S/ ${falta.toFixed(2)})`);
+    m.pagoId = pagoId;
+    recalcularPago(pagoId);
   },
 
   async convertirEnPago(movimientoId, monto) {
@@ -940,6 +967,7 @@ export const repositorioDemo: Repositorio = {
     (db.devoluciones ??= []).push({
       id: randomUUID(),
       pagoId: d.pagoId,
+      tipo: d.tipo,
       monto: d.monto,
       motivo: d.motivo,
       fecha: fechaHoyLima(),

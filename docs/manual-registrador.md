@@ -150,6 +150,17 @@ anterior) y **S/ 20 de comida**, que se sustenta con una planilla.
 
 Lo que ya se liquidó no cambia. La salida nueva queda **Completa** cuando el pago cuadra (60 = 40 + 20).
 
+**Al revés: subiste el pago nuevo y lo que falta ya se liquidó antes.** Ej.: un Yape de S/ 60 que incluye
+S/ 29.30 de una planilla que ya se rindió en la caja anterior. En la tarjeta del pago (en *Completar un registro
+anterior* o en el detalle del gasto) toca **"✓ Lo que falta ya se liquidó en una caja anterior"**:
+
+- **Está en la app**: busca ese gasto (sale primero el del mismo monto) y toca **Juntar**.
+- **Fuera de la app** (se liquidó en Excel o papel): escribe el monto y dónde se liquidó (ej. *Caja 4 ·
+  planilla de movilidad 10-150*) y **Guardar**.
+
+El pago cuadra y sus salidas pasan a **Completo**. Lo ya liquidado no cambia y queda indicado en la app y en el
+Excel.
+
 ## 5. Completar pendientes
 
 1. Ve a **Pendientes**. Cada gasto dice qué le falta (comprobante o pago).
