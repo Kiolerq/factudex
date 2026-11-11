@@ -161,6 +161,22 @@ Además de las columnas de siempre, al final trae:
 8. Si **observas** la 006, el registrador la corrige en la 006 y la reenvía. Si anula un gasto, ese monto
    pasa solo como ajuste a la 07 (*"Corrección de liquidación observada de SL-CAJA-GE-06"*).
 
+## 7b. Corregir un gasto ya liquidado
+
+Ej.: la factura **FB82-00020410** de **S/ 9.80** ya se liquidó, pero el proveedor la anuló y emitió la
+**FB82-00020411** por **S/ 6.55** (faltó un material).
+
+1. Abre el gasto (desde la liquidación o el Historial) → **✎ Corregir gasto liquidado**.
+2. Escribe el **monto correcto (6.55)**, el **N° del documento nuevo**, el **motivo** y sube la **foto de la
+   factura nueva** (o la nota de crédito).
+3. **Guardar corrección.** En la caja abierta entra una línea de **–S/ 3.25** que va en su próxima liquidación
+   (con la factura nueva y el motivo en OBSERVACIONES). La caja queda con S/ 3.25 más: el registrador debe
+   recibir esa diferencia del proveedor.
+
+El gasto original no cambia (esa liquidación ya la tiene contabilidad) y muestra *"Corregido · ahora S/ 6.55"*.
+Si el gasto todavía está en una liquidación **en revisión**, mejor **obsérvala**: el registrador lo anula y lo
+registra de nuevo con la factura correcta.
+
 ## 8. Preguntas rápidas
 
 - **Un registrador no ve su caja:** en Usuarios, revisa que tenga la caja marcada y que esté *Activo*.

@@ -1302,6 +1302,17 @@ export type Database = {
           numero: number
         }[]
       }
+      corregir_movimiento: {
+        Args: {
+          p_caja: string
+          p_id: string
+          p_monto_correcto: number
+          p_motivo: string
+          p_original: string
+          p_serie_numero: string
+        }
+        Returns: string
+      }
       vincular_a_pago: {
         Args: { p_movimiento: string; p_pago: string }
         Returns: undefined

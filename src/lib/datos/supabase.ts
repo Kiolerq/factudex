@@ -63,6 +63,7 @@ const COLUMNAS_MOVIMIENTO =
 interface FilaMovimiento {
   id: string;
   observaciones?: string | null; // migración 20261115000000
+  corrige_id?: string | null; // migración 20261117000000
   caja_id: string;
   liquidacion_id: string;
   fecha: string;
@@ -114,6 +115,7 @@ function aMovimiento(m: FilaMovimiento, pagos?: Map<string, InfoPago>): Movimien
     pagoId: m.pago_id ?? null,
     pagoFalta: pago ? Math.round(pago.falta * 100) / 100 : 0,
     observaciones: m.observaciones ?? null,
+    corrigeId: m.corrige_id ?? null,
   };
 }
 
@@ -241,9 +243,10 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
   // Pagos con varias salidas (migración 20261102000000). Sin la migración, todo sigue como antes.
   const hayPagos = memo(async () => !(await sb.from("pagos").select("id").limit(1)).error);
   const hayObservaciones = memo(async () => !(await sb.from("movimientos").select("observaciones").limit(1)).error);
+  const hayCorrecciones = memo(async () => !(await sb.from("movimientos").select("corrige_id").limit(1)).error);
   const columnasMovimiento = async () => {
-    const [pagos, obs] = await Promise.all([hayPagos(), hayObservaciones()]);
-    return `${COLUMNAS_MOVIMIENTO}${pagos ? ", pago_id" : ""}${obs ? ", observaciones" : ""}`;
+    const [pagos, obs, corr] = await Promise.all([hayPagos(), hayObservaciones(), hayCorrecciones()]);
+    return `${COLUMNAS_MOVIMIENTO}${pagos ? ", pago_id" : ""}${obs ? ", observaciones" : ""}${corr ? ", corrige_id" : ""}`;
   };
   /** Observaciones del gasto (si ya se corrió la migración que las agrega). */
   async function guardarObservaciones(id: string, texto: string | null | undefined) {
@@ -1128,6 +1131,30 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       }
       await guardarObservaciones(p.movimientoId, p.observaciones || undefined);
       return data as string;
+    },
+
+    async corregirMovimiento(c) {
+      const { error } = await sb.rpc("corregir_movimiento", {
+        p_id: c.id,
+        p_original: c.originalId,
+        p_caja: c.cajaId,
+        p_monto_correcto: c.montoCorrecto,
+        p_serie_numero: c.serieNumero as string,
+        p_motivo: c.motivo,
+      });
+      falloRpc(error, "Corregir gasto", "20261117000000_corregir_gasto_liquidado");
+    },
+
+    async listarCorrecciones(originalId) {
+      if (!(await hayCorrecciones())) return [];
+      const { data, error } = await sb
+        .from("movimientos")
+        .select("id, monto, detalle, anulado, liquidaciones(folio)")
+        .eq("corrige_id" as "id", originalId)
+        .order("created_at")
+        .overrideTypes<{ id: string; monto: number; detalle: string; anulado: boolean; liquidaciones: { folio: string } }[], { merge: false }>();
+      fallo(error, "Correcciones");
+      return data.map((m) => ({ id: m.id, monto: Number(m.monto), detalle: m.detalle, folio: m.liquidaciones.folio, anulado: m.anulado }));
     },
 
     async actualizarObservaciones(id, texto) {

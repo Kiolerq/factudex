@@ -10,6 +10,8 @@ import type {
   NuevaDevolucion,
   Pago,
   PagoPorCompletar,
+  NuevaCorreccion,
+  Correccion,
   GastoAnterior,
   CajaAdmin,
   DatosCaja,
@@ -88,6 +90,9 @@ export interface Repositorio {
   registrarDevolucion(d: NuevaDevolucion): Promise<void>;
   /** Un gasto ya registrado (aunque esté liquidado) pasa a ser la primera salida de un pago de `monto`. */
   convertirEnPago(movimientoId: string, monto: number): Promise<string>;
+  /** Tesorería corrige un gasto ya liquidado: entra una línea por la diferencia en la caja abierta. */
+  corregirMovimiento(c: NuevaCorreccion): Promise<void>;
+  listarCorrecciones(originalId: string): Promise<Correccion[]>;
   /** Para quién fue el gasto y el motivo (null = sin observaciones). */
   actualizarObservaciones(id: string, texto: string | null): Promise<void>;
   /** Junta al pago un gasto ya registrado (aunque esté liquidado en otra caja de la empresa). */

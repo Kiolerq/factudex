@@ -357,8 +357,27 @@ export interface MovimientoResumen {
   faltaPago: boolean; // en efectivo nunca falta; en un pago con varias salidas basta una constancia
   porAutorizar: boolean; // supera el tope de la empresa y tesorería aún no lo autoriza
   pagoId: string | null; // parte de un pago con varias salidas
-  pagoFalta: number;
-  observaciones: string | null; // para quién fue y el motivo // lo que falta cuadrar de ese pago (0 = cuadrado o sin pago)
+  pagoFalta: number; // lo que falta cuadrar de ese pago (0 = cuadrado o sin pago)
+  observaciones: string | null; // para quién fue y el motivo
+  corrigeId: string | null; // línea de corrección de un gasto ya liquidado (el original)
+}
+
+/** Corrección de un gasto ya liquidado (la hace tesorería). */
+export interface NuevaCorreccion {
+  id: string; // de la línea nueva (el archivo ya se subió con este id)
+  originalId: string;
+  cajaId: string; // caja abierta donde entra
+  montoCorrecto: number;
+  serieNumero: string | null;
+  motivo: string;
+}
+
+export interface Correccion {
+  id: string;
+  monto: number; // diferencia (negativa si bajó)
+  detalle: string;
+  folio: string; // liquidación donde entra
+  anulado: boolean;
 }
 
 export interface PaginaMovimientos {

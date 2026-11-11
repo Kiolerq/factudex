@@ -62,6 +62,7 @@ interface DevolucionDemo {
 }
 interface MovimientoDemo extends Omit<NuevoMovimiento, "adjuntos" | "pago"> {
   pagoId: string | null;
+  corrigeId?: string | null;
   estado: EstadoMovimiento;
   liquidacionId: string;
   anulado: boolean;
@@ -444,6 +445,7 @@ function resumen(m: MovimientoDemo): MovimientoResumen {
     pagoId: m.pagoId,
     pagoFalta: m.pagoId ? infoPago(m.pagoId).falta : 0,
     observaciones: m.observaciones ?? null,
+    corrigeId: m.corrigeId ?? null,
   };
 }
 
@@ -954,6 +956,50 @@ export const repositorioDemo: Repositorio = {
       throw new ErrorDeNegocio(`El gasto (S/ ${m.monto.toFixed(2)}) es mayor que lo que falta del pago (S/ ${falta.toFixed(2)})`);
     m.pagoId = pagoId;
     recalcularPago(pagoId);
+  },
+
+  async corregirMovimiento(c) {
+    const o = db.movimientos.find((x) => x.id === c.originalId);
+    if (!o || o.anulado) throw new ErrorDeNegocio("El gasto no existe o está anulado");
+    if (o.corrigeId) throw new ErrorDeNegocio("Esa línea ya es una corrección: corrige el gasto original");
+    const liq = db.liquidaciones.find((l) => l.id === o.liquidacionId)!;
+    if (liq.estado === "abierta" || liq.estado === "observada")
+      throw new ErrorDeNegocio(`El gasto sigue en la liquidación ${liq.folio}: corrígelo ahí, anulándolo y registrándolo de nuevo`);
+    const vigente = redondear(o.monto + suma(db.movimientos.filter((m) => m.corrigeId === o.id && !m.anulado), (m) => m.monto));
+    const dif = redondear(c.montoCorrecto - vigente);
+    if (dif === 0) throw new ErrorDeNegocio(`El gasto ya está en S/ ${vigente.toFixed(2)}`);
+    const serie = c.serieNumero?.trim() || null;
+    await repositorioDemo.registrarMovimiento({
+      id: c.id,
+      cajaId: c.cajaId,
+      fecha: fechaHoyLima(),
+      solicitante: o.solicitante,
+      proveedorId: o.proveedorId,
+      categoriaId: o.categoriaId,
+      centroCostoId: o.centroCostoId,
+      detalle: `Corrección de ${o.serieNumero ?? "gasto"} (${liq.folio}): ahora S/ ${c.montoCorrecto.toFixed(2)}${serie && serie !== o.serieNumero ? ` con ${serie}` : ""}`,
+      observaciones: c.motivo,
+      monto: dif,
+      tipoDocumento: o.tipoDocumento,
+      serieNumero: serie ?? o.serieNumero,
+      medioPago: "efectivo",
+      operacionPago: null,
+      pago: null,
+      adjuntos: [],
+    });
+    db.movimientos.find((m) => m.id === c.id)!.corrigeId = o.id;
+  },
+
+  async listarCorrecciones(originalId) {
+    return db.movimientos
+      .filter((m) => m.corrigeId === originalId)
+      .map((m) => ({
+        id: m.id,
+        monto: m.monto,
+        detalle: m.detalle,
+        folio: db.liquidaciones.find((l) => l.id === m.liquidacionId)!.folio,
+        anulado: m.anulado,
+      }));
   },
 
   async actualizarObservaciones(id, texto) {

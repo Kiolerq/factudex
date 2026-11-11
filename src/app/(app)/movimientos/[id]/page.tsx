@@ -6,13 +6,14 @@ import { CompletarPendiente } from "@/components/movimientos/CompletarPendiente"
 import { PagoVariasSalidas } from "@/components/movimientos/PagoVariasSalidas";
 import { ConvertirEnPago } from "@/components/movimientos/ConvertirEnPago";
 import { EditarObservaciones } from "@/components/movimientos/EditarObservaciones";
+import { CorregirGastoLiquidado } from "@/components/movimientos/CorregirGastoLiquidado";
 import { AccionesPlanilla } from "@/components/movimientos/AccionesPlanilla";
 import { textoFalta } from "@/components/movimientos/textos";
 import { BadgeEstado } from "@/components/ui/BadgeEstado";
 import { exigirDetalle } from "@/lib/contexto";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
 import { fechaHoyLima, restarDias } from "@/lib/datos/esquemas";
-import { ETIQUETA_DOCUMENTO, ETIQUETA_LIQUIDACION, ETIQUETA_MEDIO_PAGO, esSoloTesoreria } from "@/lib/datos/tipos";
+import { codigoCaja, ETIQUETA_DOCUMENTO, ETIQUETA_LIQUIDACION, ETIQUETA_MEDIO_PAGO, esSoloTesoreria } from "@/lib/datos/tipos";
 import { almacenActivo } from "@/lib/drive/estado";
 import { formatoFecha, formatoSoles } from "@/lib/formato";
 
@@ -37,6 +38,20 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
     pago && pago.falta > 0.005 && permisos.registrar ? await repo.listarAnteriores(pago.empresaId, restarDias(fechaHoyLima(), 120)) : null;
 
   const liquidacionAbierta = m.liquidacion.estado === "abierta" || m.liquidacion.estado === "observada";
+
+  // Correcciones de un gasto ya liquidado (las hace tesorería) y la caja abierta donde entrarían.
+  const correcciones = m.corrigeId ? [] : await repo.listarCorrecciones(m.id);
+  const vigente = Math.round((m.monto + correcciones.filter((c) => !c.anulado).reduce((t, c) => t + c.monto, 0)) * 100) / 100;
+  let destinoCorreccion: { id: string; codigo: string } | null = null;
+  if (yo.esTesoreria && !liquidacionAbierta && !m.anulado && !m.corrigeId) {
+    const todas = await repo.listarCajasAdmin();
+    const suya = todas.find((c) => c.id === m.cajaId);
+    const destino = suya?.activa
+      ? suya
+      : (todas.find((c) => c.activa && c.empresaId === suya?.empresaId && c.area === suya?.area) ??
+        todas.find((c) => c.activa && c.empresaId === suya?.empresaId));
+    if (destino) destinoCorreccion = { id: destino.id, codigo: codigoCaja(destino) };
+  }
   const pendiente = m.estado === "pendiente" && !m.anulado;
 
   const datos: [string, React.ReactNode][] = [
@@ -168,6 +183,41 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
           planilla={planilla}
           sinPdf={!m.adjuntos.some((a) => a.tipo === "documento")}
           puedeRegistrar={permisos.registrar && !m.anulado}
+        />
+      )}
+      {m.corrigeId && (
+        <p className="fx-card px-4 py-3 text-fx-sm text-white/82">
+          ✎ Esta línea corrige un gasto ya liquidado.{" "}
+          <Link prefetch={false} href={`/movimientos/${m.corrigeId}`} className="font-semibold text-fx-primary-light hover:underline">
+            Ver el gasto original →
+          </Link>
+        </p>
+      )}
+      {correcciones.length > 0 && (
+        <section className="fx-card flex flex-col gap-2.5 p-4 md:p-6">
+          <h2 className="text-base font-bold">Corregido · ahora {formatoSoles(vigente)}</h2>
+          {correcciones.map((c) => (
+            <Link
+              prefetch={false}
+              key={c.id}
+              href={`/movimientos/${c.id}`}
+              className="flex items-center justify-between gap-3 rounded-xl border border-white/12 px-3.5 py-2.5 text-fx-sm hover:bg-white/4"
+            >
+              <span className={`min-w-0 ${c.anulado ? "line-through opacity-60" : ""}`}>
+                {c.detalle} · <span className="text-white/68">en {c.folio}</span>
+              </span>
+              <b className="shrink-0 font-display">{formatoSoles(c.monto)}</b>
+            </Link>
+          ))}
+        </section>
+      )}
+      {destinoCorreccion && (
+        <CorregirGastoLiquidado
+          originalId={m.id}
+          vigente={vigente}
+          serieNumero={m.serieNumero}
+          destino={destinoCorreccion}
+          almacen={almacen}
         />
       )}
       {pago && (

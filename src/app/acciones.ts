@@ -33,6 +33,7 @@ import {
   type EntradaCompletar,
   type EntradaMovimiento,
   type EntradaRecarga,
+  EsquemaAdjunto,
 } from "@/lib/datos/esquemas";
 import { ErrorDeNegocio, modoDemo, obtenerRepositorio, type Repositorio } from "@/lib/datos/repositorio";
 import { codigoCaja, esSoloTesoreria } from "@/lib/datos/tipos";
@@ -540,6 +541,54 @@ async function repoTesoreria() {
   const yo = await repo.usuarioActual();
   if (!yo?.esTesoreria || !yo.activo) throw new Error("Solo tesorería puede hacer esto");
   return repo;
+}
+
+/**
+ * Tesorería corrige un gasto ya liquidado (ej. la factura de S/ 9.80 se anuló y la nueva es de
+ * S/ 6.55): en la caja abierta entra una línea por la diferencia con el documento nuevo, que el
+ * navegador ya subió. El gasto original no cambia.
+ */
+export async function corregirGastoLiquidado(entrada: {
+  id: string;
+  originalId: string;
+  cajaId: string;
+  montoCorrecto: number;
+  serieNumero: string | null;
+  motivo: string;
+  documento: AdjuntoSubido;
+}): Promise<Resultado> {
+  const datos = z
+    .object({
+      id: z.uuid(),
+      originalId: z.uuid(),
+      cajaId: z.uuid(),
+      montoCorrecto: z
+        .number("Escribe el monto correcto")
+        .min(0, "El monto no puede ser negativo")
+        .max(100000, "Monto demasiado alto")
+        .refine((m) => Math.abs(m * 100 - Math.round(m * 100)) < 1e-6, "Máximo 2 decimales"),
+      serieNumero: z.string().trim().max(40).nullable(),
+      motivo: z.string().trim().min(3, "Escribe el motivo").max(300),
+      documento: EsquemaAdjunto,
+    })
+    .safeParse(entrada);
+  if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
+  const repo = await repoTesoreria();
+  const d = datos.data;
+  if (d.documento.tipo !== "documento") return { ok: false, errores: { documento: "Sube el documento nuevo" } };
+  const errorArchivo = await verificarAdjuntos(d.cajaId, d.id, [d.documento]);
+  if (errorArchivo) return { ok: false, errores: { documento: errorArchivo } };
+  return ejecutar(async () => {
+    await repo.corregirMovimiento({
+      id: d.id,
+      originalId: d.originalId,
+      cajaId: d.cajaId,
+      montoCorrecto: d.montoCorrecto,
+      serieNumero: d.serieNumero || null,
+      motivo: d.motivo,
+    });
+    await repo.agregarAdjuntos(d.id, [d.documento]);
+  });
 }
 
 /** Autoriza un gasto que supera el tope de la empresa (para que pueda liquidarse). */
