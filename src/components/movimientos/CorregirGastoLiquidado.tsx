@@ -83,7 +83,7 @@ export function CorregirGastoLiquidado({
           archivo: archivo!,
           fecha: fechaHoyLima(),
           referencia: `Correccion ${serie.trim() || serieNumero || ""}`.trim(),
-          monto: diferencia,
+          monto: monto!, // el del documento nuevo (la diferencia puede ser negativa)
         });
         setPaso("Guardando…");
         const r = await corregirGastoLiquidado({
