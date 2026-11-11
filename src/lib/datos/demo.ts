@@ -990,11 +990,14 @@ export const repositorioDemo: Repositorio = {
     db.movimientos.find((m) => m.id === c.id)!.corrigeId = o.id;
   },
 
-  async listarCorrecciones(originalId) {
+  async listarCorrecciones(originalIds) {
     return db.movimientos
-      .filter((m) => m.corrigeId === originalId)
+      .filter((m) => !!m.corrigeId && originalIds.includes(m.corrigeId))
       .map((m) => ({
         id: m.id,
+        originalId: m.corrigeId!,
+        serieNumero: m.serieNumero,
+        motivo: m.observaciones ?? null,
         monto: m.monto,
         detalle: m.detalle,
         folio: db.liquidaciones.find((l) => l.id === m.liquidacionId)!.folio,

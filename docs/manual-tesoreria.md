@@ -174,6 +174,9 @@ Ej.: la factura **FB82-00020410** de **S/ 9.80** ya se liquidó, pero el proveed
    recibir esa diferencia del proveedor.
 
 El gasto original no cambia (esa liquidación ya la tiene contabilidad) y muestra *"Corregido · ahora S/ 6.55"*.
+Si se vuelve a descargar el Excel de esa liquidación, los montos son los mismos, pero en **OBSERVACIONES** de esa
+factura sale *"Corregido: ahora S/ 6.55 (FB82-00020411) en SL-LIQ-GE-007 — motivo"*. No hay que registrar ningún
+ingreso por la diferencia: la línea negativa ya la devuelve al saldo de la caja.
 Si el gasto todavía está en una liquidación **en revisión**, mejor **obsérvala**: el registrador lo anula y lo
 registra de nuevo con la factura correcta.
 

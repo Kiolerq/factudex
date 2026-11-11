@@ -27,13 +27,28 @@ export async function GET(peticion: NextRequest, { params }: { params: Promise<{
   // Links a los archivos (pedido de contabilidad) y el resumen de los pagos con varias salidas.
   const completos = l.movimientos.filter((m) => m.estado === "completo");
   const base = urlPublica(peticion.nextUrl.origin);
-  const [archivos, pagos] = await Promise.all([
+  const [archivos, pagos, correcciones] = await Promise.all([
     repo.archivosParaExcel(
       completos.map((m) => m.id),
       l.recargas.filter((r) => r.conFoto).map((r) => r.id),
     ),
     Promise.all([...new Set(completos.flatMap((m) => (m.pagoId ? [m.pagoId] : [])))].map((id) => repo.obtenerPago(id))),
+    repo.listarCorrecciones(completos.map((m) => m.id)),
   ]);
+  /**
+   * Gasto corregido después (ej. la factura se anuló y la reemplazó otra): el monto de esta hoja no
+   * cambia, pero OBSERVACIONES dice qué pasó y en qué liquidación entró la diferencia.
+   */
+  const notaCorreccion = (m: (typeof completos)[number]) => {
+    const suyas = correcciones.filter((c) => c.originalId === m.id && !c.anulado);
+    if (!suyas.length) return null;
+    const ahora = Math.round((m.monto + suyas.reduce((t, c) => t + c.monto, 0)) * 100) / 100;
+    const ultima = suyas.at(-1)!;
+    const doc = ultima.serieNumero && ultima.serieNumero !== m.serieNumero ? ` (${ultima.serieNumero})` : "";
+    const donde = [...new Set(suyas.map((c) => c.folio))].join(", ");
+    const motivo = ultima.motivo ? ` — ${ultima.motivo}` : "";
+    return `Corregido: ahora ${formatoSoles(ahora)}${doc} en ${donde}${motivo}`;
+  };
   const linkDe = (movimientoId: string, tipo: "documento" | "pago", pagoId: string | null) => {
     const a =
       archivos.adjuntos.find((x) => x.movimientoId === movimientoId && x.tipo === tipo) ??
@@ -94,7 +109,7 @@ export async function GET(peticion: NextRequest, { params }: { params: Promise<{
         // La constancia sale siempre que exista (una planilla en efectivo puede tener su Yape).
         urlPago: linkDe(m.id, "pago", m.pagoId),
         notaPago: notaPago(m.pagoId),
-        observaciones: m.observaciones,
+        observaciones: [m.observaciones, notaCorreccion(m)].filter(Boolean).join(" · ") || null,
       })),
   };
   const archivo = await generarLiquidacionExcel(datos);

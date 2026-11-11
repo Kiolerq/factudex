@@ -374,6 +374,9 @@ export interface NuevaCorreccion {
 
 export interface Correccion {
   id: string;
+  originalId: string;
+  serieNumero: string | null; // del documento nuevo
+  motivo: string | null;
   monto: number; // diferencia (negativa si bajó)
   detalle: string;
   folio: string; // liquidación donde entra

@@ -1145,16 +1145,37 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       falloRpc(error, "Corregir gasto", "20261117000000_corregir_gasto_liquidado");
     },
 
-    async listarCorrecciones(originalId) {
-      if (!(await hayCorrecciones())) return [];
+    async listarCorrecciones(originalIds) {
+      if (!originalIds.length || !(await hayCorrecciones())) return [];
       const { data, error } = await sb
         .from("movimientos")
-        .select("id, monto, detalle, anulado, liquidaciones(folio)")
-        .eq("corrige_id" as "id", originalId)
+        .select("id, corrige_id, monto, detalle, serie_numero, observaciones, anulado, liquidaciones(folio)")
+        .in("corrige_id" as "id", originalIds)
         .order("created_at")
-        .overrideTypes<{ id: string; monto: number; detalle: string; anulado: boolean; liquidaciones: { folio: string } }[], { merge: false }>();
+        .overrideTypes<
+          {
+            id: string;
+            corrige_id: string;
+            monto: number;
+            detalle: string;
+            serie_numero: string | null;
+            observaciones: string | null;
+            anulado: boolean;
+            liquidaciones: { folio: string };
+          }[],
+          { merge: false }
+        >();
       fallo(error, "Correcciones");
-      return data.map((m) => ({ id: m.id, monto: Number(m.monto), detalle: m.detalle, folio: m.liquidaciones.folio, anulado: m.anulado }));
+      return data.map((m) => ({
+        id: m.id,
+        originalId: m.corrige_id,
+        serieNumero: m.serie_numero,
+        motivo: m.observaciones,
+        monto: Number(m.monto),
+        detalle: m.detalle,
+        folio: m.liquidaciones.folio,
+        anulado: m.anulado,
+      }));
     },
 
     async actualizarObservaciones(id, texto) {

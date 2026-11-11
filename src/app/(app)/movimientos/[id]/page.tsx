@@ -40,7 +40,7 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
   const liquidacionAbierta = m.liquidacion.estado === "abierta" || m.liquidacion.estado === "observada";
 
   // Correcciones de un gasto ya liquidado (las hace tesorería) y la caja abierta donde entrarían.
-  const correcciones = m.corrigeId ? [] : await repo.listarCorrecciones(m.id);
+  const correcciones = m.corrigeId ? [] : await repo.listarCorrecciones([m.id]);
   const vigente = Math.round((m.monto + correcciones.filter((c) => !c.anulado).reduce((t, c) => t + c.monto, 0)) * 100) / 100;
   let destinoCorreccion: { id: string; codigo: string } | null = null;
   if (yo.esTesoreria && !liquidacionAbierta && !m.anulado && !m.corrigeId) {
