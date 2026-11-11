@@ -186,8 +186,9 @@ Cuando el saldo se está acabando (o cuando te lo pidan), rindes los gastos:
 4. Revisa el resumen: **saldo anterior**, **ingresos**, **gastos** y **por reembolsar**.
 5. Toca **Generar liquidación** y confirma con **Sí, generar**.
 
-Sale su **folio**, por ejemplo `SL-LIQ-MT-001`. El correlativo es por empresa y área, y lo pone el
-sistema. La liquidación pasa a **En revisión** y tú sigues registrando gastos en la caja.
+Sale su **folio** con el número de tu caja: la `SL-CAJA-GE-06` se liquida como `SL-LIQ-GE-006` (si la liquidas
+otra vez, `SL-LIQ-GE-006-2`). Lo pone el sistema. La liquidación pasa a **En revisión** y tú sigues registrando
+gastos en la caja.
 
 **Estados de la liquidación:**
 

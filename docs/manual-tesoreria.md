@@ -74,7 +74,8 @@ El **código se arma solo** y lo ves arriba del formulario mientras escribes:
 
 - El número cuenta por **empresa**, no por área: si San Lorenzo tiene la 01, la siguiente es la 02
   aunque sea de otra área.
-- Las liquidaciones de la caja también se numeran solas: `SL-LIQ-MT-001`, `002`…
+- Las liquidaciones llevan el **número de la caja**: la `SL-CAJA-GE-06` se liquida como `SL-LIQ-GE-006`.
+  Si esa misma caja se liquida otra vez, sale `SL-LIQ-GE-006-2`, `-3`…
 
 **Después de abrirla:** si pasó el saldo de una caja anterior, su registrador ya la tiene. Si es una caja
 nueva sin anterior, ve a **Usuarios** y asígnala al registrador que la va a manejar.

@@ -426,8 +426,15 @@ function AbrirCaja({
               {errores.numero ?? `${empresa?.nombre} ya tiene la caja N° ${String(numeroElegido).padStart(2, "0")}`}
             </p>
           )}
-          {!errores.numero && !repetido && (
+          {!errores.numero && !repetido && numeroElegido !== null && numeroElegido < siguiente && (
+            <p role="alert" className="mt-1.5 text-fx-xs font-semibold text-fx-pendiente">
+              ⚠ La última caja de {empresa?.nombre} es la {String(siguiente - 1).padStart(2, "0")}: la nueva debería ser la{" "}
+              {String(siguiente).padStart(2, "0")}. Borra el número para usar el siguiente.
+            </p>
+          )}
+          {!errores.numero && !repetido && !(numeroElegido !== null && numeroElegido < siguiente) && (
             <p className="mt-1.5 text-fx-xs text-white/68">
+              {siguiente > 1 && `Última de ${empresa?.nombre}: N° ${String(siguiente - 1).padStart(2, "0")}. `}
               Déjalo vacío para usar el siguiente. Si ya venían trabajando con otras cajas, pon el número que les toca.
             </p>
           )}

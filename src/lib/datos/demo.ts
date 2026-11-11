@@ -303,7 +303,7 @@ function sembrar(): Almacen {
   };
 }
 
-/** Folio SL-LIQ-MT-001: correlativo por empresa y área (como fx_siguiente_folio en la BD). */
+/** Folio con el número de la caja: SL-LIQ-MT-001, y -2, -3… si se liquida otra vez (como fx_siguiente_folio). */
 function nuevaLiquidacion(
   caja: CajaDemo,
   empresas: Empresa[],
@@ -312,13 +312,15 @@ function nuevaLiquidacion(
   fechaInicio: string,
   saldoInicial: number,
 ): LiquidacionDemo {
-  const prefijo = `${empresas.find((e) => e.id === caja.empresaId)!.codigo}-LIQ-${caja.area}-`;
-  const n = Math.max(0, ...existentes.filter((l) => l.folio.startsWith(prefijo)).map((l) => Number(l.folio.slice(prefijo.length)))) + 1;
+  const base = `${empresas.find((e) => e.id === caja.empresaId)!.codigo}-LIQ-${caja.area}-${String(caja.numero).padStart(3, "0")}`;
+  let n = existentes.filter((l) => l.cajaId === caja.id && (l.folio === base || l.folio.startsWith(`${base}-`))).length;
+  let folio = n === 0 ? base : `${base}-${n + 1}`;
+  while (existentes.some((l) => l.folio === folio)) folio = `${base}-${++n + 1}`;
   return {
     id: randomUUID(),
     cajaId: caja.id,
     correlativo,
-    folio: prefijo + String(n).padStart(3, "0"),
+    folio,
     estado: "abierta",
     fechaInicio,
     fechaCierre: null,
