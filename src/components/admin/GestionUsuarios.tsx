@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { actualizarUsuario, cambiarContrasenaUsuario, crearUsuario } from "@/app/acciones";
-import type { UsuarioAdmin } from "@/lib/datos/tipos";
+import { esSoloConsulta, MODULOS_CONSULTA, type UsuarioAdmin } from "@/lib/datos/tipos";
 
 interface EmpresaCajas {
   id: string;
@@ -19,13 +19,17 @@ interface Props {
   empresas: EmpresaCajas[];
 }
 
-type Tipo = "registrador" | "tesoreria" | "admin";
+type Tipo = "registrador" | "consulta" | "tesoreria" | "admin";
 const TIPOS: { id: Tipo; texto: string; ayuda: string }[] = [
   { id: "registrador", texto: "Registrador", ayuda: "Registra gastos y liquida solo sus cajas" },
+  { id: "consulta", texto: "Solo consulta", ayuda: "Ve gastos, archivos y liquidaciones y baja los Excel; no cambia nada" },
   { id: "tesoreria", texto: "Tesorería", ayuda: "Todas las cajas: ingresos, aprobación, autorizaciones, cajas y registradores" },
   { id: "admin", texto: "Administrador", ayuda: "Todo, más gestionar a cualquier usuario" },
 ];
-const tipoDe = (u: UsuarioAdmin): Tipo => (u.esAdmin ? "admin" : u.esTesoreria ? "tesoreria" : "registrador");
+const tipoDe = (u: UsuarioAdmin): Tipo =>
+  u.esAdmin ? "admin" : u.esTesoreria ? "tesoreria" : esSoloConsulta(u) ? "consulta" : "registrador";
+/** Tesorería solo crea y edita registradores y usuarios de consulta. */
+const gestionables = (t: Tipo) => t === "registrador" || t === "consulta";
 
 type Edicion = { modo: "nuevo" } | { modo: "editar"; usuario: UsuarioAdmin };
 
@@ -109,7 +113,7 @@ export function GestionUsuarios({ usuarios, miId, soyAdmin, empresas }: Props) {
                   "Todas las cajas: ingresos, aprobación, autorizaciones y cajas"
                 ) : (
                   <>
-                    Registrador ·{" "}
+                    {tipoDe(u) === "consulta" ? "Solo consulta" : "Registrador"} ·{" "}
                     {u.accesos.some((a) => codigoDe.has(a.cajaId)) ? (
                       u.accesos.flatMap((a) => codigoDe.get(a.cajaId) ?? []).join(", ")
                     ) : (
@@ -119,7 +123,7 @@ export function GestionUsuarios({ usuarios, miId, soyAdmin, empresas }: Props) {
                 )}
               </div>
             </div>
-            {(soyAdmin || tipoDe(u) === "registrador") && (
+            {(soyAdmin || gestionables(tipoDe(u))) && (
             <button
               type="button"
               onClick={() => abrir({ modo: "editar", usuario: u })}
@@ -172,11 +176,13 @@ function EditorUsuario({
     nombre,
     esAdmin: tipo === "admin",
     esTesoreria: tipo === "tesoreria",
-    modulos: null, // el registrador ve Registro, Pendientes, Historial y Liquidaciones de sus cajas
-    accesos:
-      tipo === "registrador"
-        ? [...cajas].filter((id) => activas.has(id)).map((cajaId) => ({ cajaId, rol: "registrador" as const }))
-        : [],
+    // El registrador ve Registro, Pendientes, Historial y Liquidaciones de sus cajas; el de consulta, sin Registro.
+    modulos: tipo === "consulta" ? MODULOS_CONSULTA : null,
+    accesos: gestionables(tipo)
+      ? [...cajas]
+          .filter((id) => activas.has(id))
+          .map((cajaId) => ({ cajaId, rol: tipo === "consulta" ? ("lector" as const) : ("registrador" as const) }))
+      : [],
   });
   const marcar = (id: string) =>
     setCajas((xs) => {
@@ -214,7 +220,8 @@ function EditorUsuario({
       else setErrores(r.errores);
     });
 
-  const sinCajas = tipo === "registrador" && ![...cajas].some((id) => activas.has(id));
+  const sinCajas = gestionables(tipo) && ![...cajas].some((id) => activas.has(id));
+  const todasMarcadas = [...activas].every((id) => cajas.has(id));
 
   return (
     <form onSubmit={guardar} noValidate className="fx-card flex flex-col gap-5 p-4 md:p-6">
@@ -296,11 +303,11 @@ function EditorUsuario({
         </div>
       </div>
 
-      {soyAdmin && (
+      {(soyAdmin || gestionables(tipo)) && (
         <fieldset className="flex flex-col gap-2">
           <legend className="fx-label">Tipo de usuario</legend>
-          <div className="grid gap-2 md:grid-cols-3">
-            {TIPOS.map((t) => (
+          <div className="grid gap-2 md:grid-cols-2">
+            {TIPOS.filter((t) => soyAdmin || gestionables(t.id)).map((t) => (
               <button
                 key={t.id}
                 type="button"
@@ -319,13 +326,21 @@ function EditorUsuario({
         </fieldset>
       )}
 
-      {tipo === "registrador" && (
+      {gestionables(tipo) && (
         <fieldset className="flex flex-col gap-3">
-          <legend className="fx-label">Cajas que maneja</legend>
+          <legend className="fx-label">{tipo === "consulta" ? "Cajas que puede ver" : "Cajas que maneja"}</legend>
           <p className="-mt-1 text-fx-xs text-white/68">
-            Solo en estas cajas registra gastos, adjunta comprobantes y genera su liquidación. Puedes agregarle o quitarle cajas
-            cuando quieras.
+            {tipo === "consulta"
+              ? "Ve los gastos, sus facturas y constancias de pago, las liquidaciones y sus Excel de estas cajas. No puede registrar, anular, aprobar ni cambiar nada. Cuando una caja se liquida y se abre la siguiente, la sigue viendo."
+              : "Solo en estas cajas registra gastos, adjunta comprobantes y genera su liquidación. Puedes agregarle o quitarle cajas cuando quieras."}
           </p>
+          <button
+            type="button"
+            onClick={() => setCajas(todasMarcadas ? new Set() : new Set(activas))}
+            className="fx-btn self-start rounded-[10px] border border-white/15 px-3 py-1.5 text-fx-xs font-semibold text-white/82"
+          >
+            {todasMarcadas ? "Quitar todas" : "Marcar todas las cajas"}
+          </button>
           {empresas.map((e) => (
             <div key={e.id} className="flex flex-col gap-2">
               <div className="text-fx-2xs uppercase tracking-[0.6px] text-white/60">{e.nombre}</div>

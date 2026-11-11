@@ -504,6 +504,11 @@ export function nombreCaja(caja: Pick<CajaSaldo, "numero" | "nombre">) {
 
 /** Código de la caja: SL-CAJA-MT-01 (empresa, área y número). */
 /** Tesorería sin ser admin: ve Panel, Tesorería y Usuarios, no las pantallas del registrador. */
+/** "Solo consulta": ve Pendientes, Historial y Liquidaciones (con archivos y Excel) sin tocar nada. */
+export const MODULOS_CONSULTA: Modulo[] = ["pendientes", "historial", "liquidaciones"];
+export const esSoloConsulta = (u: { esAdmin: boolean; esTesoreria: boolean; modulos: Modulo[] | null }) =>
+  !u.esAdmin && !u.esTesoreria && !!u.modulos && !u.modulos.includes("registro");
+
 export const esSoloTesoreria = (u: Pick<Usuario, "esAdmin" | "esTesoreria">) => u.esTesoreria && !u.esAdmin;
 
 export function codigoCaja(caja: Pick<CajaSaldo, "empresaCodigo" | "area" | "numero">) {

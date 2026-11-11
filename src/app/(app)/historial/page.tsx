@@ -10,7 +10,7 @@ const ESTADOS: FiltroEstado[] = ["todos", "pendiente", "completo", "por_autoriza
 const POR_PAGINA = 100;
 
 export default async function PaginaHistorial({ searchParams }: PageProps<"/historial">) {
-  await exigirModulo("historial");
+  const yo = await exigirModulo("historial");
   const sp = await searchParams;
   const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
   const { repo, empresas, cajas, caja } = await contextoPagina();
@@ -42,14 +42,16 @@ export default async function PaginaHistorial({ searchParams }: PageProps<"/hist
     <main className="flex flex-col gap-4 md:gap-5">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-lg font-bold md:text-xl">Historial de movimientos</h1>
+        {yo.modulos.includes("registro") && (
         <Link prefetch={false}
-          href="/registro"
+          href="/registro?nuevo=1"
           aria-label="Nuevo registro"
           className="fx-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-fx-primary text-base font-semibold text-blanco md:h-auto md:w-auto md:rounded-[10px] md:px-4 md:py-2.5 md:text-[13px]"
         >
           <span className="md:hidden">+</span>
           <span className="hidden md:inline">+ Nuevo registro</span>
         </Link>
+        )}
       </div>
 
       <FiltrosHistorial

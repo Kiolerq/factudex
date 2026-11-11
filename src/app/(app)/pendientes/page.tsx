@@ -11,7 +11,7 @@ const DIA = 24 * 60 * 60 * 1000;
 const dias = (desde: string, hasta: string) => Math.max(0, Math.round((Date.parse(hasta) - Date.parse(desde)) / DIA));
 
 export default async function PaginaPendientes() {
-  await exigirModulo("pendientes");
+  const yo = await exigirModulo("pendientes");
   const { repo, empresa, cajasEmpresa } = await contextoPagina();
   if (!empresa) return null;
 
@@ -79,7 +79,9 @@ export default async function PaginaPendientes() {
                 </div>
                 <div className="flex items-center justify-between gap-3 md:contents">
                   <span className="font-display text-fx-md font-bold md:w-[110px] md:text-right">{formatoSoles(m.monto)}</span>
-                  <span className="rounded-[9px] bg-fx-primary px-3 py-1.5 text-fx-xs font-semibold text-blanco">Adjuntar</span>
+                  <span className="rounded-[9px] bg-fx-primary px-3 py-1.5 text-fx-xs font-semibold text-blanco">
+                    {yo.modulos.includes("registro") ? "Adjuntar" : "Ver"}
+                  </span>
                 </div>
               </Link>
             );

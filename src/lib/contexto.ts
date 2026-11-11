@@ -18,6 +18,7 @@ export const RUTA_MODULO: Record<Modulo, string> = {
 /** Pantalla de inicio: tesorería y admin, el Panel; un registrador entra directo a registrar. */
 export function rutaInicio(u: Pick<Usuario, "esTesoreria" | "modulos">): string {
   if (u.esTesoreria) return "/panel";
+  if (!u.modulos.includes("registro") && u.modulos.includes("historial")) return RUTA_MODULO.historial; // solo consulta
   return RUTA_MODULO[MODULOS.find((m) => u.modulos.includes(m)) ?? "registro"];
 }
 
