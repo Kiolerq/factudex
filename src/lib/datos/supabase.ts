@@ -2,7 +2,7 @@ import { crearClienteAdmin } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Json, TablesInsert, TablesUpdate } from "@/types/database";
 import { ErrorDeNegocio, type Repositorio } from "./repositorio";
-import { MODULOS, type DatosUsuario, type Modulo, type RolCaja, type UsuarioAdmin } from "./tipos";
+import { MODULOS, esSoloConsulta, type DatosUsuario, type Modulo, type RolCaja, type UsuarioAdmin } from "./tipos";
 import { AREAS_BASE, claveCentro, codigoCaja, separarLiquidadoAntes, type TipoDevolucion, claveTrabajador, type FilaPlanilla, type GastoPlanillaDia, type Planilla } from "./tipos";
 import type {
   AdjuntoGuardado,
@@ -364,6 +364,8 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
     else if (d.esTesoreria) throw new ErrorDeNegocio("Falta correr en Supabase la migración de tesorería (20261024000000)");
     // Sin la migración de módulos la columna no existe: solo se puede dejar "todos".
     if ("modulos" in actual) cambios.modulos = d.modulos;
+    // Solo consulta ve todas las cajas (migración 20261116000000); sin ella, solo las que se le marquen.
+    if ("es_consulta" in actual) (cambios as Record<string, unknown>).es_consulta = esSoloConsulta(d);
     else if (d.modulos) throw new ErrorDeNegocio("Falta correr en Supabase la migración de módulos (20261022000000)");
     const { error } = await sb.from("perfiles").update(cambios).eq("id", id);
     fallo(error, "Guardar usuario");

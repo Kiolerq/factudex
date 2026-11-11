@@ -114,7 +114,9 @@ export function GestionUsuarios({ usuarios, miId, soyAdmin, empresas }: Props) {
                 ) : (
                   <>
                     {tipoDe(u) === "consulta" ? "Solo consulta" : "Registrador"} ·{" "}
-                    {u.accesos.some((a) => codigoDe.has(a.cajaId)) ? (
+                    {tipoDe(u) === "consulta" ? (
+                      "ve todas las cajas"
+                    ) : u.accesos.some((a) => codigoDe.has(a.cajaId)) ? (
                       u.accesos.flatMap((a) => codigoDe.get(a.cajaId) ?? []).join(", ")
                     ) : (
                       <span className="text-fx-pendiente">sin cajas asignadas</span>
@@ -178,11 +180,11 @@ function EditorUsuario({
     esTesoreria: tipo === "tesoreria",
     // El registrador ve Registro, Pendientes, Historial y Liquidaciones de sus cajas; el de consulta, sin Registro.
     modulos: tipo === "consulta" ? MODULOS_CONSULTA : null,
-    accesos: gestionables(tipo)
-      ? [...cajas]
-          .filter((id) => activas.has(id))
-          .map((cajaId) => ({ cajaId, rol: tipo === "consulta" ? ("lector" as const) : ("registrador" as const) }))
-      : [],
+    // Solo consulta ve todas las cajas sin asignárselas (migración 20261116000000).
+    accesos:
+      tipo === "registrador"
+        ? [...cajas].filter((id) => activas.has(id)).map((cajaId) => ({ cajaId, rol: "registrador" as const }))
+        : [],
   });
   const marcar = (id: string) =>
     setCajas((xs) => {
@@ -220,7 +222,7 @@ function EditorUsuario({
       else setErrores(r.errores);
     });
 
-  const sinCajas = gestionables(tipo) && ![...cajas].some((id) => activas.has(id));
+  const sinCajas = tipo === "registrador" && ![...cajas].some((id) => activas.has(id));
   const todasMarcadas = [...activas].every((id) => cajas.has(id));
 
   return (
@@ -326,13 +328,19 @@ function EditorUsuario({
         </fieldset>
       )}
 
-      {gestionables(tipo) && (
+      {tipo === "consulta" && (
+        <p className="rounded-xl border border-fx-primary-line bg-fx-primary-soft px-4 py-3 text-fx-sm text-white/82">
+          Ve <b>todas las cajas</b> de San Lorenzo y SIPE, también las cerradas y las que se abran después: los gastos con sus
+          facturas y constancias de pago, las liquidaciones y sus Excel. No puede registrar, anular, aprobar ni cambiar nada.
+        </p>
+      )}
+
+      {tipo === "registrador" && (
         <fieldset className="flex flex-col gap-3">
-          <legend className="fx-label">{tipo === "consulta" ? "Cajas que puede ver" : "Cajas que maneja"}</legend>
+          <legend className="fx-label">Cajas que maneja</legend>
           <p className="-mt-1 text-fx-xs text-white/68">
-            {tipo === "consulta"
-              ? "Ve los gastos, sus facturas y constancias de pago, las liquidaciones y sus Excel de estas cajas. No puede registrar, anular, aprobar ni cambiar nada. Cuando una caja se liquida y se abre la siguiente, la sigue viendo."
-              : "Solo en estas cajas registra gastos, adjunta comprobantes y genera su liquidación. Puedes agregarle o quitarle cajas cuando quieras."}
+            Solo en estas cajas registra gastos, adjunta comprobantes y genera su liquidación. Puedes agregarle o quitarle cajas
+            cuando quieras.
           </p>
           <button
             type="button"

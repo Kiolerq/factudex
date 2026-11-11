@@ -118,8 +118,9 @@ gestiona el administrador.
 4. **Crear usuario.** La app muestra el correo y la contraseña **una sola vez**: pásaselos. Puede
    cambiar la contraseña en *Mi cuenta*.
 
-**Usuario de solo consulta** (ej. contabilidad o gerencia): igual que arriba, pero tipo **Solo consulta** y
-marca las cajas que puede ver (**Marcar todas las cajas** para todas). Entra a *Historial* y ve Pendientes,
+**Usuario de solo consulta** (ej. contabilidad o gerencia): igual que arriba, pero tipo **Solo consulta**. Ve
+**todas las cajas** sin marcarlas: también las cerradas (en *Historial*, elige la caja en la lista, ej.
+`SL-CAJA-GE-05 · cerrada`) y las que se abran después. Entra a *Historial* y ve Pendientes,
 Historial y Liquidaciones: cada gasto con su factura y constancia de pago, y descarga los Excel. **No puede**
 registrar, anular, completar, generar ni aprobar nada.
 

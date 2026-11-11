@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FiltrosHistorial } from "@/components/historial/FiltrosHistorial";
 import { ListaMovimientos } from "@/components/movimientos/ListaMovimientos";
-import type { FiltroEstado } from "@/lib/datos/tipos";
+import { codigoCaja, type FiltroEstado } from "@/lib/datos/tipos";
 import { contextoPagina, exigirModulo } from "@/lib/contexto";
 
 export const metadata = { title: "Historial · Factudex" };
@@ -16,10 +16,16 @@ export default async function PaginaHistorial({ searchParams }: PageProps<"/hist
   const { repo, empresas, cajas, caja } = await contextoPagina();
   if (!caja) return null;
 
+  // También las cajas cerradas (la 5, la 6…): sus gastos ya liquidados se siguen consultando aquí.
+  const cerradas = (await repo.listarCajasAdmin()).filter((c) => !c.activa);
+  const todasLasCajas = [...cajas, ...cerradas];
+  const idsCerradas = new Set(cerradas.map((c) => c.id));
+
   const texto = uno(sp.q).slice(0, 60);
   const estado = (ESTADOS as string[]).includes(uno(sp.estado)) ? (uno(sp.estado) as FiltroEstado) : "todos";
-  const cajaElegida = uno(sp.caja) === "todas" ? "todas" : cajas.some((c) => c.id === uno(sp.caja)) ? uno(sp.caja) : caja.id;
-  const cajaIds = cajaElegida === "todas" ? cajas.map((c) => c.id) : [cajaElegida];
+  const cajaElegida =
+    uno(sp.caja) === "todas" ? "todas" : todasLasCajas.some((c) => c.id === uno(sp.caja)) ? uno(sp.caja) : caja.id;
+  const cajaIds = cajaElegida === "todas" ? todasLasCajas.map((c) => c.id) : [cajaElegida];
   const limite = Math.min(Math.max(Number(uno(sp.n)) || POR_PAGINA, POR_PAGINA), 1000);
 
   const [pagina, pendientes] = await Promise.all([
@@ -28,10 +34,15 @@ export default async function PaginaHistorial({ searchParams }: PageProps<"/hist
   ]);
 
   const empresaDe = (empresaId: string) => empresas.find((e) => e.id === empresaId)?.nombreCorto ?? "";
-  const opcionesCaja = cajas.map((c) => ({ id: c.id, nombre: `${empresaDe(c.empresaId)} — ${c.nombre}` }));
+  const opcionesCaja = [
+    ...cajas.map((c) => ({ id: c.id, nombre: `${codigoCaja(c)} · ${c.nombre}` })),
+    ...[...cerradas]
+      .sort((a, b) => codigoCaja(b).localeCompare(codigoCaja(a)))
+      .map((c) => ({ id: c.id, nombre: `${codigoCaja(c)} · cerrada` })),
+  ];
   const nombreCaja = (id: string) => {
-    const c = cajas.find((x) => x.id === id);
-    return c ? `${empresaDe(c.empresaId)} · Caja ${String(c.numero).padStart(2, "0")}` : "";
+    const c = todasLasCajas.find((x) => x.id === id);
+    return c ? `${empresaDe(c.empresaId)} · Caja ${String(c.numero).padStart(2, "0")}${idsCerradas.has(c.id) ? " (cerrada)" : ""}` : "";
   };
 
   const masParams = new URLSearchParams();
