@@ -201,13 +201,18 @@ gastos en la caja.
 
 En el detalle de cada liquidación puedes descargar el **Excel** con el formato de contabilidad.
 
-**Cuando la caja se termina:** liquida todo lo que tengas completo. Tesorería abre la **caja nueva**
-(ej. de `SL-CAJA-MT-02` a `SL-CAJA-MT-03`) y pasa a ella:
+**Una caja, una liquidación.** Al generar la liquidación, tu caja **se cierra sola** y se abre la
+**siguiente** (ej. de `SL-CAJA-GE-06` a `SL-CAJA-GE-07`). A la nueva pasan:
 
 - El **saldo** que quedó: si sobró, se suma; si te pasaste, se descuenta.
-- Tus gastos **pendientes o sin liquidar**: los sigues completando y los liquidas en la caja nueva.
+- Tus gastos **pendientes o que no entraron** (fuera del rango o desmarcados): los sigues completando y los
+  liquidas en la caja nueva.
 
-La caja anterior se cierra y la nueva te aparece arriba automáticamente.
+La nueva te aparece arriba de inmediato y ahí sigues registrando. Su liquidación será la `SL-LIQ-GE-007`.
+
+**Si tesorería observa la liquidación** (ej. la 006 de la caja 6, ya cerrada): sale en **Liquidaciones** en rojo.
+Corrígela ahí mismo (completa el archivo o anula el gasto que no va) y toca **Volver a enviar**. Si anulas un
+gasto, ese monto vuelve como saldo a tu caja actual (la 7); si algo no entra al reenviarla, pasa también a la 7.
 
 ## 8. Preguntas rápidas
 

@@ -236,7 +236,13 @@ export default async function PaginaTesoreria({ searchParams }: PageProps<"/teso
       empresa: empresaDe(c),
       codigo: codigoCaja(c),
       nombre: c.nombre,
-      porReponer: aprobadas.filter((l) => l.cajaId === c.id).map((l) => ({ id: l.id, folio: l.folio, monto: l.egresos })),
+      // También las aprobadas de sus cajas anteriores (cerradas, misma empresa y área): la 006 se repone en la 7.
+      porReponer: aprobadas
+        .filter((l) => {
+          const de = todas.find((x) => x.id === l.cajaId);
+          return l.cajaId === c.id || (!!de && !de.activa && de.empresaId === c.empresaId && de.area === c.area);
+        })
+        .map((l) => ({ id: l.id, folio: l.folio, monto: l.egresos })),
     }));
     return (
       <>

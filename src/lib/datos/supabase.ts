@@ -737,7 +737,18 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
         p_excluir: excluir,
       });
       falloNegocio(error, "Generar liquidación");
-      return data.folio;
+      // La BD cerró la caja y abrió la siguiente (migración 20261114000000).
+      const sig = await sb
+        .from("cajas")
+        .select("siguiente:siguiente_id(id, numero, area, empresas(codigo))")
+        .eq("id", cajaId)
+        .maybeSingle()
+        .overrideTypes<{ siguiente: { id: string; numero: number; area: string; empresas: { codigo: string } } | null }, { merge: false }>();
+      const n = sig.error ? null : sig.data?.siguiente;
+      return {
+        folio: data.folio,
+        cajaNueva: n ? { id: n.id, codigo: codigoCaja({ empresaCodigo: n.empresas.codigo as CodigoEmpresa, area: n.area, numero: n.numero }) } : null,
+      };
     },
 
     async autorizarMovimiento(id) {

@@ -295,15 +295,19 @@ export async function generarLiquidacion(entrada: {
   desde: string;
   hasta: string;
   excluir: string[];
-}): Promise<{ ok: true; folio: string } | { ok: false; errores: Record<string, string> }> {
+}): Promise<
+  { ok: true; folio: string; cajaNueva: { id: string; codigo: string } | null } | { ok: false; errores: Record<string, string> }
+> {
   const datos = EsquemaGenerarLiquidacion.safeParse(entrada);
   if (!datos.success) return { ok: false, errores: erroresPorCampo(datos.error) };
   const repo = await repoRegistrador();
   const { cajaId, desde, hasta, excluir } = datos.data;
   try {
-    const folio = await repo.generarLiquidacion(cajaId, desde, hasta, excluir);
+    const { folio, cajaNueva } = await repo.generarLiquidacion(cajaId, desde, hasta, excluir);
+    // La caja se cerró: el HUD pasa a la nueva.
+    if (cajaNueva) (await cookies()).set(COOKIE_CAJA, cajaNueva.id, { path: "/", httpOnly: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 365 });
     revalidatePath("/", "layout");
-    return { ok: true, folio };
+    return { ok: true, folio, cajaNueva };
   } catch (e) {
     if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
     throw e;

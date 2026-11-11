@@ -57,7 +57,15 @@ export function GenerarLiquidacion({ cajaId, cajaCodigo, folio, saldoInicial, in
       setError("");
       const r = await generarLiquidacion({ cajaId, desde, hasta, excluir: enRango.filter((m) => excluidos.has(m.id)).map((m) => m.id) });
       // La página muestra el aviso (al recargar, este formulario se rehace con la liquidación nueva).
-      if (r.ok) router.replace(`/liquidaciones?caja=${cajaId}&generada=${encodeURIComponent(r.folio)}`, { scroll: false });
+      if (r.ok)
+        router.replace(
+          `/liquidaciones?${new URLSearchParams({
+            caja: r.cajaNueva?.id ?? cajaId,
+            generada: r.folio,
+            ...(r.cajaNueva ? { cerrada: cajaCodigo, nueva: r.cajaNueva.codigo } : {}),
+          })}`,
+          { scroll: false },
+        );
       else setError(r.errores._ ?? r.errores.hasta ?? "No se pudo generar");
     });
 
@@ -142,6 +150,10 @@ export function GenerarLiquidacion({ cajaId, cajaCodigo, folio, saldoInicial, in
               Se generará <strong>{folio}</strong> de <strong>{cajaCodigo}</strong>, del {formatoFecha(desde)} al{" "}
               {formatoFecha(hasta)}, con {entran.length} gasto{entran.length === 1 ? "" : "s"} por <strong>{formatoSoles(total)}</strong>. Queda en
               revisión de tesorería.
+            </p>
+            <p>
+              Después <strong>{cajaCodigo} se cierra</strong> y se abre la <strong>caja siguiente</strong> con el saldo que queda y los gastos
+              que no entran (pendientes o fuera del rango). Ahí sigues registrando.
             </p>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setConfirmando(false)} className="fx-btn rounded-[10px] px-4 py-2 text-white/75">

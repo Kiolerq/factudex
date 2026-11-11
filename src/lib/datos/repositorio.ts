@@ -69,7 +69,13 @@ export interface Repositorio {
   obtenerLiquidacion(id: string): Promise<DetalleLiquidacion | null>;
   cerrarLiquidacion(id: string): Promise<void>;
   /** Liquida los gastos completos de la caja entre esas fechas (menos los excluidos); devuelve el folio. */
-  generarLiquidacion(cajaId: string, desde: string, hasta: string, excluir: string[]): Promise<string>;
+  /** Genera la liquidación, cierra la caja y abre la siguiente (la devuelve). */
+  generarLiquidacion(
+    cajaId: string,
+    desde: string,
+    hasta: string,
+    excluir: string[],
+  ): Promise<{ folio: string; cajaNueva: { id: string; codigo: string } | null }>;
   revisarLiquidacion(id: string, aprobar: boolean, observaciones: string | null): Promise<void>;
 
   listarRecargas(cajaIds: string[], desde?: string): Promise<Recarga[]>;

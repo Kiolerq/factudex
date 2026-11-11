@@ -35,6 +35,7 @@ import {
 
 interface CajaDemo {
   id: string;
+  siguienteId?: string | null;
   empresaId: string;
   numero: number;
   area: string;
@@ -445,6 +446,93 @@ function resumen(m: MovimientoDemo): MovimientoResumen {
   };
 }
 
+/** Como fx_traspasar_caja(): pasa saldo y gastos sin liquidar; con `cerrar`, también accesos y cierra la anterior. */
+function traspasar(anteriorId: string, nuevaId: string, cerrar: boolean): number {
+    const a = db.cajas.find((c) => c.id === anteriorId);
+    const n = db.cajas.find((c) => c.id === nuevaId);
+    if (!a || !n || a.id === n.id) throw new ErrorDeNegocio("Caja no encontrada");
+    if (a.empresaId !== n.empresaId || a.area !== n.area)
+      throw new ErrorDeNegocio("El saldo solo pasa entre cajas de la misma empresa y área");
+    if (cerrar && !a.activa) throw new ErrorDeNegocio("La caja anterior ya está cerrada");
+    const codigo = (c: CajaDemo) =>
+      codigoCaja({ empresaCodigo: db.empresas.find((e) => e.id === c.empresaId)!.codigo, area: c.area, numero: c.numero });
+    const liqA = liquidacionAbierta(a.id);
+    const liqN = liquidacionAbierta(n.id);
+    const vivos = (m: MovimientoDemo) => !m.anulado;
+    const efectivo = redondear(
+      suma(db.recargas.filter((r) => r.cajaId === a.id), (r) => r.monto) -
+        suma(db.movimientos.filter((m) => m.cajaId === a.id && vivos(m)), (m) => m.monto),
+    );
+    let saldo = efectivo;
+    const movidos = db.movimientos.filter((x) => x.liquidacionId === liqA.id && vivos(x));
+    for (const m of movidos) {
+      saldo += m.monto;
+      m.cajaId = n.id;
+      m.liquidacionId = liqN.id;
+    }
+    saldo = redondear(saldo);
+    const hoy = fechaHoyLima();
+    const ajuste = (cajaId: string, monto: number, descripcion: string, liq: LiquidacionDemo): RecargaDemo => ({
+      id: randomUUID(),
+      cajaId,
+      tipo: "ajuste",
+      monto,
+      fecha: hoy,
+      descripcion,
+      forma: "otros",
+      banco: null,
+      operacion: null,
+      recibo: null,
+      nota: null,
+      liquidacionIngresoId: liq.id,
+      liquidacionRepuestaId: null,
+    });
+    const detalle = movidos.length
+      ? ` (efectivo S/ ${efectivo.toFixed(2)} + ${movidos.length} gasto${movidos.length === 1 ? "" : "s"} sin liquidar)`
+      : "";
+    if (saldo !== 0)
+      db.recargas.push(
+        ajuste(a.id, -saldo, `${cerrar ? "Saldo pasado a" : "Corrección pasada a"} ${codigo(n)}${detalle}`, liqA),
+        ajuste(n.id, saldo, `${cerrar ? "Saldo de" : "Corrección de liquidación observada de"} ${codigo(a)}${detalle}`, liqN),
+      );
+    if (!cerrar) return saldo;
+    for (const u of db.usuarios) {
+      const acceso = u.accesos.find((x) => x.cajaId === a.id);
+      if (acceso && !u.accesos.some((x) => x.cajaId === n.id)) u.accesos.push({ cajaId: n.id, rol: acceso.rol });
+    }
+    a.activa = false;
+    a.siguienteId = n.id;
+    return saldo;
+}
+
+/** La caja abierta que hoy reemplaza a una cerrada (6 → 7 → 8…). */
+function siguienteActiva(cajaId: string): CajaDemo | null {
+  let c = db.cajas.find((x) => x.id === cajaId);
+  for (let i = 0; c?.siguienteId && i < 50; i++) {
+    c = db.cajas.find((x) => x.id === c!.siguienteId);
+    if (c?.activa) return c;
+  }
+  return null;
+}
+
+/** Como fx_conciliar_caja_cerrada(): lo que cambió en una caja cerrada pasa a la que sigue. */
+function conciliarCerrada(cajaId: string) {
+  const c = db.cajas.find((x) => x.id === cajaId);
+  if (!c || c.activa) return;
+  const n = siguienteActiva(cajaId);
+  if (n) traspasar(cajaId, n.id, false);
+}
+
+/** Como fx_abrir_siguiente_caja(): abre la caja siguiente de la empresa y le pasa todo. */
+function abrirSiguiente(cajaId: string): CajaDemo {
+  const a = db.cajas.find((x) => x.id === cajaId)!;
+  const numero = Math.max(0, ...db.cajas.filter((c) => c.empresaId === a.empresaId).map((c) => c.numero)) + 1;
+  const n: CajaDemo = { ...a, id: randomUUID(), numero, activa: true, siguienteId: null };
+  db.cajas.push(n);
+  traspasar(a.id, n.id, true);
+  return n;
+}
+
 const ordenMovimientos = (a: MovimientoDemo, b: MovimientoDemo) =>
   b.fecha.localeCompare(a.fecha) || b.creado - a.creado;
 
@@ -671,6 +759,7 @@ export const repositorioDemo: Repositorio = {
     m.anulado = true;
     m.motivoAnulacion = motivo;
     recalcularPago(m.pagoId);
+    conciliarCerrada(m.cajaId);
   },
 
   async listarLiquidaciones(cajaIds) {
@@ -715,6 +804,7 @@ export const repositorioDemo: Repositorio = {
     l.saldoFinal = redondear(l.saldoInicial + l.totalIngresos - l.totalGastado);
     const proxima = db.liquidaciones.find((x) => x.cajaId === l.cajaId && x.correlativo === l.correlativo + 1);
     if (proxima) proxima.saldoInicial = l.saldoFinal;
+    conciliarCerrada(l.cajaId);
   },
 
   async generarLiquidacion(cajaId, desde, hasta, excluir) {
@@ -734,7 +824,9 @@ export const repositorioDemo: Repositorio = {
     l.totalGastado = suma(movs.filter(entra), (m) => m.monto);
     l.saldoFinal = redondear(l.saldoInicial + l.totalIngresos - l.totalGastado);
     nueva.saldoInicial = l.saldoFinal;
-    return l.folio;
+    // Una caja, una liquidación: se cierra y se abre la siguiente con el saldo y lo que quedó.
+    const siguiente = abrirSiguiente(cajaId);
+    return { folio: l.folio, cajaNueva: { id: siguiente.id, codigo: codigoDe(siguiente.id) } };
   },
 
   async autorizarMovimiento(id) {
@@ -785,8 +877,13 @@ export const repositorioDemo: Repositorio = {
   async registrarRecarga(r) {
     if (r.liquidacionRepuestaId) {
       const l = db.liquidaciones.find((x) => x.id === r.liquidacionRepuestaId);
-      if (!l || l.cajaId !== r.cajaId || l.estado !== "aprobada")
-        throw new ErrorDeNegocio("Solo se puede reponer una liquidación aprobada de la misma caja");
+      const de = db.cajas.find((c) => c.id === l?.cajaId);
+      const destino = db.cajas.find((c) => c.id === r.cajaId);
+      const mismaLinea = !!de && !!destino && de.empresaId === destino.empresaId && de.area === destino.area;
+      if (!l || !mismaLinea || l.estado !== "aprobada")
+        throw new ErrorDeNegocio(
+          "Solo se puede reponer una liquidación aprobada de esta caja o de una anterior de la misma empresa y área",
+        );
       l.estado = "repuesta";
     }
     const { liquidacionRepuestaId, ...resto } = r;
@@ -807,59 +904,7 @@ export const repositorioDemo: Repositorio = {
   },
 
   async traspasarCaja(anteriorId, nuevaId) {
-    const a = db.cajas.find((c) => c.id === anteriorId);
-    const n = db.cajas.find((c) => c.id === nuevaId);
-    if (!a || !n || a.id === n.id) throw new ErrorDeNegocio("Caja no encontrada");
-    if (a.empresaId !== n.empresaId || a.area !== n.area)
-      throw new ErrorDeNegocio("El saldo solo pasa entre cajas de la misma empresa y área");
-    if (!a.activa) throw new ErrorDeNegocio("La caja anterior ya está cerrada");
-    const codigo = (c: CajaDemo) =>
-      codigoCaja({ empresaCodigo: db.empresas.find((e) => e.id === c.empresaId)!.codigo, area: c.area, numero: c.numero });
-    const liqA = liquidacionAbierta(a.id);
-    const liqN = liquidacionAbierta(n.id);
-    const vivos = (m: MovimientoDemo) => !m.anulado;
-    const efectivo = redondear(
-      suma(db.recargas.filter((r) => r.cajaId === a.id), (r) => r.monto) -
-        suma(db.movimientos.filter((m) => m.cajaId === a.id && vivos(m)), (m) => m.monto),
-    );
-    let saldo = efectivo;
-    const movidos = db.movimientos.filter((x) => x.liquidacionId === liqA.id && vivos(x));
-    for (const m of movidos) {
-      saldo += m.monto;
-      m.cajaId = n.id;
-      m.liquidacionId = liqN.id;
-    }
-    saldo = redondear(saldo);
-    const hoy = fechaHoyLima();
-    const ajuste = (cajaId: string, monto: number, descripcion: string, liq: LiquidacionDemo): RecargaDemo => ({
-      id: randomUUID(),
-      cajaId,
-      tipo: "ajuste",
-      monto,
-      fecha: hoy,
-      descripcion,
-      forma: "otros",
-      banco: null,
-      operacion: null,
-      recibo: null,
-      nota: null,
-      liquidacionIngresoId: liq.id,
-      liquidacionRepuestaId: null,
-    });
-    const detalle = movidos.length
-      ? ` (efectivo S/ ${efectivo.toFixed(2)} + ${movidos.length} gasto${movidos.length === 1 ? "" : "s"} sin liquidar)`
-      : "";
-    if (saldo !== 0)
-      db.recargas.push(
-        ajuste(a.id, -saldo, `Saldo pasado a ${codigo(n)}${detalle}`, liqA),
-        ajuste(n.id, saldo, `Saldo de ${codigo(a)}${detalle}`, liqN),
-      );
-    for (const u of db.usuarios) {
-      const acceso = u.accesos.find((x) => x.cajaId === a.id);
-      if (acceso && !u.accesos.some((x) => x.cajaId === n.id)) u.accesos.push({ cajaId: n.id, rol: acceso.rol });
-    }
-    a.activa = false;
-    return saldo;
+    return traspasar(anteriorId, nuevaId, true);
   },
 
   async obtenerPago(id) {

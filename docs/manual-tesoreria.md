@@ -146,9 +146,13 @@ Además de las columnas de siempre, al final trae:
 3. Los gastos sobre el tope esperan tu **autorización**.
 4. El registrador **genera la liquidación** de un rango de fechas → *En revisión*.
 5. Tesorería **aprueba** u **observa**.
-6. Cuando la caja se agota: el registrador liquida lo que tiene completo y tesorería **abre la caja
-   nueva** de la misma empresa y área. El saldo que quedó (a favor o en contra) y los gastos pendientes
-   pasan solos a la nueva, y la anterior se cierra.
+6. **Una caja, una liquidación:** al generar la liquidación (ej. `SL-LIQ-GE-006`), la caja 06 **se cierra
+   sola** y se abre la **07** (misma empresa, área y nombre) con el saldo que quedó, los gastos pendientes y
+   el mismo registrador. No necesitas usar *Abrir caja nueva* para esto.
+7. Cuando apruebes la 006, deposita la reposición en la **caja 07**: en *Recargar caja* elige la 07 y en
+   *¿A qué corresponde?* sale la 006 para reponer.
+8. Si **observas** la 006, el registrador la corrige en la 006 y la reenvía. Si anula un gasto, ese monto
+   pasa solo como ajuste a la 07 (*"Corrección de liquidación observada de SL-CAJA-GE-06"*).
 
 ## 8. Preguntas rápidas
 

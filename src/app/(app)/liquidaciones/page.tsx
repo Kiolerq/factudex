@@ -13,15 +13,29 @@ export default async function PaginaLiquidaciones({ searchParams }: PageProps<"/
   await exigirModulo("liquidaciones");
   const { repo, empresas, cajas, caja: activa } = await contextoPagina();
   if (!activa) return null;
-  const { caja: cajaParam, generada } = await searchParams;
+  const { caja: cajaParam, generada, cerrada, nueva } = await searchParams;
   // La caja a liquidar se elige aquí (por defecto, la activa del HUD).
   const caja = cajas.find((c) => c.id === cajaParam) ?? activa;
 
-  const [liquidaciones, permisos] = await Promise.all([repo.listarLiquidaciones([caja.id]), repo.permisosCaja(caja.id)]);
-  const abierta = liquidaciones.find((l) => l.estado === "abierta");
+  // Las cajas anteriores de la misma empresa y área ya están cerradas, pero sus liquidaciones se
+  // siguen viendo aquí (y una observada se corrige y reenvía desde aquí).
+  const previas = (await repo.listarCajasAdmin()).filter(
+    (c) => !c.activa && c.empresaId === caja.empresaId && c.area === caja.area,
+  );
+  const codigoDe = (cajaId: string) => {
+    const c = cajaId === caja.id ? caja : previas.find((x) => x.id === cajaId);
+    return c ? codigoCaja(c) : "";
+  };
+  const [liquidaciones, permisos] = await Promise.all([
+    repo.listarLiquidaciones([caja.id, ...previas.map((c) => c.id)]),
+    repo.permisosCaja(caja.id),
+  ]);
+  const abierta = liquidaciones.find((l) => l.cajaId === caja.id && l.estado === "abierta");
   const detalleAbierta = abierta ? await repo.obtenerLiquidacion(abierta.id) : null;
   const observadas = liquidaciones.filter((l) => l.estado === "observada");
-  const anteriores = liquidaciones.filter((l) => l.estado !== "abierta");
+  const anteriores = liquidaciones
+    .filter((l) => l.estado !== "abierta")
+    .sort((a, b) => (b.fechaCierre ?? b.fechaInicio).localeCompare(a.fechaCierre ?? a.fechaInicio) || b.folio.localeCompare(a.folio));
 
   return (
     <main className="flex flex-col gap-4 md:gap-5">
@@ -59,8 +73,16 @@ export default async function PaginaLiquidaciones({ searchParams }: PageProps<"/
 
       {typeof generada === "string" && (
         <p role="status" className="rounded-xl border border-fx-completo/40 bg-fx-completo/10 px-4 py-3 text-fx-sm text-fx-completo">
-          ● Se generó la liquidación <strong>{generada}</strong>. Queda en revisión de tesorería; lo que no entró sigue en la caja para la
-          siguiente.
+          ● Se generó la liquidación <strong>{generada}</strong> y quedó en revisión de tesorería.
+          {typeof nueva === "string" && typeof cerrada === "string" ? (
+            <>
+              {" "}
+              Se cerró <strong>{cerrada}</strong> y se abrió <strong>{nueva}</strong> con el saldo y los gastos que no entraron: sigue
+              registrando ahí.
+            </>
+          ) : (
+            " Lo que no entró sigue en la caja para la siguiente."
+          )}
         </p>
       )}
 
@@ -129,7 +151,10 @@ export default async function PaginaLiquidaciones({ searchParams }: PageProps<"/
 
       {anteriores.length > 0 && (
         <section className="flex flex-col gap-2.5">
-          <h2 className="text-xs uppercase tracking-[1.2px] text-white/60">Liquidaciones de {codigoCaja(caja)}</h2>
+          <h2 className="text-xs uppercase tracking-[1.2px] text-white/60">
+            Liquidaciones de {codigoCaja(caja)}
+            {previas.length > 0 && " y sus cajas anteriores"}
+          </h2>
           <div className="fx-card overflow-hidden">
             {anteriores.map((l) => (
               <Link prefetch={false}
@@ -142,7 +167,8 @@ export default async function PaginaLiquidaciones({ searchParams }: PageProps<"/
                   <BadgeLiquidacion estado={l.estado} />
                 </span>
                 <span className="text-white/68 md:order-2">
-                  del {formatoFecha(l.fechaInicio)} al {l.fechaCierre ? formatoFecha(l.fechaCierre) : "…"}
+                  {l.cajaId !== caja.id && `${codigoDe(l.cajaId)} · `}del {formatoFecha(l.fechaInicio)} al{" "}
+                  {l.fechaCierre ? formatoFecha(l.fechaCierre) : "…"}
                 </span>
                 <span className="text-right text-white/82 md:order-4">Gastos {formatoSoles(l.egresos)}</span>
                 <span className="hidden text-right font-semibold md:order-5 md:block">{formatoSoles(l.porReembolsar)}</span>
