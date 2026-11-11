@@ -7,7 +7,7 @@ import { Totales } from "@/components/liquidaciones/Totales";
 import { textoFalta } from "@/components/movimientos/textos";
 import { exigirDetalle } from "@/lib/contexto";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
-import { codigoCaja, ETIQUETA_DOCUMENTO, ETIQUETA_FORMA_INGRESO, ETIQUETA_TIPO_RECARGA } from "@/lib/datos/tipos";
+import { codigoCaja, ETIQUETA_DOCUMENTO, ETIQUETA_MEDIO_PAGO, ETIQUETA_FORMA_INGRESO, ETIQUETA_TIPO_RECARGA } from "@/lib/datos/tipos";
 import { formatoFecha, formatoSoles } from "@/lib/formato";
 
 export const metadata = { title: "Liquidación · Factudex" };
@@ -97,10 +97,17 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
                   detalle={
                     incompleto
                       ? `${m.estado === "pendiente" ? textoFalta(m) : "Supera el tope y falta la autorización de tesorería"} — no entra, pasa a la siguiente liquidación`
-                      : [m.proveedor, m.tipoDocumento && ETIQUETA_DOCUMENTO[m.tipoDocumento], m.serieNumero, m.centroCosto]
+                      : [
+                          m.proveedor,
+                          m.tipoDocumento && ETIQUETA_DOCUMENTO[m.tipoDocumento],
+                          m.serieNumero,
+                          m.medioPago && m.medioPago !== "efectivo" && ETIQUETA_MEDIO_PAGO[m.medioPago],
+                          m.centroCosto,
+                        ]
                           .filter(Boolean)
                           .join(" · ")
                   }
+                  nota={m.observaciones}
                   derecha={formatoSoles(m.monto)}
                   rojo={incompleto}
                 />
@@ -113,7 +120,19 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
   );
 }
 
-function Fila({ izquierda, detalle, derecha, rojo }: { izquierda: string; detalle?: string; derecha: string; rojo?: boolean }) {
+function Fila({
+  izquierda,
+  detalle,
+  nota,
+  derecha,
+  rojo,
+}: {
+  izquierda: string;
+  detalle?: string;
+  nota?: string | null;
+  derecha: string;
+  rojo?: boolean;
+}) {
   return (
     <div
       className={`flex items-center justify-between gap-4 border-b border-white/5 px-4 py-3 text-fx-sm last:border-b-0 md:px-5 ${
@@ -123,6 +142,7 @@ function Fila({ izquierda, detalle, derecha, rojo }: { izquierda: string; detall
       <div className="min-w-0">
         <div className="truncate">{izquierda}</div>
         {detalle && <div className={`truncate text-fx-xs ${rojo ? "text-fx-error/80" : "text-white/68"}`}>{detalle}</div>}
+        {nota && <div className="text-fx-xs text-white/82">📝 {nota}</div>}
       </div>
       <div className="shrink-0 font-semibold">{derecha}</div>
     </div>

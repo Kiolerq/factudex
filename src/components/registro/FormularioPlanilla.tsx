@@ -27,6 +27,11 @@ import {
 import { formatoFecha, formatoSoles, leerMonto } from "@/lib/formato";
 import { nuevoUuid } from "@/lib/uuid";
 import { BarraPago } from "./FormularioRegistro";
+import { CampoAdjunto } from "./CampoAdjunto";
+import { subirAdjunto, type Almacen } from "@/lib/subida";
+import { MEDIOS_PAGO, MIME_PERMITIDOS, type MedioPago } from "@/lib/datos/tipos";
+import { TAMANO_MAXIMO } from "@/lib/datos/esquemas";
+import { comprimirImagen } from "@/lib/imagen";
 
 export interface EmpresaPlanilla {
   empresaId: string;
@@ -71,7 +76,9 @@ export function FormularioPlanilla({
   empresas,
   pago,
   pagosAnteriores,
+  almacen,
 }: {
+  almacen: Almacen;
   cajas: CajaSaldo[];
   cajaInicialId: string;
   empresas: EmpresaPlanilla[];
@@ -95,6 +102,12 @@ export function FormularioPlanilla({
   const [solicitante, setSolicitante] = useState("");
   const [filas, setFilas] = useState<FilaForm[]>(() => [filaVacia(pago?.fecha ?? fechaHoyLima())]);
   const [errores, setErrores] = useState<Record<string, string>>({});
+  // Sin pago anterior: cómo se pagó. Si fue con Yape, transferencia…, se sube la constancia.
+  const [medio, setMedio] = useState<MedioPago>("efectivo");
+  const [operacion, setOperacion] = useState("");
+  const [constancia, setConstancia] = useState<File | null>(null);
+  const [observaciones, setObservaciones] = useState("");
+  const [paso, setPaso] = useState("");
   const [listo, setListo] = useState<{
     planillaId: string;
     movimientoId: string;
@@ -144,7 +157,37 @@ export function FormularioPlanilla({
     e.preventDefault();
     setListo(null);
     iniciar(async () => {
+      const conConstancia = !pago && medio !== "efectivo";
+      if (conConstancia && !constancia) {
+        setErrores({ adjuntoPago: "Sube la captura del Yape o el voucher del pago" });
+        return;
+      }
+      let adjuntoPago = null;
+      if (conConstancia && constancia) {
+        setPaso("Subiendo la constancia…");
+        try {
+          adjuntoPago = await subirAdjunto({
+            almacen,
+            cajaId: caja.id,
+            movimientoId,
+            tipo: "pago",
+            archivo: constancia,
+            fecha: fechaEmision,
+            referencia: `Planilla ${serie.trim()}-${numeroTexto}`,
+            monto: total,
+          });
+        } catch (err) {
+          setPaso("");
+          setErrores({ adjuntoPago: err instanceof Error ? err.message : "No se pudo subir la constancia" });
+          return;
+        }
+      }
+      setPaso("Guardando…");
       const r = await crearPlanilla({
+        medioPago: pago ? null : medio,
+        operacionPago: conConstancia ? operacion.trim() || null : null,
+        adjuntoPago,
+        observaciones: observaciones.trim() || null,
         movimientoId,
         cajaId: caja.id,
         categoriaId: categoriaId || null,
@@ -165,6 +208,7 @@ export function FormularioPlanilla({
           tipo: f.tipo,
         })),
       });
+      setPaso("");
       if (!r.ok) {
         setErrores(r.errores);
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -184,6 +228,9 @@ export function FormularioPlanilla({
       setMovimientoId(nuevoUuid());
       setNumeroTexto(String(Number(numeroTexto) + 1));
       setFilas([filaVacia(fechaEmision)]);
+      setConstancia(null);
+      setOperacion("");
+      setObservaciones("");
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
   };
@@ -394,6 +441,67 @@ export function FormularioPlanilla({
             ))}
           </datalist>
         </div>
+        {!pago && (
+          <fieldset className="flex flex-col gap-2 md:col-span-3">
+            <legend className="fx-label">¿Cómo se pagó?</legend>
+            <div className="flex flex-wrap gap-2">
+              {MEDIOS_PAGO.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  aria-pressed={medio === m}
+                  onClick={() => setMedio(m)}
+                  className={`fx-btn rounded-[10px] border px-4 py-2.5 text-fx-sm font-semibold ${
+                    medio === m ? "border-fx-primary bg-fx-primary-soft text-fx-primary-light" : "border-white/15 text-white/75"
+                  }`}
+                >
+                  {ETIQUETA_MEDIO_PAGO[m]}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        )}
+        {!pago && medio !== "efectivo" && (
+          <>
+            <div className="md:col-span-1">
+              <label htmlFor="pl-operacion" className="fx-label">
+                N° de operación <span className="font-normal text-white/60">(opcional)</span>
+              </label>
+              <input id="pl-operacion" className="fx-input" value={operacion} onChange={(e) => setOperacion(e.target.value)} />
+            </div>
+            <div className="md:col-span-2">
+              <CampoAdjunto
+                etiqueta="Constancia de pago (captura del Yape, voucher…) *"
+                ayuda="Toma la foto o elige el archivo"
+                archivo={constancia}
+                error={errores.adjuntoPago}
+                onElegir={async (f) => {
+                  if (!(MIME_PERMITIDOS as readonly string[]).includes(f.type))
+                    return setErrores((e) => ({ ...e, adjuntoPago: "Formato no permitido. Usa JPG, PNG o PDF." }));
+                  const final = await comprimirImagen(f);
+                  if (final.size > TAMANO_MAXIMO) return setErrores((e) => ({ ...e, adjuntoPago: "El archivo pesa más de 10 MB." }));
+                  setConstancia(final);
+                  setErrores(({ adjuntoPago: _, ...resto }) => resto);
+                }}
+                onQuitar={() => setConstancia(null)}
+              />
+            </div>
+          </>
+        )}
+        <div className="md:col-span-3">
+          <label htmlFor="pl-observaciones" className="fx-label">
+            Observaciones <span className="font-normal text-white/60">(opcional)</span>
+          </label>
+          <textarea
+            id="pl-observaciones"
+            className="fx-input h-auto min-h-[76px] py-3"
+            rows={2}
+            maxLength={300}
+            placeholder="Para quién fue en realidad y el motivo. Ej. Personal de planta, almuerzo por trabajo en Chicama"
+            value={observaciones}
+            onChange={(e) => setObservaciones(e.target.value)}
+          />
+        </div>
       </section>
 
       <datalist id="pl-trabajadores">
@@ -557,7 +665,7 @@ export function FormularioPlanilla({
           disabled={guardando || pasados.length > 0}
           className="fx-btn rounded-[12px] bg-fx-primary px-5 py-3 text-fx-md font-bold text-blanco disabled:opacity-50"
         >
-          {guardando ? "Guardando…" : pasados.length ? "Pasa el tope" : "Guardar planilla"}
+          {guardando ? paso || "Guardando…" : pasados.length ? "Pasa el tope" : "Guardar planilla"}
         </button>
       </div>
     </form>

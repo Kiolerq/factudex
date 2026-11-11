@@ -2393,6 +2393,17 @@ grant execute on function fx_caja_siguiente_activa(uuid) to authenticated;
 
 notify pgrst, 'reload schema';
 
+-- ===== supabase/migrations/20261115000000_observaciones.sql =====
+
+-- Observaciones de cada gasto: para quién fue en realidad y el motivo (ej. "Para el chofer Juan
+-- Pérez, viaje a Chicama por repuesto"). Opcional; sale en la liquidación y como última columna del
+-- Excel. Se corrige mientras la liquidación siga abierta u observada (lo controla la app).
+alter table movimientos add column if not exists observaciones text
+  check (observaciones is null or length(observaciones) <= 300);
+comment on column movimientos.observaciones is 'Para quién fue el gasto y el motivo (va al Excel de la liquidación)';
+
+notify pgrst, 'reload schema';
+
 -- ===== supabase/seed.sql =====
 
 -- Datos iniciales para la demo (fase 1).
@@ -2479,5 +2490,6 @@ insert into supabase_migrations.schema_migrations (version, name) values
   ('20261111000000', 'liquidado_en_caja_anterior'),
   ('20261112000000', 'arreglo_pagos_anteriores'),
   ('20261113000000', 'folio_por_caja'),
-  ('20261114000000', 'liquidar_abre_siguiente_caja')
+  ('20261114000000', 'liquidar_abre_siguiente_caja'),
+  ('20261115000000', 'observaciones')
 on conflict do nothing;

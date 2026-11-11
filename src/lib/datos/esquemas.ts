@@ -29,6 +29,7 @@ export const EsquemaNuevoMovimiento = z
     categoriaId: z.uuid("Elige una categoría"),
     centroCostoId: z.uuid().nullable(),
     detalle: z.string().trim().min(3, "Describe el gasto").max(300),
+    observaciones: textoOpcional(300).optional().default(null), // para quién fue y el motivo
     monto: z
       .number("Ingresa el monto")
       .positive("El monto debe ser mayor a 0")
@@ -123,6 +124,11 @@ export const EsquemaPlanilla = z
     numero: z.number("Ingresa el número").int("Número inválido").positive("Número inválido").max(99999999),
     fechaEmision: z.iso.date("Fecha inválida"),
     pagoId: z.uuid().nullable(),
+    // Si no es parte de un pago anterior: cómo se pagó y, si no fue en efectivo, la constancia.
+    medioPago: z.enum(MEDIOS_PAGO).nullable().optional().default(null),
+    operacionPago: textoOpcional(40).optional().default(null),
+    adjuntoPago: EsquemaAdjunto.nullable().optional().default(null),
+    observaciones: textoOpcional(300).optional().default(null),
     filas: z.array(EsquemaFilaPlanilla).min(1, "Agrega al menos una fila").max(60),
   })
   .superRefine((p, ctx) => {

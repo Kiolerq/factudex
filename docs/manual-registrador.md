@@ -39,7 +39,10 @@ Si el saldo baja del umbral de la caja, sale un aviso en ámbar: es momento de l
    - **Solicitante**: quién pidió el gasto (la app sugiere nombres).
    - **Detalle**: qué se compró, corto y claro.
    - **Medio de pago**: efectivo, Yape, transferencia u otro.
-6. Toca **Guardar**.
+6. **Observaciones** (opcional): para quién fue en realidad y el motivo. Ej. *"Para el chofer Juan Pérez,
+   viaje a Chicama por repuesto"*. Sale en la liquidación y en el Excel. Puedes corregirla en el detalle del
+   gasto mientras la liquidación siga abierta.
+7. Toca **Guardar**.
 
 **¿Completo o pendiente?**
 
@@ -125,10 +128,12 @@ pagó un peaje), elígelo arriba en **"¿Es el resto de un pago anterior?"**.
 3. Por cada fila: **fecha**, **trabajador** y **DNI** (la app los recuerda), **motivo**
    (*Movilidad* o *Alimentación*), **origen**, **destino**, **importe** y **tipo** (Taxi, Bus,
    Colectivo, Combi). Usa **"⧉ Copiar la fila anterior"** para no repetir.
-4. **Tope: S/ 40 por trabajador y por día**, sumando todas sus planillas. En una planilla pueden ir
+4. **¿Cómo se pagó?** Efectivo, Yape, Plin, Transferencia u Otro. Si no fue en efectivo, sube la **captura del
+   Yape** (o el voucher) ahí mismo: así sale en la liquidación y en el Excel. Abajo puedes poner **Observaciones**.
+5. **Tope: S/ 40 por trabajador y por día**, sumando todas sus planillas. En una planilla pueden ir
    varios trabajadores, cada uno con su tope. Si alguien se pasa, la app lo marca en rojo y no deja
    guardar.
-5. **Guardar planilla** → **🖨 Imprimir PDF** para que firmen. **Sin firma igual vale para la
+6. **Guardar planilla** → **🖨 Imprimir PDF** para que firmen. **Sin firma igual vale para la
    liquidación**: el PDF ya queda adjunto como documento.
 
 En la liquidación sale en la columna **OTROS** como *"Planilla mov. 10-157"*.

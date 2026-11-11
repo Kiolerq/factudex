@@ -84,6 +84,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
   const [categoriaId, setCategoriaId] = useState("");
   const [centroCostoId, setCentroCostoId] = useState(centroGeneral);
   const [detalle, setDetalle] = useState("");
+  const [observaciones, setObservaciones] = useState("");
   const [montoTexto, setMontoTexto] = useState("");
   const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento | null>(null);
   const [serieNumero, setSerieNumero] = useState("");
@@ -391,6 +392,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
     setCategoriaId("");
     setCentroCostoId(centroGeneral);
     setDetalle("");
+    setObservaciones("");
     setMontoTexto("");
     setTipoDocumento(null);
     setSerieNumero("");
@@ -421,6 +423,7 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
       categoriaId,
       centroCostoId: centroCostoId || null,
       detalle,
+      observaciones: observaciones.trim() || null,
       monto,
       tipoDocumento,
       serieNumero: sinDocumento ? null : serieNumero || null,
@@ -746,6 +749,22 @@ export function FormularioRegistro({ cajas, cajaInicialId, listas, almacen, ocr,
                 }}
               />
               {errores.detalle && <p className="mt-1.5 text-xs text-fx-error">{errores.detalle}</p>}
+            </div>
+
+            <div className="order-4">
+              <label htmlFor="observaciones" className="fx-label">
+                Observaciones <span className="font-normal text-white/60">(opcional)</span>
+              </label>
+              <textarea
+                id="observaciones"
+                className="fx-input h-auto min-h-[76px] py-3"
+                rows={2}
+                maxLength={300}
+                placeholder="Para quién fue en realidad y el motivo. Ej. Para el chofer Juan Pérez, viaje a Chicama por repuesto"
+                value={observaciones}
+                onChange={(e) => setObservaciones(e.target.value)}
+              />
+              {errores.observaciones && <p className="mt-1.5 text-xs text-fx-error">{errores.observaciones}</p>}
             </div>
 
             <fieldset className="order-7">

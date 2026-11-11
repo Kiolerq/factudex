@@ -62,6 +62,7 @@ const COLUMNAS_MOVIMIENTO =
 
 interface FilaMovimiento {
   id: string;
+  observaciones?: string | null; // migración 20261115000000
   caja_id: string;
   liquidacion_id: string;
   fecha: string;
@@ -112,6 +113,7 @@ function aMovimiento(m: FilaMovimiento, pagos?: Map<string, InfoPago>): Movimien
     porAutorizar: m.requiere_autorizacion && !m.autorizado_por && !m.anulado,
     pagoId: m.pago_id ?? null,
     pagoFalta: pago ? Math.round(pago.falta * 100) / 100 : 0,
+    observaciones: m.observaciones ?? null,
   };
 }
 
@@ -238,7 +240,21 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
 
   // Pagos con varias salidas (migración 20261102000000). Sin la migración, todo sigue como antes.
   const hayPagos = memo(async () => !(await sb.from("pagos").select("id").limit(1)).error);
-  const columnasMovimiento = async () => (await hayPagos() ? `${COLUMNAS_MOVIMIENTO}, pago_id` : COLUMNAS_MOVIMIENTO);
+  const hayObservaciones = memo(async () => !(await sb.from("movimientos").select("observaciones").limit(1)).error);
+  const columnasMovimiento = async () => {
+    const [pagos, obs] = await Promise.all([hayPagos(), hayObservaciones()]);
+    return `${COLUMNAS_MOVIMIENTO}${pagos ? ", pago_id" : ""}${obs ? ", observaciones" : ""}`;
+  };
+  /** Observaciones del gasto (si ya se corrió la migración que las agrega). */
+  async function guardarObservaciones(id: string, texto: string | null | undefined) {
+    if (texto === undefined) return;
+    if (!(await hayObservaciones())) {
+      if (texto) throw new ErrorDeNegocio("Falta correr en Supabase la migración 20261115000000 (observaciones)");
+      return;
+    }
+    const { error } = await sb.from("movimientos").update({ observaciones: texto } as TablesUpdate<"movimientos">).eq("id", id);
+    falloNegocio(error, "Guardar observaciones");
+  }
   async function infoPagos(filas: { pago_id?: string | null }[]): Promise<Map<string, InfoPago>> {
     const ids = [...new Set(filas.flatMap((f) => (f.pago_id ? [f.pago_id] : [])))];
     if (!ids.length) return new Map();
@@ -527,6 +543,10 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
           fallo(errPago, "Registrar pago");
         }
         fila.pago_id = m.pago.id;
+      }
+      if (m.observaciones) {
+        if (!(await hayObservaciones())) throw new ErrorDeNegocio("Falta correr en Supabase la migración 20261115000000 (observaciones)");
+        (fila as Record<string, unknown>).observaciones = m.observaciones;
       }
       const { error } = await sb.from("movimientos").insert(fila);
       if (error?.code === "P0001") throw new ErrorDeNegocio(error.message); // raise exception de triggers
@@ -1096,7 +1116,20 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       if (error?.code === "P0001") throw new ErrorDeNegocio(error.message);
       if (error?.code === "42501") throw new ErrorDeNegocio("No tienes permiso para registrar en esta caja");
       falloNegocio(error, "Crear planilla");
+      // Planilla suelta pagada con Yape, transferencia…: el medio y la operación (crear_planilla la deja en efectivo).
+      if (!p.pagoId && p.medioPago && p.medioPago !== "efectivo") {
+        const { error: errMedio } = await sb
+          .from("movimientos")
+          .update({ medio_pago: p.medioPago, operacion_pago: p.operacionPago ?? null })
+          .eq("id", p.movimientoId);
+        falloNegocio(errMedio, "Medio de pago de la planilla");
+      }
+      await guardarObservaciones(p.movimientoId, p.observaciones || undefined);
       return data as string;
+    },
+
+    async actualizarObservaciones(id, texto) {
+      await guardarObservaciones(id, texto);
     },
 
     async obtenerPlanilla(id) {

@@ -3,6 +3,7 @@ import { exigirModulo } from "@/lib/contexto";
 import { obtenerRepositorio } from "@/lib/datos/repositorio";
 import { leerCajaActiva } from "@/lib/seleccion";
 import { cajaParaPago } from "@/lib/datos/tipos";
+import { almacenActivo } from "@/lib/drive/estado";
 import { fechaHoyLima, restarDias } from "@/lib/datos/esquemas";
 
 export const metadata = { title: "Planilla de movilidad · Factudex" };
@@ -67,6 +68,7 @@ export default async function PaginaPlanilla({ searchParams }: PageProps<"/regis
       empresas={datos}
       pago={pagoValido}
       pagosAnteriores={pagosAnteriores}
+      almacen={await almacenActivo()}
     />
   );
 }

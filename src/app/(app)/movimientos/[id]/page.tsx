@@ -5,6 +5,7 @@ import { AutorizarGasto } from "@/components/movimientos/AutorizarGasto";
 import { CompletarPendiente } from "@/components/movimientos/CompletarPendiente";
 import { PagoVariasSalidas } from "@/components/movimientos/PagoVariasSalidas";
 import { ConvertirEnPago } from "@/components/movimientos/ConvertirEnPago";
+import { EditarObservaciones } from "@/components/movimientos/EditarObservaciones";
 import { AccionesPlanilla } from "@/components/movimientos/AccionesPlanilla";
 import { textoFalta } from "@/components/movimientos/textos";
 import { BadgeEstado } from "@/components/ui/BadgeEstado";
@@ -114,6 +115,16 @@ export default async function PaginaMovimiento({ params }: PageProps<"/movimient
                 <dd className="mt-0.5 text-white/85">{v}</dd>
               </div>
             ))}
+            <div className="sm:col-span-2">
+              <dt className="text-fx-2xs uppercase tracking-[0.6px] text-white/60">Observaciones (para quién y motivo)</dt>
+              <dd className="mt-0.5">
+                <EditarObservaciones
+                  id={m.id}
+                  valor={m.observaciones}
+                  editable={!m.anulado && liquidacionAbierta && permisos.registrar && !esSoloTesoreria(yo)}
+                />
+              </dd>
+            </div>
           </dl>
         </section>
 

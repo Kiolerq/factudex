@@ -90,8 +90,10 @@ export async function GET(peticion: NextRequest, { params }: { params: Promise<{
         monto: m.monto,
         centroCosto: m.centroCosto,
         urlDocumento: linkDe(m.id, "documento", m.pagoId),
-        urlPago: m.medioPago === "efectivo" ? null : linkDe(m.id, "pago", m.pagoId),
+        // La constancia sale siempre que exista (una planilla en efectivo puede tener su Yape).
+        urlPago: linkDe(m.id, "pago", m.pagoId),
         notaPago: notaPago(m.pagoId),
+        observaciones: m.observaciones,
       })),
   };
   const archivo = await generarLiquidacionExcel(datos);

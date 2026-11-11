@@ -398,6 +398,21 @@ export async function vincularAPago(pagoId: string, movimientoId: string): Promi
   return ejecutar(() => repo.vincularAPago(datos.data.pagoId, datos.data.movimientoId));
 }
 
+/** Observaciones de un gasto (para quién fue y el motivo), mientras su liquidación siga abierta u observada. */
+export async function actualizarObservaciones(id: string, texto: string): Promise<Resultado> {
+  const datos = z
+    .object({ id: z.uuid(), texto: z.string().trim().max(300, "Máximo 300 caracteres") })
+    .safeParse({ id, texto });
+  if (!datos.success) return { ok: false, errores: { observaciones: datos.error.issues[0]!.message } };
+  const repo = await repoRegistrador();
+  const m = await repo.obtenerMovimiento(datos.data.id);
+  if (!m) return { ok: false, errores: { _: "El gasto no existe" } };
+  if (!(await repo.permisosCaja(m.cajaId)).registrar) return { ok: false, errores: { _: "No puedes editar este gasto" } };
+  if (m.liquidacion.estado !== "abierta" && m.liquidacion.estado !== "observada")
+    return { ok: false, errores: { _: `La liquidación ${m.liquidacion.folio} ya se envió: no se puede cambiar` } };
+  return ejecutar(() => repo.actualizarObservaciones(datos.data.id, datos.data.texto || null));
+}
+
 // --- Planilla de movilidad ---
 
 /**
@@ -418,6 +433,12 @@ export async function crearPlanilla(
     const pago = await repo.obtenerPago(d.pagoId);
     if (!pago) return { ok: false, errores: { _: "El pago no existe" } };
   }
+  // Planilla suelta pagada con Yape u otro: la constancia ya la subió el navegador.
+  const adjuntoPago = !d.pagoId && d.medioPago && d.medioPago !== "efectivo" ? d.adjuntoPago : null;
+  if (adjuntoPago) {
+    const errorArchivo = await verificarAdjuntos(d.cajaId, d.movimientoId, [adjuntoPago]);
+    if (errorArchivo) return { ok: false, errores: { adjuntoPago: errorArchivo } };
+  }
   let planillaId: string;
   try {
     planillaId = await repo.crearPlanilla(d);
@@ -425,6 +446,7 @@ export async function crearPlanilla(
     if (e instanceof ErrorDeNegocio) return { ok: false, errores: { _: e.message } };
     throw e;
   }
+  if (adjuntoPago) await repo.agregarAdjuntos(d.movimientoId, [adjuntoPago]);
   const aviso = await adjuntarPdf(repo, planillaId);
   revalidatePath("/", "layout");
   const [mov, pago] = await Promise.all([

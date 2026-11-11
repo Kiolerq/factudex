@@ -148,6 +148,10 @@ export interface NuevaPlanilla {
   numero: number;
   fechaEmision: string;
   pagoId: string | null; // otra salida de un pago con varias salidas
+  medioPago?: MedioPago | null; // sin pago anterior: cómo se pagó (null = efectivo)
+  operacionPago?: string | null;
+  adjuntoPago?: AdjuntoSubido | null; // captura del Yape, voucher…
+  observaciones?: string | null;
   filas: FilaPlanilla[];
 }
 
@@ -224,6 +228,7 @@ export interface NuevoMovimiento {
   categoriaId: string;
   centroCostoId: string | null;
   detalle: string;
+  observaciones?: string | null; // para quién fue en realidad y el motivo (va al Excel)
   monto: number;
   tipoDocumento: TipoDocumento | null;
   serieNumero: string | null;
@@ -352,7 +357,8 @@ export interface MovimientoResumen {
   faltaPago: boolean; // en efectivo nunca falta; en un pago con varias salidas basta una constancia
   porAutorizar: boolean; // supera el tope de la empresa y tesorería aún no lo autoriza
   pagoId: string | null; // parte de un pago con varias salidas
-  pagoFalta: number; // lo que falta cuadrar de ese pago (0 = cuadrado o sin pago)
+  pagoFalta: number;
+  observaciones: string | null; // para quién fue y el motivo // lo que falta cuadrar de ese pago (0 = cuadrado o sin pago)
 }
 
 export interface PaginaMovimientos {

@@ -443,6 +443,7 @@ function resumen(m: MovimientoDemo): MovimientoResumen {
     porAutorizar: m.requiereAutorizacion && !m.autorizado && !m.anulado,
     pagoId: m.pagoId,
     pagoFalta: m.pagoId ? infoPago(m.pagoId).falta : 0,
+    observaciones: m.observaciones ?? null,
   };
 }
 
@@ -955,6 +956,12 @@ export const repositorioDemo: Repositorio = {
     recalcularPago(pagoId);
   },
 
+  async actualizarObservaciones(id, texto) {
+    const m = db.movimientos.find((x) => x.id === id);
+    if (!m) throw new ErrorDeNegocio("El gasto no existe");
+    m.observaciones = texto;
+  },
+
   async convertirEnPago(movimientoId, monto) {
     const m = db.movimientos.find((x) => x.id === movimientoId);
     if (!m) throw new ErrorDeNegocio("El gasto no existe");
@@ -1073,8 +1080,9 @@ export const repositorioDemo: Repositorio = {
       monto: total,
       tipoDocumento: "planilla_movilidad",
       serieNumero: `${p.serie}-${p.numero}`,
-      medioPago: pago?.medioPago ?? "efectivo",
-      operacionPago: pago?.operacion ?? null,
+      medioPago: pago?.medioPago ?? p.medioPago ?? "efectivo",
+      operacionPago: pago?.operacion ?? p.operacionPago ?? null,
+      observaciones: p.observaciones ?? null,
       pago: pago ? { id: pago.id, monto: pago.monto, nuevo: false } : null,
       adjuntos: [],
     });
