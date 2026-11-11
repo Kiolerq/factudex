@@ -18,7 +18,8 @@ export async function GET(peticion: NextRequest, { params }: { params: Promise<{
 
   const l = await repo.obtenerLiquidacion(id); // con RLS: si no ve la caja, no existe
   if (!l) return new NextResponse("No encontrado", { status: 404 });
-  const [cajas, empresas] = await Promise.all([repo.listarCajas(), repo.listarEmpresas()]);
+  // También las cajas cerradas: su liquidación se sigue descargando.
+  const [cajas, empresas] = await Promise.all([repo.listarCajasAdmin(), repo.listarEmpresas()]);
   const caja = cajas.find((c) => c.id === l.cajaId);
   const empresa = empresas.find((e) => e.id === caja?.empresaId);
   if (!caja || !empresa) return new NextResponse("No encontrado", { status: 404 });

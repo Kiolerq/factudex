@@ -19,7 +19,7 @@ export default async function PaginaLiquidacion({ params }: PageProps<"/liquidac
   const repo = await obtenerRepositorio();
   const l = await repo.obtenerLiquidacion(id);
   if (!l) notFound();
-  const [permisos, cajas] = await Promise.all([repo.permisosCaja(l.cajaId), repo.listarCajas()]);
+  const [permisos, cajas] = await Promise.all([repo.permisosCaja(l.cajaId), repo.listarCajasAdmin()]);
   const caja = cajas.find((c) => c.id === l.cajaId);
 
   return (
