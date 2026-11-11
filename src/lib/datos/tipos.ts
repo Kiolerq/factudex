@@ -585,3 +585,11 @@ export function separarLiquidadoAntes(p: Omit<Pago, "liquidadoAntes">): Pago {
     yaLiquidado: [...p.yaLiquidado, ...antes.map((d) => ({ folio: d.motivo, cajaCodigo: "", monto: d.monto }))],
   };
 }
+
+/**
+ * Ajuste que solo mueve plata entre una caja y la que la reemplazó (traspaso de saldo o corrección de
+ * una observada): no es un ingreso nuevo, así que no se suma en el Panel.
+ */
+export const esTraspaso = (r: Pick<Recarga, "tipo" | "descripcion">) =>
+  r.tipo === "ajuste" &&
+  /^(Saldo de |Saldo pasado a |Corrección pasada a |Corrección de liquidación observada de )/.test(r.descripcion ?? "");

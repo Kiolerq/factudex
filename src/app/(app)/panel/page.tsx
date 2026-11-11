@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { contextoPagina, exigirTesoreria } from "@/lib/contexto";
 import { fechaHoyLima } from "@/lib/datos/esquemas";
-import { codigoCaja, type MovimientoResumen } from "@/lib/datos/tipos";
+import { codigoCaja, esTraspaso, type MovimientoResumen } from "@/lib/datos/tipos";
 import { formatoFecha, formatoSoles } from "@/lib/formato";
 
 export const metadata = { title: "Panel · Factudex" };
@@ -31,20 +31,24 @@ export default async function PaginaPanel({ searchParams }: PageProps<"/panel">)
   const empresaFiltro = empresas.find((e) => e.codigo === sp.empresa);
   const cajas = empresaFiltro ? todas.filter((c) => c.empresaId === empresaFiltro.id) : todas;
   const ids = cajas.map((c) => c.id);
+  // Lo gastado e ingresado en el mes suma también las cajas ya cerradas (al liquidar, la caja se
+  // cierra y se abre la siguiente); el saldo y la lista de cajas son solo de las abiertas.
+  const historicas = (await repo.listarCajasAdmin()).filter((c) => !empresaFiltro || c.empresaId === empresaFiltro.id);
+  const idsHistoricos = [...new Set([...ids, ...historicas.map((c) => c.id)])];
   const meses = ultimosMeses(mes);
   const desde = `${meses[0]}-01`;
 
   const [{ movimientos }, recargas, pendientes, porAutorizar, liquidaciones] = await Promise.all([
-    repo.listarMovimientos({ cajaIds: ids, estado: "todos", texto: "", limite: 5000, desde }),
-    repo.listarRecargas(ids),
+    repo.listarMovimientos({ cajaIds: idsHistoricos, estado: "todos", texto: "", limite: 5000, desde }),
+    repo.listarRecargas(idsHistoricos),
     repo.listarMovimientos({ cajaIds: ids, estado: "pendiente", texto: "", limite: 1000 }),
     repo.listarMovimientos({ cajaIds: ids, estado: "por_autorizar", texto: "", limite: 1000 }),
-    repo.listarLiquidaciones(ids),
+    repo.listarLiquidaciones(idsHistoricos),
   ]);
 
   const delMes = movimientos.filter((m) => m.fecha.startsWith(mes));
   const gastadoMes = suma(delMes);
-  const ingresosMes = suma(recargas.filter((r) => r.fecha.startsWith(mes)));
+  const ingresosMes = suma(recargas.filter((r) => r.fecha.startsWith(mes) && !esTraspaso(r)));
   const saldoTotal = suma(cajas.map((c) => ({ monto: c.saldo })));
   const porAprobar = liquidaciones.filter((l) => l.estado === "en_revision");
   const porReponer = liquidaciones.filter((l) => l.estado === "aprobada");
