@@ -1313,6 +1313,10 @@ export type Database = {
         }
         Returns: string
       }
+      eliminar_caja: {
+        Args: { p_caja: string }
+        Returns: string | null
+      }
       vincular_a_pago: {
         Args: { p_movimiento: string; p_pago: string }
         Returns: undefined

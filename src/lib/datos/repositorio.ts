@@ -122,6 +122,11 @@ export interface Repositorio {
   listarCajasAdmin(): Promise<CajaAdmin[]>;
   /** Crea o edita una caja; devuelve su id. */
   guardarCaja(c: DatosCaja): Promise<string>;
+  /**
+   * Elimina una caja abierta por error (sin ningún gasto ni pago). Si recibió el saldo de la
+   * anterior, se lo devuelve y la reabre; devuelve el código de esa caja, o null.
+   */
+  eliminarCaja(id: string): Promise<string | null>;
   actualizarTope(empresaId: string, tope: number): Promise<void>;
 
   // Administración de usuarios: solo admin (quien llama ya fue verificado como admin).

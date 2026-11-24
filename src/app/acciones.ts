@@ -606,6 +606,20 @@ export async function guardarCaja(entrada: EntradaCaja): Promise<Resultado> {
 }
 
 /**
+ * Tesorería elimina una caja abierta por error. La BD solo lo permite si nunca tuvo un gasto ni
+ * una salida de pago; si recibió el saldo de la caja anterior, se lo devuelve y la reabre.
+ */
+export async function eliminarCaja(id: string): Promise<Resultado & { reabierta?: string | null }> {
+  if (!z.uuid().safeParse(id).success) return { ok: false, errores: { _: "Caja inválida" } };
+  const repo = await repoTesoreria();
+  let reabierta: string | null = null;
+  const r = await ejecutar(async () => {
+    reabierta = await repo.eliminarCaja(id);
+  });
+  return r.ok ? { ...r, reabierta } : r;
+}
+
+/**
  * Tesorería abre una caja nueva: la crea con el siguiente número de la empresa (el código
  * SL-CAJA-MT-01 sale solo) y registra su dinero de apertura.
  */

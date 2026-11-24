@@ -36,6 +36,7 @@ import {
 interface CajaDemo {
   id: string;
   siguienteId?: string | null;
+  abiertaAlLiquidar?: boolean; // la abrió generar_liquidacion (no se puede eliminar)
   empresaId: string;
   numero: number;
   area: string;
@@ -91,6 +92,7 @@ interface RecargaDemo extends Omit<Recarga, "folioRepuesto" | "conFoto"> {
   comprobantePath?: string | null;
   liquidacionIngresoId: string;
   liquidacionRepuestaId: string | null;
+  traspasoCajaId?: string | null; // la otra caja del traspaso
 }
 interface Almacen {
   empresas: Empresa[];
@@ -475,7 +477,7 @@ function traspasar(anteriorId: string, nuevaId: string, cerrar: boolean): number
     }
     saldo = redondear(saldo);
     const hoy = fechaHoyLima();
-    const ajuste = (cajaId: string, monto: number, descripcion: string, liq: LiquidacionDemo): RecargaDemo => ({
+    const ajuste = (cajaId: string, monto: number, descripcion: string, liq: LiquidacionDemo, otra: string): RecargaDemo => ({
       id: randomUUID(),
       cajaId,
       tipo: "ajuste",
@@ -489,14 +491,15 @@ function traspasar(anteriorId: string, nuevaId: string, cerrar: boolean): number
       nota: null,
       liquidacionIngresoId: liq.id,
       liquidacionRepuestaId: null,
+      traspasoCajaId: otra,
     });
     const detalle = movidos.length
       ? ` (efectivo S/ ${efectivo.toFixed(2)} + ${movidos.length} gasto${movidos.length === 1 ? "" : "s"} sin liquidar)`
       : "";
     if (saldo !== 0)
       db.recargas.push(
-        ajuste(a.id, -saldo, `${cerrar ? "Saldo pasado a" : "Corrección pasada a"} ${codigo(n)}${detalle}`, liqA),
-        ajuste(n.id, saldo, `${cerrar ? "Saldo de" : "Corrección de liquidación observada de"} ${codigo(a)}${detalle}`, liqN),
+        ajuste(a.id, -saldo, `${cerrar ? "Saldo pasado a" : "Corrección pasada a"} ${codigo(n)}${detalle}`, liqA, n.id),
+        ajuste(n.id, saldo, `${cerrar ? "Saldo de" : "Corrección de liquidación observada de"} ${codigo(a)}${detalle}`, liqN, a.id),
       );
     if (!cerrar) return saldo;
     for (const u of db.usuarios) {
@@ -530,7 +533,7 @@ function conciliarCerrada(cajaId: string) {
 function abrirSiguiente(cajaId: string): CajaDemo {
   const a = db.cajas.find((x) => x.id === cajaId)!;
   const numero = Math.max(0, ...db.cajas.filter((c) => c.empresaId === a.empresaId).map((c) => c.numero)) + 1;
-  const n: CajaDemo = { ...a, id: randomUUID(), numero, activa: true, siguienteId: null };
+  const n: CajaDemo = { ...a, id: randomUUID(), numero, activa: true, siguienteId: null, abiertaAlLiquidar: true };
   db.cajas.push(n);
   traspasar(a.id, n.id, true);
   return n;
@@ -841,6 +844,40 @@ export const repositorioDemo: Repositorio = {
 
   async listarCajasAdmin() {
     return db.cajas.map((c) => ({ ...c, empresaCodigo: db.empresas.find((e) => e.id === c.empresaId)!.codigo }));
+  },
+
+  async eliminarCaja(id) {
+    // Mismas reglas que eliminar_caja() en la BD.
+    const c = db.cajas.find((x) => x.id === id);
+    if (!c) throw new ErrorDeNegocio("Caja no encontrada");
+    const codigo = codigoDe(c.id);
+    if (!c.activa) throw new ErrorDeNegocio(`${codigo} ya está cerrada: solo se eliminan cajas abiertas por error`);
+    if (db.movimientos.some((m) => m.cajaId === c.id))
+      throw new ErrorDeNegocio(`${codigo} tiene gastos registrados (aunque estén anulados): no se puede eliminar`);
+    if ((db.pagos ?? []).some((p) => p.cajaId === c.id)) throw new ErrorDeNegocio(`${codigo} tiene pagos registrados: no se puede eliminar`);
+    if (db.recargas.some((r) => r.cajaId === c.id && r.liquidacionRepuestaId))
+      throw new ErrorDeNegocio(`${codigo} ya repuso una liquidación: no se puede eliminar`);
+    if (db.liquidaciones.some((l) => l.cajaId === c.id && l.estado !== "abierta"))
+      throw new ErrorDeNegocio(`${codigo} ya tiene liquidaciones generadas: no se puede eliminar`);
+    if (c.abiertaAlLiquidar) throw new ErrorDeNegocio(`${codigo} se abrió sola al liquidar la caja anterior: no se puede eliminar`);
+    const a =
+      db.cajas.find((x) => x.siguienteId === c.id) ??
+      db.cajas.find((x) => !x.activa && db.recargas.some((r) => r.cajaId === c.id && r.traspasoCajaId === x.id));
+    if (a && db.cajas.some((x) => x.empresaId === a.empresaId && x.area === a.area && x.activa && x.id !== c.id))
+      throw new ErrorDeNegocio("Ya hay otra caja abierta de esa área: no se puede devolver el saldo a la anterior");
+    if (a) {
+      db.recargas = db.recargas.filter(
+        (r) => !((r.cajaId === a.id && r.traspasoCajaId === c.id) || (r.cajaId === c.id && r.traspasoCajaId === a.id)),
+      );
+      a.activa = true;
+      a.siguienteId = null;
+    }
+    for (const x of db.cajas) if (x.siguienteId === c.id) x.siguienteId = null;
+    db.recargas = db.recargas.filter((r) => r.cajaId !== c.id);
+    db.liquidaciones = db.liquidaciones.filter((l) => l.cajaId !== c.id);
+    for (const u of db.usuarios) u.accesos = u.accesos.filter((x) => x.cajaId !== c.id);
+    db.cajas = db.cajas.filter((x) => x.id !== c.id);
+    return a ? codigoDe(a.id) : null;
   },
 
   async guardarCaja(c) {

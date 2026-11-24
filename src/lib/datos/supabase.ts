@@ -879,6 +879,15 @@ export async function crearRepositorioSupabase(): Promise<Repositorio> {
       falloNegocio(error, "Foto del ingreso");
     },
 
+    async eliminarCaja(id) {
+      const { data, error } = await sb.rpc("eliminar_caja", { p_caja: id });
+      if (error?.code === "PGRST202") throw new ErrorDeNegocio("Falta correr en Supabase la migración 20261118000000 (eliminar caja)");
+      if (error?.code === "42501") throw new ErrorDeNegocio("Solo tesorería puede eliminar una caja");
+      if (error?.code === "22023" || error?.code === "P0002") throw new ErrorDeNegocio(error.message);
+      falloNegocio(error, "Eliminar caja");
+      return data ?? null;
+    },
+
     async traspasarCaja(anteriorId, nuevaId) {
       const { data, error } = await sb.rpc("traspasar_caja", { p_anterior: anteriorId, p_nueva: nuevaId });
       if (error?.code === "PGRST202") throw new ErrorDeNegocio("Falta correr en Supabase la migración 20261027000000 (saldo de caja anterior)");

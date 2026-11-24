@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { actualizarTope, guardarCaja } from "@/app/acciones";
+import { actualizarTope, eliminarCaja, guardarCaja } from "@/app/acciones";
 import { codigoCaja, type CajaAdmin, type CodigoEmpresa } from "@/lib/datos/tipos";
 import { formatoSoles, leerMonto } from "@/lib/formato";
 
@@ -16,9 +16,15 @@ interface EmpresaTope {
 /** Tesorería: cajas (numeración SL-CAJA-MT-01) y tope por gasto de cada empresa. */
 export function GestionCajas({ cajas, empresas }: { cajas: CajaAdmin[]; empresas: EmpresaTope[] }) {
   const [editando, setEditando] = useState<CajaAdmin | "nueva" | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
 
   return (
     <div className="flex flex-col gap-4">
+      {aviso && (
+        <p role="status" className="fx-card border-fx-completo/40! px-4 py-3 text-fx-sm text-fx-completo">
+          {aviso}
+        </p>
+      )}
       <div className="grid gap-3 md:grid-cols-2">
         {empresas.map((e) => (
           <Tope key={e.id} empresa={e} />
@@ -53,7 +59,7 @@ export function GestionCajas({ cajas, empresas }: { cajas: CajaAdmin[]; empresas
               {deEmpresa.map((c) => (
                 <div
                   key={c.id}
-                  className={`flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-fx-sm last:border-b-0 md:px-5 ${c.activa ? "" : "opacity-50"}`}
+                  className={`flex flex-wrap items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-fx-sm last:border-b-0 md:px-5 ${c.activa ? "" : "opacity-50"}`}
                 >
                   <div className="min-w-0">
                     <div className="font-mono font-semibold">{codigoCaja(c)}</div>
@@ -62,19 +68,82 @@ export function GestionCajas({ cajas, empresas }: { cajas: CajaAdmin[]; empresas
                       {!c.activa && " · inactiva"}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setEditando(c)}
-                    className="fx-btn shrink-0 rounded-[10px] border border-white/12 px-3.5 py-1.5 text-fx-sm text-white/75 hover:text-white"
-                  >
-                    Editar
-                  </button>
+                  <div className="flex shrink-0 gap-2">
+                    {c.activa && <EliminarCaja caja={c} onEliminada={setAviso} />}
+                    <button
+                      type="button"
+                      onClick={() => setEditando(c)}
+                      className="fx-btn rounded-[10px] border border-white/12 px-3.5 py-1.5 text-fx-sm text-white/75 hover:text-white"
+                    >
+                      Editar
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           </section>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Elimina una caja abierta por error. La BD solo lo deja si no tiene ningún gasto ni pago; si se
+ * le pasó el saldo de la caja anterior, se lo devuelve y la reabre.
+ */
+function EliminarCaja({ caja, onEliminada }: { caja: CajaAdmin; onEliminada: (texto: string) => void }) {
+  const router = useRouter();
+  const [confirmando, setConfirmando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [eliminando, iniciar] = useTransition();
+  const codigo = codigoCaja(caja);
+
+  if (!confirmando)
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setError(null);
+          setConfirmando(true);
+        }}
+        className="fx-btn rounded-[10px] border border-fx-error/40 px-3.5 py-1.5 text-fx-sm text-fx-error hover:bg-fx-error/12"
+      >
+        Eliminar
+      </button>
+    );
+
+  return (
+    <div role="alertdialog" aria-label={`Eliminar ${codigo}`} className="flex basis-full flex-col gap-2 rounded-[10px] border border-fx-error/40 bg-fx-error/8 p-3 md:basis-auto">
+      <p className="text-fx-sm">
+        ¿Eliminar <b className="font-mono">{codigo}</b>? Solo se puede si no tiene ningún gasto ni pago registrado. Se borran sus ingresos
+        y, si recibió el saldo de la caja anterior, esa caja vuelve a quedar abierta con su saldo.
+      </p>
+      {error && <p className="text-fx-sm text-fx-error">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={() => setConfirmando(false)} className="fx-btn rounded-[10px] px-3.5 py-1.5 text-fx-sm text-white/75">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          disabled={eliminando}
+          onClick={() =>
+            iniciar(async () => {
+              const r = await eliminarCaja(caja.id);
+              if (!r.ok) {
+                setError(r.errores._ ?? "No se pudo eliminar");
+                return;
+              }
+              onEliminada(r.reabierta ? `Se eliminó ${codigo}. ${r.reabierta} volvió a quedar abierta con su saldo.` : `Se eliminó ${codigo}.`);
+              setConfirmando(false);
+              router.refresh();
+            })
+          }
+          className="fx-btn rounded-[10px] bg-fx-error px-3.5 py-1.5 text-fx-sm font-semibold text-blanco disabled:opacity-60"
+        >
+          {eliminando ? "Eliminando…" : "Sí, eliminar"}
+        </button>
+      </div>
     </div>
   );
 }
